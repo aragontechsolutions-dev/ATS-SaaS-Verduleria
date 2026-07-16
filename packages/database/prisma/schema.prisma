@@ -306,6 +306,10 @@ model Categoria {
   orden    Int     @default(0)
   color    String? // para la grilla táctil del POS
 
+  /// Tasa de IVA por defecto que heredan los productos de la categoría
+  /// (a consumidor final). Editable por producto. Ver docs/CFE-IVA.md §4.
+  ivaIndicadorDefault IvaIndicador @default(MINIMA)
+
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   products Product[]
 
@@ -333,8 +337,15 @@ model Product {
   /// Se vende por peso (usa balanza / código de peso variable).
   esPesable Boolean @default(true)
 
-  /// IVA por producto (mayormente MINIMA en verdulería).
+  /// IVA base del producto a CONSUMIDOR FINAL (mayormente MINIMA en verdulería).
+  /// Hereda de la categoría; editable por el contador. La tasa efectiva puede
+  /// cambiar según el tipo de cliente en mayoreo B2B (ver docs/CFE-IVA.md §5).
   ivaIndicador IvaIndicador @default(MINIMA)
+
+  /// Fruta/verdura/flor en estado natural (define el trato en suspenso en B2B).
+  esEstadoNatural Boolean @default(true)
+  /// Producto importado (en B2B a empresa va a tasa básica 22%).
+  esImportado Boolean @default(false)
 
   /// % de merma estimada para calcular costo real = costo / (1 - merma).
   mermaPct Decimal @default(0) @db.Decimal(5, 4)

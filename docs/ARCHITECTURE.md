@@ -62,6 +62,23 @@ Puntos clave implementados:
 - **Dos regímenes con el mismo código**: `cod_montos_brutos` y el modo
   "ticket interno no fiscal" (Monotributo / sin CFE) según el régimen del tenant.
 
+### IVA por producto y por tipo de cliente
+
+La tasa de IVA no es solo propiedad del producto: depende de **a quién se vende**
+(ver `docs/CFE-IVA.md`).
+
+- Las **categorías** llevan `ivaIndicadorDefault`; el producto lo hereda en
+  `ivaIndicador` (editable por el contador).
+- `resolverIvaIndicador()` (`@ats/cfe`) calcula la tasa efectiva combinando la
+  base del producto, `esEstadoNatural`, `esImportado` y el tipo de cliente:
+  - **Consumidor final** (mostrador, 95% de la operación) → tasa base directa.
+  - **Empresa B2B** (e-Factura a RUC): nacional en estado natural → **IVA en
+    suspenso**; importado → **22%**; elaborado/almacén → su tasa base.
+- El campo `indicador_facturacion` de cada línea CFE es la tasa resuelta
+  (1 exento / 2 mínima / 3 básica / 12 suspenso).
+
+> El módulo mayorista B2B (suspenso/22%) es de v1; el MVP mostrador usa la base.
+
 ### Flujo de emisión
 
 ```

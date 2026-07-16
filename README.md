@@ -59,3 +59,4 @@ npm run build -w @ats/cfe && npm test -w @ats/cfe
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — arquitectura y roadmap
 - [`docs/CFE-FEU.md`](docs/CFE-FEU.md) — contexto verificado de la API de FEU
+- [`docs/CFE-IVA.md`](docs/CFE-IVA.md) — clasificación de IVA de productos (DGI)

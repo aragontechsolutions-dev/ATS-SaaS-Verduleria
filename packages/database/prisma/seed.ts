@@ -79,13 +79,30 @@ async function main() {
     });
   });
 
+  // Categorías default con su tasa de IVA (docs/CFE-IVA.md §4). El producto
+  // hereda la tasa de su categoría; el contador la puede editar por excepción.
+  const IVA_POR_CATEGORIA: Record<string, IvaIndicador> = {
+    Verduras: IvaIndicador.MINIMA,
+    Hoja: IvaIndicador.MINIMA,
+    Tubérculos: IvaIndicador.MINIMA,
+    Frutas: IvaIndicador.MINIMA,
+    Cítricos: IvaIndicador.MINIMA,
+    'Flores y plantas': IvaIndicador.MINIMA,
+    'Almacén - primera necesidad': IvaIndicador.MINIMA,
+    'Almacén - elaborados/envasados': IvaIndicador.BASICA,
+    'Procesados / cuarta gama': IvaIndicador.BASICA,
+    'Lácteos - leche': IvaIndicador.EXENTO,
+    'Limpieza / varios': IvaIndicador.BASICA,
+  };
+
   const categoriasCache = new Map<string, string>();
   async function getCategoria(nombre: string): Promise<string> {
     if (categoriasCache.has(nombre)) return categoriasCache.get(nombre)!;
+    const ivaDefault = IVA_POR_CATEGORIA[nombre] ?? IvaIndicador.MINIMA;
     const cat = await prisma.categoria.upsert({
       where: { tenantId_nombre: { tenantId: tenant.id, nombre } },
-      update: {},
-      create: { tenantId: tenant.id, nombre },
+      update: { ivaIndicadorDefault: ivaDefault },
+      create: { tenantId: tenant.id, nombre, ivaIndicadorDefault: ivaDefault },
     });
     categoriasCache.set(nombre, cat.id);
     return cat.id;
@@ -105,7 +122,10 @@ async function main() {
         unidadCompra: p.unidadCompra,
         factorConversion: p.factor,
         esPesable: p.pesable,
-        ivaIndicador: p.iva ?? IvaIndicador.MINIMA,
+        // Hereda la tasa de la categoría (todos frescos en estado natural).
+        ivaIndicador: p.iva ?? IVA_POR_CATEGORIA[p.categoria] ?? IvaIndicador.MINIMA,
+        esEstadoNatural: true,
+        esImportado: false,
         mermaPct: 0.06,
       },
     });
