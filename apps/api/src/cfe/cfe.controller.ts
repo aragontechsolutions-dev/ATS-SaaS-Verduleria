@@ -2,10 +2,13 @@ import { Controller, Get, Param, Post, Query, Res, UseGuards } from '@nestjs/com
 import type { Response } from 'express';
 import { CurrentTenant } from '../tenant/current-tenant.decorator';
 import { TenantGuard } from '../tenant/tenant.guard';
+import { EntitlementsGuard } from '../entitlements/entitlements.guard';
+import { RequiresModule } from '../entitlements/requires-module.decorator';
 import { CfeService } from './cfe.service';
 
 @Controller('cfe')
-@UseGuards(TenantGuard)
+@UseGuards(TenantGuard, EntitlementsGuard)
+@RequiresModule('CFE') // todo el módulo CFE requiere el entitlement CFE en el plan
 export class CfeController {
   constructor(private readonly cfeService: CfeService) {}
 

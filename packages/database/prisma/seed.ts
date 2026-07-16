@@ -3,9 +3,88 @@
 //
 // Ejecutar: npm run seed -w @ats/database
 
-import { PrismaClient, IvaIndicador, UnidadMedida, Role, RegimenFiscal, TipoListaPrecio } from '../client';
+import {
+  PrismaClient,
+  IvaIndicador,
+  UnidadMedida,
+  Role,
+  RegimenFiscal,
+  TipoListaPrecio,
+  ModuleKey,
+  SubscriptionStatus,
+} from '../client';
 
 const prisma = new PrismaClient();
+
+// Catálogo de planes (editable). Los módulos se activan por plan.
+const PLANES: Array<{
+  code: string;
+  nombre: string;
+  descripcion: string;
+  precioMensual: number;
+  orden: number;
+  modules: ModuleKey[];
+  maxUsuarios: number | null;
+  maxSucursales: number | null;
+  maxProductos: number | null;
+  maxDispositivosPos: number | null;
+}> = [
+  {
+    code: 'BASICO',
+    nombre: 'Básico',
+    descripcion: 'POS offline, catálogo y facturación electrónica para arrancar.',
+    precioMensual: 0,
+    orden: 1,
+    modules: [ModuleKey.POS, ModuleKey.CFE, ModuleKey.INVENTORY],
+    maxUsuarios: 2,
+    maxSucursales: 1,
+    maxProductos: 500,
+    maxDispositivosPos: 1,
+  },
+  {
+    code: 'PRO',
+    nombre: 'Pro',
+    descripcion: 'Suma compras, listas de precios, reportes avanzados y cuenta corriente.',
+    precioMensual: 0,
+    orden: 2,
+    modules: [
+      ModuleKey.POS,
+      ModuleKey.CFE,
+      ModuleKey.INVENTORY,
+      ModuleKey.PURCHASES,
+      ModuleKey.PRICING,
+      ModuleKey.REPORTS_ADVANCED,
+      ModuleKey.WHOLESALE,
+    ],
+    maxUsuarios: 5,
+    maxSucursales: 1,
+    maxProductos: 2000,
+    maxDispositivosPos: 3,
+  },
+  {
+    code: 'FULL',
+    nombre: 'Full',
+    descripcion: 'Todo: reparto con app, multi-sucursal y balanza en vivo.',
+    precioMensual: 0,
+    orden: 3,
+    modules: [
+      ModuleKey.POS,
+      ModuleKey.CFE,
+      ModuleKey.INVENTORY,
+      ModuleKey.PURCHASES,
+      ModuleKey.PRICING,
+      ModuleKey.REPORTS_ADVANCED,
+      ModuleKey.WHOLESALE,
+      ModuleKey.DELIVERY,
+      ModuleKey.MULTI_SUCURSAL,
+      ModuleKey.SCALE_LIVE,
+    ],
+    maxUsuarios: null,
+    maxSucursales: null,
+    maxProductos: null,
+    maxDispositivosPos: null,
+  },
+];
 
 // Catálogo base (estacionalidad hemisferio sur simplificada). precio = mostrador con IVA.
 const CATALOGO: Array<{
@@ -67,6 +146,44 @@ async function main() {
     where: { tenantId_userId: { tenantId: tenant.id, userId: admin.id } },
     update: {},
     create: { tenantId: tenant.id, userId: admin.id, role: Role.ADMIN },
+  });
+
+  // Planes (catálogo de niveles) y suscripción demo (Full para probar todo).
+  const planesById = new Map<string, string>();
+  for (const p of PLANES) {
+    const plan = await prisma.plan.upsert({
+      where: { code: p.code },
+      update: {
+        nombre: p.nombre,
+        descripcion: p.descripcion,
+        precioMensual: p.precioMensual,
+        orden: p.orden,
+        modules: p.modules,
+        maxUsuarios: p.maxUsuarios,
+        maxSucursales: p.maxSucursales,
+        maxProductos: p.maxProductos,
+        maxDispositivosPos: p.maxDispositivosPos,
+      },
+      create: {
+        code: p.code,
+        nombre: p.nombre,
+        descripcion: p.descripcion,
+        precioMensual: p.precioMensual,
+        orden: p.orden,
+        modules: p.modules,
+        maxUsuarios: p.maxUsuarios,
+        maxSucursales: p.maxSucursales,
+        maxProductos: p.maxProductos,
+        maxDispositivosPos: p.maxDispositivosPos,
+      },
+    });
+    planesById.set(p.code, plan.id);
+  }
+
+  await prisma.subscription.upsert({
+    where: { tenantId: tenant.id },
+    update: { planId: planesById.get('FULL')!, estado: SubscriptionStatus.ACTIVA },
+    create: { tenantId: tenant.id, planId: planesById.get('FULL')!, estado: SubscriptionStatus.ACTIVA },
   });
 
   const priceList = await prisma.priceList.upsert({
@@ -136,7 +253,9 @@ async function main() {
     });
   }
 
-  console.log(`✓ Seed OK. Tenant=${tenant.slug}  productos=${CATALOGO.length}`);
+  console.log(
+    `✓ Seed OK. Tenant=${tenant.slug}  productos=${CATALOGO.length}  planes=${PLANES.length}  (sub demo=FULL)`,
+  );
 }
 
 main()

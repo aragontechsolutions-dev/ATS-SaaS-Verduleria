@@ -167,6 +167,28 @@ enum TipoListaPrecio {
   POR_CLIENTE
 }
 
+/// Módulos del sistema que se activan/desactivan por plan (entitlements).
+/// Los usa el código (guard @RequiresModule), por eso es enum (type-safe).
+enum ModuleKey {
+  POS // ventas mostrador, catálogo, caja/arqueo (núcleo)
+  CFE // facturación electrónica (e-Ticket / e-Factura)
+  INVENTORY // stock + merma
+  PURCHASES // compras UAM + costos
+  PRICING // listas de precios múltiples + actualización masiva
+  WHOLESALE // mayoreo + cuenta corriente + e-Factura B2B
+  DELIVERY // reparto + app repartidor
+  REPORTS_ADVANCED // rentabilidad, estacionalidad, sugerencia de compra
+  MULTI_SUCURSAL // más de una sucursal
+  SCALE_LIVE // balanza en vivo (WebSerial / agente Node)
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVA
+  SUSPENDIDA // impago / pausada
+  CANCELADA
+}
+
 // ============================================================================
 // TENANT / USUARIOS / MEMBRESÍAS
 // ============================================================================
@@ -189,6 +211,9 @@ model Tenant {
 
   // Config de facturación (adaptador CFE)
   cfeConfig CfeTenantConfig?
+
+  // Suscripción / plan (módulos habilitados)
+  subscription Subscription?
 
   memberships   Membership[]
   sucursales    Sucursal[]
@@ -237,6 +262,69 @@ model CfeTenantConfig {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ============================================================================
+// PLANES / SUSCRIPCIÓN (entitlements por nivel de oferta)
+// ============================================================================
+
+/// Catálogo de planes (data-driven, editable sin tocar código).
+/// Cada plan incluye un set de módulos y límites numéricos.
+model Plan {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique // "BASICO" | "PRO" | "FULL" | ...
+  nombre      String
+  descripcion String?
+  precioMensual Decimal @default(0) @db.Decimal(12, 2)
+  moneda      String  @default("UYU")
+  orden       Int     @default(0)
+  publico     Boolean @default(true) // visible en la página de precios
+  activo      Boolean @default(true)
+
+  /// Módulos incluidos en el plan.
+  modules ModuleKey[]
+
+  // Límites (null = ilimitado).
+  maxUsuarios     Int?
+  maxSucursales   Int?
+  maxProductos    Int?
+  maxDispositivosPos Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+/// Suscripción de un tenant a un plan, con overrides para acuerdos a medida.
+model Subscription {
+  id       String             @id @default(uuid()) @db.Uuid
+  tenantId String             @unique @db.Uuid
+  planId   String             @db.Uuid
+  estado   SubscriptionStatus @default(TRIAL)
+
+  inicio        DateTime  @default(now())
+  finTrial      DateTime?
+  vigenciaHasta DateTime? // null = sin vencimiento
+
+  /// Overrides sobre el plan (add-ons / recortes de acuerdos particulares).
+  modulosExtra     ModuleKey[] // módulos concedidos además del plan
+  modulosExcluidos ModuleKey[] // módulos revocados del plan
+
+  /// Overrides de límites (null = usar el del plan).
+  overrideMaxUsuarios     Int?
+  overrideMaxSucursales   Int?
+  overrideMaxProductos    Int?
+  overrideMaxDispositivosPos Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  @@index([planId])
+  @@index([estado])
 }
 
 model User {

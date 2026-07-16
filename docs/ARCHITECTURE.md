@@ -94,6 +94,31 @@ CfeDocument (estado NE, CAE, serie/número, qrUrl)
 CfePollingService  ──reconsulta──▶  estado AE (aceptado DGI)
 ```
 
+## Modularidad por plan (entitlements)
+
+El SaaS se vende **por niveles**: cada plan activa un set de módulos. Diseño
+data-driven (planes editables sin tocar código):
+
+- **Catálogo de módulos** (`ModuleKey`): POS, CFE, INVENTORY, PURCHASES, PRICING,
+  WHOLESALE, DELIVERY, REPORTS_ADVANCED, MULTI_SUCURSAL, SCALE_LIVE.
+- **`Plan`**: incluye un array de módulos + límites (`maxUsuarios`,
+  `maxSucursales`, `maxProductos`, `maxDispositivosPos`; null = ilimitado).
+- **`Subscription`** (1 por tenant): plan + estado (TRIAL/ACTIVA/SUSPENDIDA/
+  CANCELADA) + **overrides** (`modulosExtra`, `modulosExcluidos`, y overrides de
+  límites) para acuerdos a medida sin crear un plan nuevo.
+- **Entitlements efectivos** = (módulos del plan ∪ extra) − excluidos, solo si la
+  suscripción está activa. Los resuelve y cachea `EntitlementsService`.
+
+Enforcement:
+- **Backend**: `@RequiresModule('DELIVERY')` + `EntitlementsGuard` (tras
+  `TenantGuard`) → 403 si el plan no lo incluye. `assertWithinLimit()` valida
+  cupos al crear recursos. Ej: `CfeController` ya está protegido con
+  `@RequiresModule('CFE')`.
+- **Frontend/POS**: `GET /api/me/entitlements` devuelve plan, estado, módulos
+  activos (con metadata) y límites → la UI muestra/oculta secciones.
+
+Seed: 3 planes de ejemplo (Básico / Pro / Full) editables.
+
 ## Modelo de datos (resumen)
 
 Núcleo: `Tenant`/`User`/`Membership(role)`, `Product` (unidades múltiples con
