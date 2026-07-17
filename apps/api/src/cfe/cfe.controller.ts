@@ -18,6 +18,12 @@ export class CfeController {
     return this.cfeService.emitirParaVenta(tenantId, saleId);
   }
 
+  /** Consulta el comprobante emitido de una venta (o null). */
+  @Get('ventas/:saleId')
+  async porVenta(@CurrentTenant('tenantId') tenantId: string, @Param('saleId') saleId: string) {
+    return this.cfeService.obtenerPorVenta(tenantId, saleId);
+  }
+
   /** Descarga el PDF del comprobante (?tipo=ticket80 para térmica 80mm). */
   @Get(':cfeDocId/pdf')
   async pdf(

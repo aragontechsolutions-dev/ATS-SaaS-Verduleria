@@ -71,6 +71,10 @@ export async function updateSale(id: string, patch: Partial<OutboxSale>): Promis
   await db.outbox.update(id, patch);
 }
 
+export async function getSale(id: string): Promise<OutboxSale | undefined> {
+  return db.outbox.get(id);
+}
+
 export async function countPending(): Promise<number> {
   return db.outbox.where('status').anyOf('pending', 'error', 'syncing').count();
 }

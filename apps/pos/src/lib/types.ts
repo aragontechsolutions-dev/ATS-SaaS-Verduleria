@@ -44,10 +44,23 @@ export interface SalePayment {
 /** Estado de una venta en la cola de sincronización (outbox). */
 export type OutboxStatus = 'pending' | 'syncing' | 'synced' | 'error';
 
+/** Resumen del comprobante fiscal emitido (subset del CfeDocument del backend). */
+export interface CfeSummary {
+  id: string;
+  tipo: string;
+  estado: string; // LOCAL | ENVIANDO | NE | AE | BE | CE | ERROR
+  serie?: string | null;
+  numero?: number | null;
+  caeNumero?: string | null;
+  qrUrl?: string | null;
+  ultimoError?: string | null;
+}
+
 export interface OutboxSale {
   /** idempotencyKey (uuid). Es la PK y el id_externo del CFE. */
   id: string;
   fecha: string; // ISO — cuándo ocurrió (offline)
+  cashSessionId?: string;
   items: CartItem[];
   payments: SalePayment[];
   total: number;
@@ -56,5 +69,21 @@ export interface OutboxSale {
   ultimoError?: string;
   /** id de la venta en el servidor una vez sincronizada. */
   serverId?: string;
+  /** Comprobante emitido (cuando se pudo emitir online). */
+  cfe?: CfeSummary;
   createdAt: number;
+}
+
+export interface CashSession {
+  id: string;
+  status: 'ABIERTA' | 'CERRADA';
+  montoApertura: string | number;
+  aperturaAt: string;
+}
+
+export interface CashSummary {
+  ventas: number;
+  totalVendido: number;
+  porMedio: Record<string, number>;
+  efectivoEsperado: number;
 }

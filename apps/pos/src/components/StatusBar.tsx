@@ -1,4 +1,5 @@
 import { formatMoney } from '../lib/format';
+import type { CashSession } from '../lib/types';
 
 interface Props {
   online: boolean;
@@ -6,9 +7,12 @@ interface Props {
   pendientes: number;
   listaPrecio: string | null;
   total: number;
+  cash: CashSession | null;
+  onOpenCash: () => void;
+  onCloseCash: () => void;
 }
 
-export function StatusBar({ online, fromCache, pendientes, listaPrecio, total }: Props) {
+export function StatusBar({ online, fromCache, pendientes, listaPrecio, total, cash, onOpenCash, onCloseCash }: Props) {
   return (
     <header className="statusbar">
       <div className="statusbar__brand">🥬 ATS POS</div>
@@ -19,6 +23,15 @@ export function StatusBar({ online, fromCache, pendientes, listaPrecio, total }:
         {pendientes > 0 && <span className="pill pill--info">↻ {pendientes} por sincronizar</span>}
         {fromCache && <span className="pill pill--muted">catálogo local</span>}
         {listaPrecio && <span className="pill pill--muted">{listaPrecio}</span>}
+        {cash ? (
+          <button className="pill pill--cash" onClick={onCloseCash}>
+            🔓 Caja abierta · Cerrar
+          </button>
+        ) : (
+          <button className="pill pill--cash" onClick={onOpenCash}>
+            🔒 Abrir caja
+          </button>
+        )}
       </div>
       <div className="statusbar__total">Total: {formatMoney(total)}</div>
     </header>

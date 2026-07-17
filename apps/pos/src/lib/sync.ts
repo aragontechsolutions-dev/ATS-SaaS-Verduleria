@@ -4,8 +4,9 @@
 //
 // Background Sync solo existe en Chromium; por eso el disparador principal es un
 // listener `online` + un flush manual/por intervalo. Siempre encolamos primero.
-import { postSale } from './api';
+import { emitCfe, postSale } from './api';
 import { getPendingSales, updateSale } from './db';
+import type { CfeSummary } from './types';
 
 let sincronizando = false;
 
@@ -32,6 +33,7 @@ export async function flushOutbox(): Promise<void> {
         const res = await postSale({
           idempotencyKey: sale.id,
           fecha: sale.fecha,
+          cashSessionId: sale.cashSessionId,
           items: sale.items.map((it) => ({
             productId: it.productId,
             concepto: it.concepto,
@@ -43,7 +45,17 @@ export async function flushOutbox(): Promise<void> {
           })),
           payments: sale.payments,
         });
-        await updateSale(sale.id, { status: 'synced', serverId: res.id, ultimoError: undefined });
+
+        // Emisión del e-Ticket (best-effort). Si falla, la venta igual quedó
+        // registrada; el CFE se puede reintentar. El polling DGI corre server-side.
+        let cfe: CfeSummary | undefined;
+        try {
+          cfe = await emitCfe(res.id);
+        } catch {
+          /* CFE diferido: se emite en un próximo intento */
+        }
+
+        await updateSale(sale.id, { status: 'synced', serverId: res.id, cfe, ultimoError: undefined });
       } catch (err) {
         await updateSale(sale.id, {
           status: 'error',

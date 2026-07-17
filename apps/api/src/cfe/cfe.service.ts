@@ -126,6 +126,11 @@ export class CfeService {
     }
   }
 
+  /** Comprobante emitido para una venta (o null si aún no se emitió). */
+  async obtenerPorVenta(tenantId: string, saleId: string): Promise<CfeDocument | null> {
+    return this.prisma.cfeDocument.findFirst({ where: { tenantId, saleId } });
+  }
+
   /** Descarga el PDF del CFE (A4 o ticket 80mm). */
   async obtenerPdf(tenantId: string, cfeDocId: string, tipo: 'A4' | 'ticket80' = 'A4') {
     const doc = await this.prisma.cfeDocument.findFirst({ where: { id: cfeDocId, tenantId } });

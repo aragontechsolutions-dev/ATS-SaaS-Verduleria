@@ -119,6 +119,13 @@ El core operativo: si se cae internet, la verdulería debe seguir vendiendo.
 - **Ingreso manual** (`WeighModal`): para balanzas que muestran el peso pero NO
   imprimen etiqueta. Al tocar un producto pesable, el cajero escribe solo el
   **peso** y el POS calcula el precio con el catálogo del día.
+- **Caja / arqueo**: apertura con fondo inicial, cierre con arqueo (efectivo
+  esperado = apertura + ventas en efectivo, cálculo de diferencia). Cada venta
+  se asocia a la caja abierta (`cashSessionId`).
+- **Emisión de e-Ticket desde el POS**: al confirmar la venta, el sync sube la
+  venta y emite el CFE (best-effort); el `TicketModal` muestra serie-número,
+  CAE y estado DGI, con "Ver PDF" (ticket 80mm). Offline, la venta queda
+  encolada y el comprobante se emite al reconectar.
 - **UX**: grilla táctil por categoría, búsqueda, cobro por medio de pago,
   contador de ventas pendientes de sync.
 
@@ -164,8 +171,9 @@ Ver `packages/database/prisma/schema.prisma`.
 ## Roadmap
 
 - **MVP**: multi-tenant + auth + RLS ✅ (fundaciones); catálogo unidades
-  múltiples ✅; adaptador CFE FEU ✅; **POS offline PWA** (pendiente); código de
-  peso variable EAN-13 (pendiente); caja/arqueo (modelado ✅, UI pendiente).
+  múltiples ✅; adaptador CFE FEU ✅; **POS offline PWA** ✅; código de peso
+  variable EAN-13 ✅; caja/arqueo ✅; emisión de e-Ticket desde el POS ✅;
+  sistema modular por plan ✅. Falta: auth real (JWT) y reportes básicos.
 - **v1**: compras UAM + costo/merma; rentabilidad por producto; listas de precios
   múltiples; cuenta corriente mayorista + remitos; WebSerial peso en vivo.
 - **v2**: app repartidor (RN/Expo); portal mayorista; e-Remito; agente Node

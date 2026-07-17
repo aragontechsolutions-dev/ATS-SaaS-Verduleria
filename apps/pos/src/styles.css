@@ -32,6 +32,8 @@ button { font: inherit; cursor: pointer; }
 .pill--warn { background: var(--warn); }
 .pill--info { background: var(--info); }
 .pill--muted { background: rgba(255,255,255,.12); }
+.pill--cash { border: none; color: #fff; background: rgba(255,255,255,.22); font-weight: 600; }
+.pill--cash:hover { background: rgba(255,255,255,.34); }
 
 /* Layout */
 .main { display: grid; grid-template-columns: 1fr 380px; flex: 1; min-height: 0; }
@@ -100,6 +102,24 @@ button { font: inherit; cursor: pointer; }
 .field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--muted); }
 .field input { padding: 12px; font-size: 22px; border: 1px solid var(--border); border-radius: 10px; }
 .modal__total { font-size: 18px; font-weight: 700; margin: 14px 0; }
+.modal__total.ok { color: var(--green-dark); }
+.modal__total.warn { color: var(--warn); }
+.modal__total small { font-weight: 500; color: var(--muted); }
+.modal__err { color: var(--warn); font-size: 14px; margin: 8px 0 0; }
+
+/* Arqueo */
+.arqueo { border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; }
+.arqueo__row { display: flex; justify-content: space-between; padding: 5px 0; }
+.arqueo__row--sub { color: var(--muted); font-size: 14px; padding-left: 12px; }
+.arqueo__row--strong { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; font-weight: 700; }
+
+/* Ticket */
+.ticket__total { font-size: 30px; font-weight: 800; text-align: center; color: var(--green-dark); margin: 6px 0 14px; }
+.ticket__cfe { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+.ticket__row { display: flex; justify-content: space-between; padding: 4px 0; }
+.ticket__cfe .pill { display: inline-block; color: var(--text); }
+.ticket__cfe .pill--warn { background: #fdecea; color: var(--warn); }
+.ticket__cfe .pill--muted { background: var(--bg); color: var(--muted); }
 .modal__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
 .medios { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
 .medio { padding: 14px 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
