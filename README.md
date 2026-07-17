@@ -14,6 +14,7 @@ y **facturación electrónica CFE** integrada contra FEU/Surtec.
 packages/database/   @ats/database  — schema Prisma + cliente
 packages/cfe/        @ats/cfe       — adaptador CFE (interfaz + FeuProvider)
 apps/api/            @ats/api        — backend NestJS (multi-tenant + CFE)
+apps/pos/            @ats/pos        — POS offline (PWA + IndexedDB + peso variable)
 docs/                arquitectura y contexto verificado de FEU
 ```
 
@@ -41,6 +42,18 @@ npm run seed -w @ats/database
 
 # 5. Levantar la API
 npm run api:dev         # http://localhost:3000/api
+
+# 6. Levantar el POS (PWA offline). En dev proxya /api → :3000
+npm run dev -w @ats/pos # http://localhost:5173
+#    Configurar el tenant de prueba en la consola del navegador:
+#    localStorage.setItem('ats.tenantId', '<uuid del tenant demo>')
+```
+
+## Tests
+
+```bash
+npm test -w @ats/cfe    # 11 tests del adaptador CFE (sin red)
+npm test -w @ats/pos    #  7 tests del parser de código de peso variable
 ```
 
 ## Probar la integración FEU (aislado, sin tocar el proyecto)

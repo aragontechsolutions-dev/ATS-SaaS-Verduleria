@@ -22,6 +22,7 @@ packages/
   cfe/        → @ats/cfe      : interfaz CfeProvider + FeuProvider (sin deps)
 apps/
   api/        → @ats/api      : backend NestJS (Prisma, multi-tenant, CFE)
+  pos/        → @ats/pos      : POS offline (PWA React + IndexedDB + sync)
 ```
 
 `@ats/cfe` es **standalone** (solo `fetch` nativo) para poder reusarlo y para
@@ -93,6 +94,33 @@ CfeDocument (estado NE, CAE, serie/número, qrUrl)
       ▼
 CfePollingService  ──reconsulta──▶  estado AE (aceptado DGI)
 ```
+
+## POS offline (PWA) — `apps/pos`
+
+El core operativo: si se cae internet, la verdulería debe seguir vendiendo.
+
+- **Fuente de verdad local**: IndexedDB (Dexie) con dos tablas — `catalog`
+  (productos + precios cacheados) y `outbox` (ventas encoladas).
+- **Offline-first**: el catálogo se carga primero del cache local (instantáneo)
+  y se refresca del backend (`GET /api/catalog`, NetworkFirst) cuando hay red.
+  Las ventas se registran siempre local y se suben con `flushOutbox()`.
+- **Idempotencia**: cada venta lleva un `idempotencyKey` (uuid) que es a la vez
+  el `id_externo` del CFE. Reintentar tras reconectar nunca duplica (el backend
+  hace upsert por esa clave; FEU también).
+- **Sync**: disparado por el listener `online` + intervalo de 30s (Background
+  Sync solo existe en Chromium, por eso el fallback). Siempre se encola primero.
+- **Código de peso variable EAN-13** (`lib/barcode.ts`): parsea el código que
+  imprime la balanza etiquetadora (prefijo 20-29 → PLU + peso/importe) sin
+  hablar con la balanza. El POS resuelve el producto por PLU y recalcula el
+  precio con el catálogo del día. Configurable (peso vs importe embebido,
+  decimales, validación de dígito verificador). 7 tests.
+- **Lector de código de barras**: `useScanner` capta el lector (que emula
+  teclado) por la cadencia rápida de teclas + Enter.
+- **UX**: grilla táctil por categoría, búsqueda, ingreso manual de peso,
+  cobro por medio de pago, contador de ventas pendientes de sync.
+
+> PWA: `vite-plugin-pwa` precachea el app shell y genera el service worker.
+> Los íconos de producción deben ser PNG reales (hoy hay un SVG de placeholder).
 
 ## Modularidad por plan (entitlements)
 

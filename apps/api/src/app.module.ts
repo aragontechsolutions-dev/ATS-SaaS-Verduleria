@@ -6,6 +6,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { TenantMiddleware } from './tenant/tenant.middleware';
 import { EntitlementsModule } from './entitlements/entitlements.module';
 import { CfeModule } from './cfe/cfe.module';
+import { CatalogModule } from './catalog/catalog.module';
+import { SalesModule } from './sales/sales.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -15,6 +17,8 @@ import { HealthController } from './health/health.controller';
     PrismaModule,
     EntitlementsModule,
     CfeModule,
+    CatalogModule,
+    SalesModule,
   ],
   controllers: [HealthController],
 })
