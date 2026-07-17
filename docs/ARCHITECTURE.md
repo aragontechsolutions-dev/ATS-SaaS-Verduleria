@@ -116,10 +116,9 @@ El core operativo: si se cae internet, la verdulería debe seguir vendiendo.
   decimales, validación de dígito verificador). 7 tests.
 - **Lector de código de barras**: `useScanner` capta el lector (que emula
   teclado) por la cadencia rápida de teclas + Enter.
-- **Ingreso manual** (`WeighModal`): para balanzas que muestran peso y precio
-  pero NO imprimen etiqueta. Al tocar un producto pesable, el cajero entra el
-  **peso** (el POS calcula el precio con el catálogo) o el **importe** que
-  muestra la balanza (el POS deriva el peso para que el total coincida).
+- **Ingreso manual** (`WeighModal`): para balanzas que muestran el peso pero NO
+  imprimen etiqueta. Al tocar un producto pesable, el cajero escribe solo el
+  **peso** y el POS calcula el precio con el catálogo del día.
 - **UX**: grilla táctil por categoría, búsqueda, cobro por medio de pago,
   contador de ventas pendientes de sync.
 

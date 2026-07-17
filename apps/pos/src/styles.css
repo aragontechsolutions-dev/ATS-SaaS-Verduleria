@@ -100,10 +100,6 @@ button { font: inherit; cursor: pointer; }
 .field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--muted); }
 .field input { padding: 12px; font-size: 22px; border: 1px solid var(--border); border-radius: 10px; }
 .modal__total { font-size: 18px; font-weight: 700; margin: 14px 0; }
-.modal__hint { color: var(--muted); font-size: 14px; margin-top: 8px; }
-.segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 4px 0 14px; }
-.seg { padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--muted); font-weight: 600; }
-.seg--on { background: var(--green); color: #fff; border-color: var(--green); }
 .modal__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
 .medios { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
 .medio { padding: 14px 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
