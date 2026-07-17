@@ -116,8 +116,12 @@ El core operativo: si se cae internet, la verdulería debe seguir vendiendo.
   decimales, validación de dígito verificador). 7 tests.
 - **Lector de código de barras**: `useScanner` capta el lector (que emula
   teclado) por la cadencia rápida de teclas + Enter.
-- **UX**: grilla táctil por categoría, búsqueda, ingreso manual de peso,
-  cobro por medio de pago, contador de ventas pendientes de sync.
+- **Ingreso manual** (`WeighModal`): para balanzas que muestran peso y precio
+  pero NO imprimen etiqueta. Al tocar un producto pesable, el cajero entra el
+  **peso** (el POS calcula el precio con el catálogo) o el **importe** que
+  muestra la balanza (el POS deriva el peso para que el total coincida).
+- **UX**: grilla táctil por categoría, búsqueda, cobro por medio de pago,
+  contador de ventas pendientes de sync.
 
 > PWA: `vite-plugin-pwa` precachea el app shell y genera el service worker.
 > Los íconos de producción deben ser PNG reales (hoy hay un SVG de placeholder).
