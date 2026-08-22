@@ -20,6 +20,7 @@
   ],
   "scripts": {
     "generate": "prisma generate",
+    "push": "prisma db push",
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "studio": "prisma studio",

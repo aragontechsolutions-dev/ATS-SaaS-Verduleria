@@ -49,6 +49,11 @@ npm run dev -w @ats/pos # http://localhost:5173
 #    localStorage.setItem('ats.tenantId', '<uuid del tenant demo>')
 ```
 
+## Deploy (Supabase + Render + Vercel)
+
+Runbook completo en **[`docs/DEPLOY.md`](docs/DEPLOY.md)**: base en Supabase,
+backend en Render (`render.yaml`) y frontend en Vercel (`vercel.json`).
+
 ## Tests
 
 ```bash
