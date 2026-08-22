@@ -1,34 +1,16 @@
-import { Body, Controller, Get, Post, UnauthorizedException } from '@nestjs/common';
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { Controller, Get, UnauthorizedException } from '@nestjs/common';
 import { CurrentTenant } from '../tenant/current-tenant.decorator';
 import { getTenantContext } from '../tenant/tenant-context';
-import { AuthService } from './auth.service';
-
-class LoginDto {
-  @IsEmail()
-  email!: string;
-
-  @IsString()
-  @MinLength(4)
-  password!: string;
-}
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
-
-  /** Login público: email + contraseña → JWT. */
-  @Post('login')
-  async login(@Body() dto: LoginDto) {
-    return this.auth.login(dto.email, dto.password);
-  }
-
   /**
-   * Datos del usuario/tenant del token actual. Sirve para que el front valide el
-   * token al arrancar. El contexto lo puebla el TenantMiddleware desde el JWT.
+   * Contexto del usuario autenticado (tenant + rol), resuelto por el
+   * TenantMiddleware a partir del token de Supabase. El front lo usa para
+   * validar la sesión al arrancar. El login lo hace Supabase Auth directamente.
    */
   @Get('me')
-  async me(
+  me(
     @CurrentTenant('tenantId') tenantId: string,
     @CurrentTenant('userId') userId: string | undefined,
     @CurrentTenant('role') role: string | undefined,

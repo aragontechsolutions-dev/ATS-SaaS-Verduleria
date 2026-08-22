@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { login, setToken } from '../lib/api';
-import type { LoginResponse } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 interface Props {
-  onLogged: (session: LoginResponse) => void;
+  onLogged: () => void;
 }
 
 export function Login({ onLogged }: Props) {
@@ -16,14 +15,20 @@ export function Login({ onLogged }: Props) {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    try {
-      const res = await login(email.trim(), password);
-      setToken(res.accessToken);
-      onLogged(res);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión');
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (authError) {
+      setError(
+        authError.message.toLowerCase().includes('invalid')
+          ? 'Credenciales inválidas'
+          : authError.message,
+      );
       setLoading(false);
+      return;
     }
+    onLogged();
   }
 
   return (

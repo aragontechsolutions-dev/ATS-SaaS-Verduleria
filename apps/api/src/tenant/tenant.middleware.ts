@@ -8,8 +8,8 @@ import { tenantStorage, type TenantContext } from './tenant-context';
 /**
  * Resuelve el tenant del request y lo mete en el AsyncLocalStorage.
  *
- * Producción: toma el tenant/usuario/rol del JWT (Authorization: Bearer),
- * verificado con el secreto del backend. Esta es la vía segura.
+ * Producción: verifica el access token de Supabase (Authorization: Bearer) y
+ * resuelve el tenant/rol desde nuestra base. Esta es la vía segura.
  *
  * Dev/testing: si `ALLOW_HEADER_TENANT=true`, admite además los headers
  * `x-tenant-id` / `x-user-id` / `x-user-role`. En producción queda apagado, así
@@ -26,17 +26,17 @@ export class TenantMiddleware implements NestMiddleware {
     const authHeader = req.header('authorization');
     if (authHeader?.startsWith('Bearer ')) {
       try {
-        const claims = await this.auth.verify(authHeader.slice(7).trim());
+        const resolved = await this.auth.authenticate(authHeader.slice(7).trim());
         const ctx: TenantContext = {
-          tenantId: claims.tenantId,
-          userId: claims.sub,
-          role: claims.role,
-          emisorRut: claims.emisorRut,
+          tenantId: resolved.tenantId,
+          userId: resolved.userId,
+          role: resolved.role,
+          emisorRut: resolved.emisorRut,
         };
         tenantStorage.run(ctx, () => next());
         return;
       } catch {
-        // Token inválido/expirado: seguimos sin contexto → los guards responden 401/403.
+        // Token inválido/no habilitado: seguimos sin contexto → guards 401/403.
         next();
         return;
       }

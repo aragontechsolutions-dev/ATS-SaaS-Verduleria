@@ -83,9 +83,9 @@ repo**. Detecta el servicio `ats-verduleria-api`. Sino, **New → Web Service**:
 | `FEU_PASSWORD` | contraseña de Surtec |
 | `CFE_POLLING_INTERVAL_MS` | `60000` |
 | `NODE_VERSION` | `20` |
-| `JWT_SECRET` | lo genera Render solo (Blueprint `generateValue`), o poné uno largo/aleatorio |
-| `JWT_EXPIRES_IN` | `12h` |
-| `ALLOW_HEADER_TENANT` | `false` (en prod el tenant solo sale del JWT) |
+| `SUPABASE_URL` | `https://yvbumbuslhydztmjugra.supabase.co` |
+| `SUPABASE_ANON_KEY` | anon public key (Supabase → Project Settings → API) |
+| `ALLOW_HEADER_TENANT` | `false` (en prod el tenant solo sale del token de Supabase) |
 
 > Render inyecta `PORT` automáticamente; la API lo respeta y bindea a `0.0.0.0`.
 > El plan free "duerme" tras inactividad (primer request lento); ok para el MVP.
@@ -107,10 +107,18 @@ monorepo. `apps/pos/vercel.json` aporta el rewrite SPA.
 | Variable | Valor |
 |---|---|
 | `VITE_API_URL` | `https://ats-verduleria-api.onrender.com/api` |
+| `VITE_SUPABASE_URL` | `https://yvbumbuslhydztmjugra.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | anon public key (Supabase → Project Settings → API) |
 
-> Vite inyecta esta variable en **build-time**: si la cambiás, **redeploy**.
-> Ya no se configuran tenant/usuario: el POS pide **login** y el tenant sale del
-> JWT. Usuario demo del seed: **admin@demo.uy / aragon1234**.
+> Vite inyecta estas variables en **build-time**: si las cambiás, **redeploy**.
+
+### Crear el usuario de login (Supabase Auth)
+El login lo maneja **Supabase Auth**. Creá el usuario en el dashboard:
+**Authentication → Users → Add user** → `admin@demo.uy` + una contraseña, y
+marcá **Auto Confirm User** (o Email Confirm). El backend lo enlaza por email
+con el `User` del seed (que aporta el tenant y el rol). Para altas nuevas:
+crear el usuario en Supabase Auth **y** en `public.User` con el mismo email +
+su membership.
 
 Deploy → tu POS queda en `https://ats-pos.vercel.app` (o el dominio que asigne).
 

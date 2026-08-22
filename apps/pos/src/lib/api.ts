@@ -2,42 +2,34 @@
 // El tenant y el usuario se mandan por header (foundations); en prod → JWT.
 import type { CartItem, CashSession, CashSummary, CfeSummary, SalePayment } from './types';
 
+import { supabase } from './supabase';
+
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
-const TOKEN_KEY = 'ats.token';
+
+// Cache del access token de Supabase, mantenido al día por onAuthStateChange
+// (login, refresh automático, logout). Permite construir headers de forma sync.
+let currentToken: string | null = null;
+supabase.auth.getSession().then(({ data }) => {
+  currentToken = data.session?.access_token ?? null;
+});
+supabase.auth.onAuthStateChange((_event, session) => {
+  currentToken = session?.access_token ?? null;
+});
 
 export function getToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
-export function setToken(token: string): void {
-  try {
-    localStorage.setItem(TOKEN_KEY, token);
-  } catch {
-    /* almacenamiento no disponible */
-  }
-}
-export function clearToken(): void {
-  try {
-    localStorage.removeItem(TOKEN_KEY);
-  } catch {
-    /* noop */
-  }
+  return currentToken;
 }
 
 function headers(): HeadersInit {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
-  const token = getToken();
-  if (token) h['Authorization'] = `Bearer ${token}`;
+  if (currentToken) h['Authorization'] = `Bearer ${currentToken}`;
   return h;
 }
 
 async function ok<T>(res: Response, label: string): Promise<T> {
   if (res.status === 401) {
-    clearToken();
-    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ats:unauthorized'));
+    // Token inválido/no habilitado: cerramos la sesión de Supabase.
+    void supabase.auth.signOut();
     throw new Error('SESION_EXPIRADA');
   }
   if (!res.ok) {
@@ -47,24 +39,7 @@ async function ok<T>(res: Response, label: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// --- Auth -------------------------------------------------------------------
-
-export interface LoginResponse {
-  accessToken: string;
-  user: { id: string; email: string; nombre: string };
-  tenant: { id: string; nombre: string };
-  role: string;
-}
-
-export async function login(email: string, password: string): Promise<LoginResponse> {
-  const res = await fetch(`${API_BASE}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  if (res.status === 401) throw new Error('Credenciales inválidas');
-  return ok<LoginResponse>(res, 'login');
-}
+// --- Auth (contexto de la app; el login lo hace Supabase) -------------------
 
 export interface MeResponse {
   tenantId: string;

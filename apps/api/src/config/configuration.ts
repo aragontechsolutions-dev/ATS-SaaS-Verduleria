@@ -7,9 +7,12 @@ export interface FeuConfig {
   refreshToken?: string;
 }
 
+export interface SupabaseConfig {
+  url: string;
+  anonKey: string;
+}
+
 export interface AuthConfig {
-  jwtSecret: string;
-  jwtExpiresIn: string;
   /** Permitir resolver el tenant por headers (solo dev/testing). */
   allowHeaderTenant: boolean;
 }
@@ -18,6 +21,7 @@ export interface AppConfig {
   port: number;
   databaseUrl: string;
   feu: FeuConfig;
+  supabase: SupabaseConfig;
   auth: AuthConfig;
   /** Intervalo (ms) del worker de polling de estado DGI. */
   cfePollingIntervalMs: number;
@@ -32,9 +36,11 @@ export default (): AppConfig => ({
     password: process.env.FEU_PASSWORD ?? '',
     refreshToken: process.env.FEU_REFRESH_TOKEN || undefined,
   },
+  supabase: {
+    url: process.env.SUPABASE_URL ?? '',
+    anonKey: process.env.SUPABASE_ANON_KEY ?? '',
+  },
   auth: {
-    jwtSecret: process.env.JWT_SECRET ?? 'dev-insecure-secret-change-me',
-    jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '12h',
     allowHeaderTenant: process.env.ALLOW_HEADER_TENANT === 'true',
   },
   cfePollingIntervalMs: Number(process.env.CFE_POLLING_INTERVAL_MS ?? 60_000),

@@ -13,7 +13,6 @@ import {
   ModuleKey,
   SubscriptionStatus,
 } from '../client';
-import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -137,11 +136,12 @@ async function main() {
     },
   });
 
-  const passwordHash = await bcrypt.hash('aragon1234', 10);
+  // La contraseña la gestiona Supabase Auth; acá solo aseguramos que exista
+  // nuestro User (el backend lo enlaza al usuario de Supabase por email).
   const admin = await prisma.user.upsert({
     where: { email: 'admin@demo.uy' },
-    update: { passwordHash },
-    create: { email: 'admin@demo.uy', nombre: 'Admin Demo', homeTenantId: tenant.id, passwordHash },
+    update: {},
+    create: { email: 'admin@demo.uy', nombre: 'Admin Demo', homeTenantId: tenant.id },
   });
 
   await prisma.membership.upsert({
@@ -258,7 +258,7 @@ async function main() {
   console.log(
     `✓ Seed OK. Tenant=${tenant.slug}  productos=${CATALOGO.length}  planes=${PLANES.length}  (sub demo=FULL)`,
   );
-  console.log('  Login demo → admin@demo.uy / aragon1234');
+  console.log('  Usuario app: admin@demo.uy (creá su login en Supabase → Authentication → Users)');
 }
 
 main()
