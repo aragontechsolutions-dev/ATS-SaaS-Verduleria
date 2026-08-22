@@ -94,9 +94,11 @@ Probá: `GET https://…onrender.com/api/health` → `{"status":"ok","db":true}`
 
 ## 3. Vercel (frontend POS)
 
-El repo trae `vercel.json` (build del workspace `@ats/pos`). En Vercel:
-**Add New → Project → importá el repo**. Dejá el **Root Directory en la raíz**
-(no en `apps/pos`); `vercel.json` ya apunta el build al POS.
+En Vercel: **Add New → Project → importá el repo**. En la configuración del
+proyecto, poné el **Root Directory = `apps/pos`** (Settings → Build & Deployment
+→ Root Directory). El POS es una app independiente (no depende de otros
+workspaces), así que Vercel detecta Vite y lo buildea sin el hoisting del
+monorepo. `apps/pos/vercel.json` aporta el rewrite SPA.
 
 ### Variables de entorno (Production)
 | Variable | Valor |
