@@ -9,7 +9,9 @@ services:
     branch: main
     # Instala el monorepo y compila solo lo que el backend necesita, en orden:
     # database (genera el cliente Prisma) → cfe → api.
-    buildCommand: npm install && npm run build -w @ats/database && npm run build -w @ats/cfe && npm run build -w @ats/api
+    # --include=dev fuerza las devDependencies (nest CLI, tsc, prisma) que el
+    # build necesita; Render/Vercel instalan en modo producción y las omitirían.
+    buildCommand: npm install --include=dev && npm run build -w @ats/database && npm run build -w @ats/cfe && npm run build -w @ats/api
     startCommand: node apps/api/dist/main.js
     healthCheckPath: /api/health
     envVars:
