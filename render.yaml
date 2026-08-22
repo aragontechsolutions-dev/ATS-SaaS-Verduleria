@@ -1,0 +1,35 @@
+# Blueprint de Render para el backend (NestJS). Deploy: New → Blueprint → este repo.
+# Los valores marcados sync:false se cargan a mano en el dashboard (son secretos).
+services:
+  - type: web
+    name: ats-verduleria-api
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    # Instala el monorepo y compila solo lo que el backend necesita, en orden:
+    # database (genera el cliente Prisma) → cfe → api.
+    buildCommand: npm install && npm run build -w @ats/database && npm run build -w @ats/cfe && npm run build -w @ats/api
+    startCommand: node apps/api/dist/main.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # Supabase — pooler (PgBouncer, puerto 6543) para runtime.
+      - key: DATABASE_URL
+        sync: false
+      # Supabase — conexión directa (puerto 5432) para migraciones.
+      - key: DIRECT_URL
+        sync: false
+      # Dominio del front en Vercel para restringir CORS (ej. https://ats-pos.vercel.app)
+      - key: CORS_ORIGIN
+        sync: false
+      # FEU / Surtec (facturación electrónica)
+      - key: FEU_AMBIENTE
+        value: test
+      - key: FEU_USERNAME
+        sync: false
+      - key: FEU_PASSWORD
+        sync: false
+      - key: CFE_POLLING_INTERVAL_MS
+        value: "60000"

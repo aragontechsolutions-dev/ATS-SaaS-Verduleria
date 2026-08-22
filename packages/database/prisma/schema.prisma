@@ -1,0 +1,890 @@
+// ============================================================================
+// ATS · SaaS de Gestión de Verdulerías (Uruguay / Maldonado)
+// Modelo de datos multi-tenant (shared-schema con columna tenantId).
+//
+// Principios:
+//  - Multi-tenancy: TODA tabla de negocio lleva tenantId indexado. El
+//    aislamiento se hace en la capa de aplicación (NestJS) y se refuerza con
+//    RLS en Postgres/Supabase (ver migración de policies).
+//  - Dinero: Decimal(14,4) para evitar errores de float. Cantidades pesables
+//    con 3 decimales (gramos).
+//  - Facturación CFE: el modelo NO emite CFE; delega en un proveedor
+//    (FEU/Surtec) vía el paquete @ats/cfe. Acá solo se persiste el resultado
+//    (CfeDocument) con su estado DGI para polling.
+// ============================================================================
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../client"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+/// Roles del negocio (se combinan con RLS para el aislamiento de datos).
+enum Role {
+  ADMIN // Dueño / Administrador
+  ENCARGADO // Supervisor
+  CAJERO // Vendedor / POS
+  DEPOSITO // Repositor / stock
+  REPARTIDOR // Delivery
+  COMPRADOR // Compras UAM
+  MAYORISTA // Cliente mayorista (portal autogestión)
+  CONTADOR // Lectura + exportación
+}
+
+/// Régimen fiscal del tenant. Define el switch cod_montos_brutos de FEU.
+enum RegimenFiscal {
+  MONOTRIBUTO // Exceptuado de CFE (ticket interno no fiscal)
+  MONOTRIBUTO_MIDES // Exceptuado de CFE
+  LITERAL_E // IVA Mínimo / Literal E → obligado a CFE
+  IVA_MINIMO // Obligado a CFE
+  REGIMEN_GENERAL // IRAE → obligado a CFE
+}
+
+/// Indicador de facturación por ítem (mapea a indicador_facturacion de FEU).
+/// EXENTO=1, MINIMA=2 (10%), BASICA=3 (22%), SUSPENSO=12 (compras a productor).
+enum IvaIndicador {
+  EXENTO // 1
+  MINIMA // 2  ← frutas y verduras (mayoría del catálogo)
+  BASICA // 3  ← elaborados / envasados
+  SUSPENSO // 12 ← IVA en suspenso (cadena, compras a productores)
+}
+
+/// Unidades de medida. Una unidad de compra + varias de venta por producto.
+enum UnidadMedida {
+  KG // por peso
+  GRAMO
+  UNIDAD // lechuga, morrón, ananá
+  ATADO // acelga, cebolla de verdeo, perejil
+  DOCENA
+  CAJON // mayoreo / compra UAM
+  BOLSA // arpillera (papa, cebolla, boniato)
+  BANDEJA // frutilla, etc.
+  BIN
+  BULTO
+}
+
+/// Tipo de CFE (tabla DGI). Los que importan para verdulería.
+enum CfeTipo {
+  E_TICKET // 101 — consumidor final (95% de la operación)
+  NC_E_TICKET // 102 — anulación / devolución
+  ND_E_TICKET // 103
+  E_FACTURA // 111 — mayorista con RUC
+  NC_E_FACTURA // 112
+  ND_E_FACTURA // 113
+  E_REMITO // 181 — reparto / traslado
+  E_RESGUARDO // 182 — retenciones
+  TICKET_INTERNO // documento NO fiscal (Monotributo / sin CFE)
+}
+
+/// Estado del comprobante frente a DGI (para polling).
+enum EstadoDgi {
+  LOCAL // creado localmente, aún no enviado al proveedor
+  ENVIANDO // en proceso de emisión contra FEU
+  NE // No enviado / sin respuesta DGI todavía (transitorio)
+  AE // Aceptado por DGI (final OK)
+  BE // Rechazado por DGI (final error)
+  CE // Observado (CFC)
+  ERROR // error local / del proveedor (no fiscal)
+}
+
+enum FormaPago {
+  CONTADO // 1
+  CREDITO // 2
+}
+
+enum MedioPago {
+  EFECTIVO
+  DEBITO
+  CREDITO
+  MERCADO_PAGO // QR
+  TRANSFERENCIA
+  DINERO_ELECTRONICO // Prex, Mi Dinero, etc.
+  CUENTA_CORRIENTE // mayorista
+}
+
+enum TipoDocumentoCliente {
+  NIE // 1
+  RUC // 2 (UY)
+  CI // 3 (UY)
+  OTROS // 4
+  PASAPORTE // 5
+  DNI // 6 (AR/BR/CL/PY)
+  NIFE // 7
+}
+
+enum SaleStatus {
+  PENDIENTE_SYNC // creada offline, aún no confirmada en backend
+  COMPLETADA
+  SUSPENDIDA // venta en espera
+  ANULADA
+}
+
+enum StockMovementType {
+  COMPRA
+  VENTA
+  MERMA
+  AJUSTE
+  DEVOLUCION
+  TRANSFERENCIA
+  APERTURA // stock inicial
+}
+
+enum CashSessionStatus {
+  ABIERTA
+  CERRADA
+}
+
+enum DeliveryStatus {
+  PENDIENTE
+  EN_PREPARACION
+  EN_RUTA
+  ENTREGADO
+  NO_ENTREGADO
+  CANCELADO
+}
+
+enum CertificadoEstado {
+  SIN_CARGAR
+  VIGENTE
+  POR_VENCER
+  VENCIDO
+}
+
+enum TipoListaPrecio {
+  MOSTRADOR
+  MAYORISTA_A
+  MAYORISTA_B
+  POR_CLIENTE
+}
+
+/// Módulos del sistema que se activan/desactivan por plan (entitlements).
+/// Los usa el código (guard @RequiresModule), por eso es enum (type-safe).
+enum ModuleKey {
+  POS // ventas mostrador, catálogo, caja/arqueo (núcleo)
+  CFE // facturación electrónica (e-Ticket / e-Factura)
+  INVENTORY // stock + merma
+  PURCHASES // compras UAM + costos
+  PRICING // listas de precios múltiples + actualización masiva
+  WHOLESALE // mayoreo + cuenta corriente + e-Factura B2B
+  DELIVERY // reparto + app repartidor
+  REPORTS_ADVANCED // rentabilidad, estacionalidad, sugerencia de compra
+  MULTI_SUCURSAL // más de una sucursal
+  SCALE_LIVE // balanza en vivo (WebSerial / agente Node)
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVA
+  SUSPENDIDA // impago / pausada
+  CANCELADA
+}
+
+// ============================================================================
+// TENANT / USUARIOS / MEMBRESÍAS
+// ============================================================================
+
+model Tenant {
+  id        String   @id @default(uuid()) @db.Uuid
+  nombre    String // nombre comercial de la verdulería
+  slug      String   @unique // subdominio / identificador
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Datos fiscales
+  rut           String?       @unique // RUT del emisor (X-Emisor en FEU)
+  razonSocial   String?
+  regimenFiscal RegimenFiscal @default(LITERAL_E)
+  direccion     String?
+  telefono      String?
+  email         String?
+
+  // Config de facturación (adaptador CFE)
+  cfeConfig CfeTenantConfig?
+
+  // Suscripción / plan (módulos habilitados)
+  subscription Subscription?
+
+  memberships   Membership[]
+  sucursales    Sucursal[]
+  users         User[] // usuarios cuya "home" es este tenant (opcional)
+  products      Product[]
+  categorias    Categoria[]
+  priceLists    PriceList[]
+  customers     Customer[]
+  suppliers     Supplier[]
+  purchases     Purchase[]
+  sales         Sale[]
+  cashSessions  CashSession[]
+  cfeDocuments  CfeDocument[]
+  stockItems    Stock[]
+  stockMoves    StockMovement[]
+  wastes        Waste[]
+  deliveryOrders DeliveryOrder[]
+  routes        Route[]
+  accounts      AccountReceivable[]
+
+  @@index([activo])
+}
+
+/// Configuración del proveedor de facturación electrónica por tenant.
+/// Credenciales sensibles: en producción almacenar cifradas / en un secret store.
+model CfeTenantConfig {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @unique @db.Uuid
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  provider  String  @default("FEU") // "FEU" | "HOST_FACTURA" | "SIN_CFE"
+  ambiente  String  @default("test") // "test" | "produccion"
+  emisorRut String // RUT que se manda en X-Emisor
+  sucursalDefault Int @default(1)
+
+  /// cod_montos_brutos derivado del régimen (1 IVA incluido / 3 IVA mínimo-monotributo).
+  codMontosBrutos Int @default(1)
+
+  // Credenciales del proveedor (referencia a secret store en prod)
+  apiUsername String?
+  apiPasswordRef String? // referencia al secreto, NO el password en claro
+  refreshTokenRef String?
+
+  certificadoEstado     CertificadoEstado @default(SIN_CARGAR)
+  certificadoVencimiento DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================================
+// PLANES / SUSCRIPCIÓN (entitlements por nivel de oferta)
+// ============================================================================
+
+/// Catálogo de planes (data-driven, editable sin tocar código).
+/// Cada plan incluye un set de módulos y límites numéricos.
+model Plan {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique // "BASICO" | "PRO" | "FULL" | ...
+  nombre      String
+  descripcion String?
+  precioMensual Decimal @default(0) @db.Decimal(12, 2)
+  moneda      String  @default("UYU")
+  orden       Int     @default(0)
+  publico     Boolean @default(true) // visible en la página de precios
+  activo      Boolean @default(true)
+
+  /// Módulos incluidos en el plan.
+  modules ModuleKey[]
+
+  // Límites (null = ilimitado).
+  maxUsuarios     Int?
+  maxSucursales   Int?
+  maxProductos    Int?
+  maxDispositivosPos Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+/// Suscripción de un tenant a un plan, con overrides para acuerdos a medida.
+model Subscription {
+  id       String             @id @default(uuid()) @db.Uuid
+  tenantId String             @unique @db.Uuid
+  planId   String             @db.Uuid
+  estado   SubscriptionStatus @default(TRIAL)
+
+  inicio        DateTime  @default(now())
+  finTrial      DateTime?
+  vigenciaHasta DateTime? // null = sin vencimiento
+
+  /// Overrides sobre el plan (add-ons / recortes de acuerdos particulares).
+  modulosExtra     ModuleKey[] // módulos concedidos además del plan
+  modulosExcluidos ModuleKey[] // módulos revocados del plan
+
+  /// Overrides de límites (null = usar el del plan).
+  overrideMaxUsuarios     Int?
+  overrideMaxSucursales   Int?
+  overrideMaxProductos    Int?
+  overrideMaxDispositivosPos Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  @@index([planId])
+  @@index([estado])
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  nombre    String
+  /// Hash de contraseña (si se usa auth propia) o null si es SSO/Supabase Auth.
+  passwordHash String?
+  /// Id externo del proveedor de auth (Supabase auth.users.id), opcional.
+  authUserId String? @unique
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Tenant "principal" (opcional; el acceso real se define por memberships)
+  homeTenantId String? @db.Uuid
+  homeTenant   Tenant? @relation(fields: [homeTenantId], references: [id])
+
+  memberships Membership[]
+  cashSessions CashSession[]
+  salesAsCajero Sale[] @relation("SaleCajero")
+}
+
+/// Relación usuario ↔ tenant con rol. Un usuario puede pertenecer a varios tenants.
+model Membership {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  userId    String   @db.Uuid
+  role      Role     @default(CAJERO)
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([userId])
+}
+
+model Sucursal {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  nombre    String
+  codigo    Int      @default(1) // sucursal DGI
+  direccion String?
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cashSessions CashSession[]
+  sales        Sale[]
+  stockItems   Stock[]
+
+  @@unique([tenantId, codigo])
+  @@index([tenantId])
+}
+
+// ============================================================================
+// CATÁLOGO / PRODUCTOS / PRECIOS
+// ============================================================================
+
+model Categoria {
+  id       String  @id @default(uuid()) @db.Uuid
+  tenantId String  @db.Uuid
+  nombre   String
+  orden    Int     @default(0)
+  color    String? // para la grilla táctil del POS
+
+  /// Tasa de IVA por defecto que heredan los productos de la categoría
+  /// (a consumidor final). Editable por producto. Ver docs/CFE-IVA.md §4.
+  ivaIndicadorDefault IvaIndicador @default(MINIMA)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([tenantId, nombre])
+  @@index([tenantId])
+}
+
+model Product {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  nombre    String
+  categoriaId String? @db.Uuid
+
+  /// PLU / código interno usado en balanza y código de peso variable.
+  plu    Int?
+  /// Código de barras (EAN) para productos empaquetados.
+  codigoBarras String?
+
+  /// Unidades: se compra en una unidad y se vende en otra con factor.
+  unidadCompra    UnidadMedida @default(CAJON)
+  unidadVenta     UnidadMedida @default(KG)
+  /// Cuántas unidades de venta rinde una unidad de compra (ej: cajón 20kg → 20).
+  factorConversion Decimal     @default(1) @db.Decimal(12, 4)
+
+  /// Se vende por peso (usa balanza / código de peso variable).
+  esPesable Boolean @default(true)
+
+  /// IVA base del producto a CONSUMIDOR FINAL (mayormente MINIMA en verdulería).
+  /// Hereda de la categoría; editable por el contador. La tasa efectiva puede
+  /// cambiar según el tipo de cliente en mayoreo B2B (ver docs/CFE-IVA.md §5).
+  ivaIndicador IvaIndicador @default(MINIMA)
+
+  /// Fruta/verdura/flor en estado natural (define el trato en suspenso en B2B).
+  esEstadoNatural Boolean @default(true)
+  /// Producto importado (en B2B a empresa va a tasa básica 22%).
+  esImportado Boolean @default(false)
+
+  /// % de merma estimada para calcular costo real = costo / (1 - merma).
+  mermaPct Decimal @default(0) @db.Decimal(5, 4)
+
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  categoria   Categoria?      @relation(fields: [categoriaId], references: [id])
+  priceItems  PriceListItem[]
+  saleItems   SaleItem[]
+  purchaseItems PurchaseItem[]
+  stockItems  Stock[]
+  stockMoves  StockMovement[]
+  wastes      Waste[]
+  deliveryItems DeliveryItem[]
+
+  @@unique([tenantId, plu])
+  @@index([tenantId])
+  @@index([tenantId, categoriaId])
+  @@index([tenantId, activo])
+}
+
+model PriceList {
+  id        String          @id @default(uuid()) @db.Uuid
+  tenantId  String          @db.Uuid
+  nombre    String
+  tipo      TipoListaPrecio @default(MOSTRADOR)
+  moneda    String          @default("UYU")
+  activo    Boolean         @default(true)
+  createdAt DateTime        @default(now())
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items     PriceListItem[]
+  customers Customer[] // clientes asignados a esta lista
+
+  @@index([tenantId])
+}
+
+model PriceListItem {
+  id          String  @id @default(uuid()) @db.Uuid
+  tenantId    String  @db.Uuid
+  priceListId String  @db.Uuid
+  productId   String  @db.Uuid
+
+  /// Precio de venta por unidad de venta (con IVA incluido salvo config).
+  precio Decimal @db.Decimal(14, 4)
+
+  updatedAt DateTime @updatedAt
+
+  priceList PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, productId])
+  @@index([tenantId])
+  @@index([productId])
+}
+
+// ============================================================================
+// STOCK / MERMA / LOTES
+// ============================================================================
+
+model Stock {
+  id         String  @id @default(uuid()) @db.Uuid
+  tenantId   String  @db.Uuid
+  productId  String  @db.Uuid
+  sucursalId String? @db.Uuid
+
+  /// Cantidad en unidad de venta (kg o unidades). 3 decimales para peso.
+  cantidad Decimal @default(0) @db.Decimal(14, 3)
+
+  /// Costo real ponderado por unidad de venta (incluye merma).
+  costoPromedio Decimal @default(0) @db.Decimal(14, 4)
+
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product  Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sucursal Sucursal? @relation(fields: [sucursalId], references: [id])
+
+  @@unique([productId, sucursalId])
+  @@index([tenantId])
+}
+
+model StockMovement {
+  id        String            @id @default(uuid()) @db.Uuid
+  tenantId  String            @db.Uuid
+  productId String            @db.Uuid
+  tipo      StockMovementType
+  /// Cantidad en unidad de venta. Positiva o negativa según el tipo.
+  cantidad  Decimal           @db.Decimal(14, 3)
+  costoUnit Decimal?          @db.Decimal(14, 4)
+  motivo    String?
+  refId     String?           @db.Uuid // referencia a Sale/Purchase/Waste
+  createdAt DateTime          @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, productId])
+  @@index([createdAt])
+}
+
+model Waste {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  productId String   @db.Uuid
+  cantidad  Decimal  @db.Decimal(14, 3)
+  costoUnit Decimal? @db.Decimal(14, 4)
+  motivo    String? // pudrición, golpe, remarque, descarte
+  createdAt DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, productId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// COMPRAS (UAM / proveedores)
+// ============================================================================
+
+model Supplier {
+  id       String  @id @default(uuid()) @db.Uuid
+  tenantId String  @db.Uuid
+  nombre   String
+  rut      String?
+  telefono String?
+  esUam    Boolean @default(false) // consignatario / mayorista UAM
+  activo   Boolean @default(true)
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  purchases Purchase[]
+
+  @@index([tenantId])
+}
+
+model Purchase {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @db.Uuid
+  supplierId String?  @db.Uuid
+  fecha      DateTime @default(now())
+  /// Referencia al CFE recibido del proveedor (para conciliación).
+  cfeRecibidoId String?
+  total      Decimal  @default(0) @db.Decimal(14, 4)
+  notas      String?
+  createdAt  DateTime @default(now())
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier Supplier?      @relation(fields: [supplierId], references: [id])
+  items    PurchaseItem[]
+
+  @@index([tenantId])
+  @@index([tenantId, fecha])
+}
+
+model PurchaseItem {
+  id         String  @id @default(uuid()) @db.Uuid
+  tenantId   String  @db.Uuid
+  purchaseId String  @db.Uuid
+  productId  String  @db.Uuid
+
+  /// Cantidad comprada en unidad de compra (ej: 3 cajones).
+  cantidadCompra Decimal @db.Decimal(14, 3)
+  /// Costo por unidad de compra (ej: precio del cajón).
+  costoUnitCompra Decimal @db.Decimal(14, 4)
+  /// Peso/rinde real recibido en unidad de venta (para recalcular costo/kg).
+  rindeVenta Decimal? @db.Decimal(14, 3)
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([purchaseId])
+}
+
+// ============================================================================
+// VENTAS (POS) / PAGOS / CAJA
+// ============================================================================
+
+model CashSession {
+  id         String            @id @default(uuid()) @db.Uuid
+  tenantId   String            @db.Uuid
+  sucursalId String?           @db.Uuid
+  userId     String            @db.Uuid // cajero que abre
+  status     CashSessionStatus @default(ABIERTA)
+  aperturaAt DateTime          @default(now())
+  cierreAt   DateTime?
+  montoApertura Decimal        @default(0) @db.Decimal(14, 2)
+  montoCierre   Decimal?       @db.Decimal(14, 2)
+  /// Diferencia de arqueo (contado - esperado).
+  diferencia Decimal?          @db.Decimal(14, 2)
+  notas      String?
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sucursal Sucursal? @relation(fields: [sucursalId], references: [id])
+  user     User      @relation(fields: [userId], references: [id])
+  sales    Sale[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+}
+
+model Sale {
+  id         String     @id @default(uuid()) @db.Uuid
+  tenantId   String     @db.Uuid
+  sucursalId String?    @db.Uuid
+  cashSessionId String? @db.Uuid
+  cajeroId   String?    @db.Uuid
+  customerId String?    @db.Uuid
+
+  /// Número correlativo interno (distinto del número CFE).
+  numeroInterno Int?
+  status     SaleStatus @default(COMPLETADA)
+  forma      FormaPago  @default(CONTADO)
+
+  subtotal   Decimal @default(0) @db.Decimal(14, 4)
+  descuento  Decimal @default(0) @db.Decimal(14, 4)
+  ivaTotal   Decimal @default(0) @db.Decimal(14, 4)
+  total      Decimal @default(0) @db.Decimal(14, 4)
+
+  /// Clave de idempotencia para el sync offline (== id_externo en FEU).
+  idempotencyKey String @unique
+
+  fecha     DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sucursal    Sucursal?    @relation(fields: [sucursalId], references: [id])
+  cashSession CashSession? @relation(fields: [cashSessionId], references: [id])
+  cajero      User?        @relation("SaleCajero", fields: [cajeroId], references: [id])
+  customer    Customer?    @relation(fields: [customerId], references: [id])
+  items       SaleItem[]
+  payments    Payment[]
+  cfeDocument CfeDocument?
+
+  @@index([tenantId])
+  @@index([tenantId, fecha])
+  @@index([tenantId, status])
+  @@index([cashSessionId])
+}
+
+model SaleItem {
+  id        String  @id @default(uuid()) @db.Uuid
+  tenantId  String  @db.Uuid
+  saleId    String  @db.Uuid
+  productId String? @db.Uuid
+
+  concepto     String // nombre del producto al momento de la venta
+  unidad       UnidadMedida
+  cantidad     Decimal      @db.Decimal(14, 3)
+  precioUnit   Decimal      @db.Decimal(14, 4) // con IVA incluido
+  descuento    Decimal      @default(0) @db.Decimal(14, 4)
+  ivaIndicador IvaIndicador @default(MINIMA)
+  /// Costo real al momento de la venta (para rentabilidad).
+  costoUnit    Decimal?     @db.Decimal(14, 4)
+  total        Decimal      @db.Decimal(14, 4)
+
+  sale    Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([tenantId])
+  @@index([saleId])
+}
+
+model Payment {
+  id       String    @id @default(uuid()) @db.Uuid
+  tenantId String    @db.Uuid
+  saleId   String    @db.Uuid
+  medio    MedioPago
+  monto    Decimal   @db.Decimal(14, 2)
+  /// Referencia externa (id de Mercado Pago, últimos dígitos, etc.).
+  referencia String?
+  createdAt DateTime @default(now())
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([saleId])
+}
+
+// ============================================================================
+// CLIENTES / CUENTA CORRIENTE (MAYOREO)
+// ============================================================================
+
+model Customer {
+  id       String  @id @default(uuid()) @db.Uuid
+  tenantId String  @db.Uuid
+  nombre   String
+  esMayorista Boolean @default(false)
+
+  tipoDocumento TipoDocumentoCliente @default(CI)
+  documento     String? // CI o RUC
+  razonSocial   String?
+  direccion     String?
+  telefono      String?
+  email         String?
+
+  priceListId String? @db.Uuid // lista de precios asignada
+  /// Límite de crédito para cuenta corriente.
+  limiteCredito Decimal @default(0) @db.Decimal(14, 2)
+
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  priceList PriceList?         @relation(fields: [priceListId], references: [id])
+  sales     Sale[]
+  account   AccountReceivable?
+  deliveryOrders DeliveryOrder[]
+
+  @@index([tenantId])
+  @@index([tenantId, esMayorista])
+}
+
+model AccountReceivable {
+  id         String  @id @default(uuid()) @db.Uuid
+  tenantId   String  @db.Uuid
+  customerId String  @unique @db.Uuid
+  /// Saldo actual (positivo = el cliente debe).
+  saldo      Decimal @default(0) @db.Decimal(14, 2)
+  updatedAt  DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  movements AccountMovement[]
+
+  @@index([tenantId])
+}
+
+model AccountMovement {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  accountId String   @db.Uuid
+  /// Positivo = cargo (deuda), negativo = pago/crédito.
+  monto     Decimal  @db.Decimal(14, 2)
+  concepto  String?
+  refId     String?  @db.Uuid // Sale o cobro
+  createdAt DateTime @default(now())
+
+  account AccountReceivable @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([accountId])
+}
+
+// ============================================================================
+// REPARTO / DELIVERY
+// ============================================================================
+
+model DeliveryOrder {
+  id         String         @id @default(uuid()) @db.Uuid
+  tenantId   String         @db.Uuid
+  customerId String?        @db.Uuid
+  routeId    String?        @db.Uuid
+  status     DeliveryStatus @default(PENDIENTE)
+
+  direccion  String?
+  telefono   String?
+  notas      String?
+  total      Decimal        @default(0) @db.Decimal(14, 2)
+  medioPago  MedioPago?
+
+  fechaEntrega DateTime?
+  entregadoAt  DateTime?
+  createdAt    DateTime @default(now())
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer?      @relation(fields: [customerId], references: [id])
+  route    Route?         @relation(fields: [routeId], references: [id])
+  items    DeliveryItem[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+}
+
+model DeliveryItem {
+  id        String  @id @default(uuid()) @db.Uuid
+  tenantId  String  @db.Uuid
+  orderId   String  @db.Uuid
+  productId String? @db.Uuid
+  concepto  String
+  cantidad  Decimal @db.Decimal(14, 3)
+  precioUnit Decimal @db.Decimal(14, 4)
+
+  order   DeliveryOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product?      @relation(fields: [productId], references: [id])
+
+  @@index([tenantId])
+  @@index([orderId])
+}
+
+model Route {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  nombre    String
+  fecha     DateTime @default(now())
+  repartidorId String? @db.Uuid
+  createdAt DateTime @default(now())
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders DeliveryOrder[]
+
+  @@index([tenantId])
+  @@index([tenantId, fecha])
+}
+
+// ============================================================================
+// CFE (COMPROBANTE FISCAL ELECTRÓNICO)
+// ============================================================================
+
+model CfeDocument {
+  id       String  @id @default(uuid()) @db.Uuid
+  tenantId String  @db.Uuid
+  saleId   String? @unique @db.Uuid
+
+  tipo   CfeTipo   @default(E_TICKET)
+  estado EstadoDgi @default(LOCAL)
+
+  /// id_externo enviado a FEU (== Sale.idempotencyKey). Clave de idempotencia.
+  idExterno String
+
+  // Datos devueltos por el proveedor (FEU) tras emitir
+  providerId  Int? // id interno de FEU
+  serie       String?
+  numero      Int?
+  hash        String?
+  caeNumero   String?
+  caeRangoInicio Int?
+  caeRangoFinal  Int?
+  caeVencimiento DateTime?
+  importeTotal   Decimal? @db.Decimal(14, 2)
+  qrUrl       String? // url de consulta QR en DGI
+
+  /// Nº de reintentos de polling de estado.
+  pollingIntentos Int      @default(0)
+  ultimoError     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sale   Sale?  @relation(fields: [saleId], references: [id])
+
+  @@unique([tenantId, idExterno])
+  @@index([tenantId])
+  @@index([tenantId, estado])
+  @@index([estado]) // para el worker de polling global
+}

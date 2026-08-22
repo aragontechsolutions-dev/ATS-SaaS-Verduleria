@@ -1,0 +1,26 @@
+{
+  "name": "ats-saas-verduleria",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SaaS multi-tenant de gestión de verdulerías para Uruguay (Maldonado). POS offline, unidades múltiples, merma, mayoreo y facturación electrónica CFE (FEU/Surtec).",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "db:generate": "npm run generate -w @ats/database",
+    "db:push": "npm run push -w @ats/database",
+    "db:seed": "npm run seed -w @ats/database",
+    "db:migrate": "npm run migrate:dev -w @ats/database",
+    "db:studio": "npm run studio -w @ats/database",
+    "api:dev": "npm run start:dev -w @ats/api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  }
+}
