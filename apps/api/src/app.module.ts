@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import configuration from './config/configuration';
 import { PrismaModule } from './prisma/prisma.module';
 import { TenantMiddleware } from './tenant/tenant.middleware';
+import { AuthModule } from './auth/auth.module';
 import { EntitlementsModule } from './entitlements/entitlements.module';
 import { CfeModule } from './cfe/cfe.module';
 import { CatalogModule } from './catalog/catalog.module';
@@ -16,6 +17,7 @@ import { HealthController } from './health/health.controller';
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    AuthModule,
     EntitlementsModule,
     CfeModule,
     CatalogModule,

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { StatusBar } from './components/StatusBar';
+import { Login } from './components/Login';
 import { ProductGrid } from './components/ProductGrid';
 import { Cart } from './components/Cart';
 import { WeighModal } from './components/WeighModal';
@@ -14,11 +15,41 @@ import { useScanner } from './hooks/useScanner';
 import { useCash } from './hooks/useCash';
 import { cartItemFromProduct, useCart } from './state/cart';
 import { parseScan } from './lib/barcode';
+import { clearToken, getToken } from './lib/api';
 import { countPending, enqueueSale, getSale } from './lib/db';
 import { flushOutbox, onSyncChange, startAutoSync } from './lib/sync';
 import type { CartItem, CatalogProduct, OutboxSale, SalePayment } from './lib/types';
+import type { LoginResponse } from './lib/api';
 
 export default function App() {
+  const [session, setSession] = useState<LoginResponse | null>(null);
+  const [authed, setAuthed] = useState<boolean>(() => !!getToken());
+
+  // Cierre de sesión ante 401 (token vencido/ inválido) desde cualquier request.
+  useEffect(() => {
+    const onUnauth = () => {
+      setAuthed(false);
+      setSession(null);
+    };
+    window.addEventListener('ats:unauthorized', onUnauth);
+    return () => window.removeEventListener('ats:unauthorized', onUnauth);
+  }, []);
+
+  if (!authed) {
+    return (
+      <Login
+        onLogged={(s) => {
+          setSession(s);
+          setAuthed(true);
+        }}
+      />
+    );
+  }
+
+  return <Pos session={session} onLogout={() => { clearToken(); setAuthed(false); setSession(null); }} />;
+}
+
+function Pos({ session, onLogout }: { session: LoginResponse | null; onLogout: () => void }) {
   const online = useOnline();
   const { products, listaPrecio, loading, fromCache } = useCatalog();
   const cash = useCash();
@@ -135,8 +166,10 @@ export default function App() {
         listaPrecio={listaPrecio}
         total={cart.total}
         cash={cash.session}
+        tenantNombre={session?.tenant.nombre}
         onOpenCash={() => setOpeningCash(true)}
         onCloseCash={() => setClosingCash(true)}
+        onLogout={onLogout}
       />
       <main className="main">
         {loading ? (

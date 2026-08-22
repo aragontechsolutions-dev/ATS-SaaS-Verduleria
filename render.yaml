@@ -26,6 +26,14 @@ services:
       # Dominio del front en Vercel para restringir CORS (ej. https://ats-pos.vercel.app)
       - key: CORS_ORIGIN
         sync: false
+      # Secreto para firmar los JWT. Generá uno largo y aleatorio.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 12h
+      # En producción NO se permite resolver el tenant por header (solo JWT).
+      - key: ALLOW_HEADER_TENANT
+        value: "false"
       # FEU / Surtec (facturación electrónica)
       - key: FEU_AMBIENTE
         value: test

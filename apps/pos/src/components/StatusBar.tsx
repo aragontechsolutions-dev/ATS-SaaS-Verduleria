@@ -8,14 +8,30 @@ interface Props {
   listaPrecio: string | null;
   total: number;
   cash: CashSession | null;
+  tenantNombre?: string;
   onOpenCash: () => void;
   onCloseCash: () => void;
+  onLogout: () => void;
 }
 
-export function StatusBar({ online, fromCache, pendientes, listaPrecio, total, cash, onOpenCash, onCloseCash }: Props) {
+export function StatusBar({
+  online,
+  fromCache,
+  pendientes,
+  listaPrecio,
+  total,
+  cash,
+  tenantNombre,
+  onOpenCash,
+  onCloseCash,
+  onLogout,
+}: Props) {
   return (
     <header className="statusbar">
-      <div className="statusbar__brand">🥬 ATS POS</div>
+      <div className="statusbar__brand">
+        <img src="/icon.svg" alt="Aragon" />
+        ARAGON POS
+      </div>
       <div className="statusbar__meta">
         <span className={`pill ${online ? 'pill--ok' : 'pill--warn'}`}>
           {online ? '● En línea' : '○ Sin conexión'}
@@ -34,6 +50,10 @@ export function StatusBar({ online, fromCache, pendientes, listaPrecio, total, c
         )}
       </div>
       <div className="statusbar__total">Total: {formatMoney(total)}</div>
+      {tenantNombre && <span className="statusbar__tenant">{tenantNombre}</span>}
+      <button className="pill pill--cash" onClick={onLogout} title="Cerrar sesión">
+        Salir
+      </button>
     </header>
   );
 }
