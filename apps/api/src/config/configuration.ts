@@ -10,6 +10,8 @@ export interface FeuConfig {
 export interface SupabaseConfig {
   url: string;
   anonKey: string;
+  /** Service-role key: solo backend, para crear usuarios (Admin API). */
+  serviceRoleKey: string;
 }
 
 export interface AuthConfig {
@@ -39,6 +41,7 @@ export default (): AppConfig => ({
   supabase: {
     url: process.env.SUPABASE_URL ?? '',
     anonKey: process.env.SUPABASE_ANON_KEY ?? '',
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
   },
   auth: {
     allowHeaderTenant: process.env.ALLOW_HEADER_TENANT === 'true',

@@ -4,13 +4,18 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 import { Prisma, Role, SubscriptionStatus, TipoListaPrecio } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuthService } from '../auth/auth.service';
 import type { CreateTenantDto, UpdateTenantDto } from './platform.dto';
 
 @Injectable()
 export class PlatformService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auth: AuthService,
+  ) {}
 
   /** Métricas globales para el dashboard de la consola. */
   async overview() {
@@ -60,9 +65,11 @@ export class PlatformService {
     if (!plan) throw new BadRequestException(`Plan "${dto.planCode}" inexistente`);
 
     const email = dto.adminEmail.trim().toLowerCase();
+    const password = dto.adminPassword || this.generatePassword();
 
+    let result: { tenantId: string; adminId: string };
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      result = await this.prisma.$transaction(async (tx) => {
         const tenant = await tx.tenant.create({
           data: {
             nombre: dto.nombre,
@@ -71,9 +78,7 @@ export class PlatformService {
             razonSocial: dto.razonSocial,
             sucursales: { create: { nombre: 'Casa central', codigo: 1 } },
             priceLists: { create: { nombre: 'Mostrador', tipo: TipoListaPrecio.MOSTRADOR } },
-            subscription: {
-              create: { planId: plan.id, estado: SubscriptionStatus.TRIAL },
-            },
+            subscription: { create: { planId: plan.id, estado: SubscriptionStatus.TRIAL } },
           },
         });
 
@@ -89,7 +94,7 @@ export class PlatformService {
           create: { tenantId: tenant.id, userId: admin.id, role: Role.ADMIN },
         });
 
-        return { tenant, admin: { id: admin.id, email: admin.email }, plan: plan.code };
+        return { tenantId: tenant.id, adminId: admin.id };
       });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
@@ -97,6 +102,34 @@ export class PlatformService {
       }
       throw e;
     }
+
+    // Crear el login en Supabase Auth (best-effort, fuera de la transacción de BD).
+    let loginCreado = false;
+    try {
+      const authUserId = await this.auth.provisionSupabaseUser(email, password);
+      if (authUserId) {
+        await this.prisma.user.update({ where: { id: result.adminId }, data: { authUserId } });
+        loginCreado = true;
+      }
+    } catch {
+      // La verdulería quedó creada; el login se puede crear/reintentar aparte.
+    }
+
+    return {
+      tenantId: result.tenantId,
+      plan: plan.code,
+      admin: {
+        email,
+        // Devolvemos la contraseña UNA vez para que el owner se la pase al cliente.
+        password: loginCreado ? password : undefined,
+        loginCreado,
+      },
+    };
+  }
+
+  /** Contraseña inicial legible (para comunicar al cliente). */
+  private generatePassword(): string {
+    return 'ATS-' + randomBytes(4).toString('hex');
   }
 
   /** Activar/suspender un tenant y/o cambiarle el plan. */

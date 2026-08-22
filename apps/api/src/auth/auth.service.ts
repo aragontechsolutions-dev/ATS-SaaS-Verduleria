@@ -99,4 +99,51 @@ export class AuthService {
     const sup = await this.verifySupabaseToken(token);
     return this.resolveContext(sup);
   }
+
+  /** ¿Está configurada la Admin API (service-role) para crear usuarios? */
+  canProvisionUsers(): boolean {
+    const s = this.config.get('supabase', { infer: true });
+    return Boolean(s.url && s.serviceRoleKey);
+  }
+
+  /**
+   * Crea (o encuentra) un usuario en Supabase Auth con email confirmado, usando
+   * la Admin API (service-role, solo backend). Devuelve el auth user id, o null
+   * si la Admin API no está configurada. Idempotente ante "ya existe".
+   */
+  async provisionSupabaseUser(email: string, password: string): Promise<string | null> {
+    const { url, serviceRoleKey } = this.config.get('supabase', { infer: true });
+    if (!url || !serviceRoleKey) return null;
+
+    const headers = {
+      Authorization: `Bearer ${serviceRoleKey}`,
+      apikey: serviceRoleKey,
+      'Content-Type': 'application/json',
+    };
+
+    const res = await fetch(`${url}/auth/v1/admin/users`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ email, password, email_confirm: true }),
+    });
+
+    if (res.ok) {
+      const body = (await res.json()) as { id: string };
+      return body.id;
+    }
+
+    // Ya existe: lo buscamos para devolver su id (el enlace por email igual sirve).
+    if (res.status === 422 || res.status === 409) {
+      const list = await fetch(`${url}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, { headers });
+      if (list.ok) {
+        const data = (await list.json()) as { users?: Array<{ id: string; email?: string }> };
+        return data.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase())?.id ?? null;
+      }
+      return null;
+    }
+
+    const detail = await res.text().catch(() => '');
+    this.logger.warn(`No se pudo crear el usuario en Supabase (${res.status}): ${detail}`);
+    throw new Error(`Supabase admin ${res.status}`);
+  }
 }

@@ -85,6 +85,7 @@ repo**. Detecta el servicio `ats-verduleria-api`. Sino, **New → Web Service**:
 | `NODE_VERSION` | `20` |
 | `SUPABASE_URL` | `https://yvbumbuslhydztmjugra.supabase.co` |
 | `SUPABASE_ANON_KEY` | anon public key (Supabase → Project Settings → API) |
+| `SUPABASE_SERVICE_ROLE_KEY` | service_role key (opcional; deja que la Consola cree el login del cliente al alta) |
 | `ALLOW_HEADER_TENANT` | `false` (en prod el tenant solo sale del token de Supabase) |
 
 > Render inyecta `PORT` automáticamente; la API lo respeta y bindea a `0.0.0.0`.
@@ -127,6 +128,18 @@ Volvé a Render y poné `CORS_ORIGIN = https://ats-pos.vercel.app` (el dominio r
 de Vercel). Redeploy del backend.
 
 ---
+
+## 3b. Consola de Plataforma (segundo proyecto en Vercel)
+
+La consola de Aragon (`apps/console`) se despliega como **otro proyecto** de Vercel:
+- **Add New → Project** → mismo repo → **Root Directory = `apps/console`**.
+- Env vars (Production): `VITE_API_URL` (misma URL de Render + `/api`),
+  `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+- Sumá el dominio de la consola a `CORS_ORIGIN` en Render (lista separada por comas).
+
+**Super-admin de plataforma**: creá `owner@aragontech.uy` en Supabase →
+Authentication → Users (mismo email que el seed marca `isPlatformAdmin`). Con esa
+cuenta entrás a la consola y das de alta clientes.
 
 ## 4. Verificación end-to-end
 1. Abrí el POS en Vercel. Debería cargar el catálogo (10 productos del seed).
