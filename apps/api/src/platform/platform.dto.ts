@@ -27,6 +27,12 @@ export class CreateTenantDto {
   @MinLength(2)
   adminNombre!: string;
 
+  /** Contraseña inicial del admin del cliente. Si falta, se genera una. */
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  adminPassword?: string;
+
   @IsOptional()
   @IsString()
   rut?: string;
