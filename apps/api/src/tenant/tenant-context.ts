@@ -6,6 +6,8 @@ export interface TenantContext {
   role?: string;
   /** RUT del emisor para X-Emisor en CFE. */
   emisorRut?: string;
+  /** Super-admin de la plataforma (Aragon), por encima de los tenants. */
+  isPlatformAdmin?: boolean;
 }
 
 /**

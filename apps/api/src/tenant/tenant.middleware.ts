@@ -27,13 +27,7 @@ export class TenantMiddleware implements NestMiddleware {
     if (authHeader?.startsWith('Bearer ')) {
       try {
         const resolved = await this.auth.authenticate(authHeader.slice(7).trim());
-        const ctx: TenantContext = {
-          tenantId: resolved.tenantId,
-          userId: resolved.userId,
-          role: resolved.role,
-          emisorRut: resolved.emisorRut,
-        };
-        tenantStorage.run(ctx, () => next());
+        tenantStorage.run(this.toContext(resolved), () => next());
         return;
       } catch {
         // Token inválido/no habilitado: seguimos sin contexto → guards 401/403.
@@ -42,18 +36,35 @@ export class TenantMiddleware implements NestMiddleware {
       }
     }
 
+    // Dev/testing: resolvemos por email (misma lógica que Supabase) para poder
+    // probar sin tokens. Solo si ALLOW_HEADER_TENANT=true.
     const allowHeader = this.config.get('auth', { infer: true }).allowHeaderTenant;
-    const tenantId = allowHeader ? req.header('x-tenant-id') : undefined;
-    if (!tenantId) {
+    const email = allowHeader ? req.header('x-user-email') : undefined;
+    if (!email) {
       next();
       return;
     }
-    const ctx: TenantContext = {
-      tenantId,
-      userId: req.header('x-user-id') || undefined,
-      role: req.header('x-user-role') || undefined,
-      emisorRut: req.header('x-emisor-rut') || undefined,
+    try {
+      const resolved = await this.auth.resolveContext({ id: '', email });
+      tenantStorage.run(this.toContext(resolved), () => next());
+    } catch {
+      next();
+    }
+  }
+
+  private toContext(resolved: {
+    tenantId: string;
+    userId: string;
+    role: string;
+    emisorRut?: string;
+    isPlatformAdmin: boolean;
+  }): TenantContext {
+    return {
+      tenantId: resolved.tenantId,
+      userId: resolved.userId,
+      role: resolved.role,
+      emisorRut: resolved.emisorRut,
+      isPlatformAdmin: resolved.isPlatformAdmin,
     };
-    tenantStorage.run(ctx, () => next());
   }
 }

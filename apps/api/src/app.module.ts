@@ -10,6 +10,7 @@ import { CfeModule } from './cfe/cfe.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { SalesModule } from './sales/sales.module';
 import { CashModule } from './cash/cash.module';
+import { PlatformModule } from './platform/platform.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -23,6 +24,7 @@ import { HealthController } from './health/health.controller';
     CatalogModule,
     SalesModule,
     CashModule,
+    PlatformModule,
   ],
   controllers: [HealthController],
 })
