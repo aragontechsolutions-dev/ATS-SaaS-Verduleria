@@ -144,6 +144,14 @@ async function main() {
     create: { email: 'admin@demo.uy', nombre: 'Admin Demo', homeTenantId: tenant.id },
   });
 
+  // Super-admin de la PLATAFORMA (Aragon), por encima de todos los tenants.
+  // No pertenece a ninguna verdulería: opera la Consola de Plataforma.
+  await prisma.user.upsert({
+    where: { email: 'owner@aragontech.uy' },
+    update: { isPlatformAdmin: true },
+    create: { email: 'owner@aragontech.uy', nombre: 'Aragon Owner', isPlatformAdmin: true },
+  });
+
   await prisma.membership.upsert({
     where: { tenantId_userId: { tenantId: tenant.id, userId: admin.id } },
     update: {},
@@ -258,7 +266,9 @@ async function main() {
   console.log(
     `✓ Seed OK. Tenant=${tenant.slug}  productos=${CATALOGO.length}  planes=${PLANES.length}  (sub demo=FULL)`,
   );
-  console.log('  Usuario app: admin@demo.uy (creá su login en Supabase → Authentication → Users)');
+  console.log('  Usuario app (tenant admin): admin@demo.uy');
+  console.log('  Super-admin plataforma:     owner@aragontech.uy');
+  console.log('  (creá ambos logins en Supabase → Authentication → Users, con el mismo email)');
 }
 
 main()

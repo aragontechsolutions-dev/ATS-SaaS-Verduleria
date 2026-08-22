@@ -1,0 +1,36 @@
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { PlatformAdminGuard } from './platform-admin.guard';
+import { PlatformService } from './platform.service';
+import { CreateTenantDto, UpdateTenantDto } from './platform.dto';
+
+/** Consola de plataforma (Aragon). Todo exige ser super-admin de plataforma. */
+@Controller('platform')
+@UseGuards(PlatformAdminGuard)
+export class PlatformController {
+  constructor(private readonly platform: PlatformService) {}
+
+  @Get('overview')
+  overview() {
+    return this.platform.overview();
+  }
+
+  @Get('plans')
+  plans() {
+    return this.platform.listPlans();
+  }
+
+  @Get('tenants')
+  listTenants() {
+    return this.platform.listTenants();
+  }
+
+  @Post('tenants')
+  createTenant(@Body() dto: CreateTenantDto) {
+    return this.platform.createTenant(dto);
+  }
+
+  @Patch('tenants/:id')
+  updateTenant(@Param('id') id: string, @Body() dto: UpdateTenantDto) {
+    return this.platform.updateTenant(id, dto);
+  }
+}

@@ -12,9 +12,11 @@ export interface SupabaseUser {
 /** Contexto resuelto de nuestra app (tenant + rol) para un usuario autenticado. */
 export interface ResolvedAuth {
   userId: string;
+  /** Vacío si es un super-admin de plataforma sin membership a un tenant. */
   tenantId: string;
   role: string;
   emisorRut?: string;
+  isPlatformAdmin: boolean;
 }
 
 @Injectable()
@@ -62,18 +64,19 @@ export class AuthService {
     const user = await this.prisma.user.findFirst({
       where: {
         activo: true,
-        OR: [{ authUserId: sup.id }, ...(email ? [{ email }] : [])],
+        OR: [...(sup.id ? [{ authUserId: sup.id }] : []), ...(email ? [{ email }] : [])],
       },
       include: { memberships: { where: { activo: true }, include: { tenant: true } } },
     });
 
     if (!user) throw new UnauthorizedException('El usuario no está habilitado en el sistema');
-    if (user.memberships.length === 0) {
+    // Un super-admin de plataforma puede no tener membership a ningún tenant.
+    if (user.memberships.length === 0 && !user.isPlatformAdmin) {
       throw new UnauthorizedException('El usuario no tiene acceso a ninguna verdulería');
     }
 
-    // Enlazar authUserId la primera vez (si entró por email).
-    if (user.authUserId !== sup.id) {
+    // Enlazar authUserId la primera vez (solo si vino un id real de Supabase).
+    if (sup.id && user.authUserId !== sup.id) {
       await this.prisma.user
         .update({ where: { id: user.id }, data: { authUserId: sup.id } })
         .catch((e) => this.logger.warn(`No se pudo enlazar authUserId: ${e}`));
@@ -84,9 +87,10 @@ export class AuthService {
 
     return {
       userId: user.id,
-      tenantId: membership.tenantId,
-      role: membership.role,
-      emisorRut: membership.tenant.rut ?? undefined,
+      tenantId: membership?.tenantId ?? '',
+      role: membership?.role ?? 'PLATFORM_ADMIN',
+      emisorRut: membership?.tenant.rut ?? undefined,
+      isPlatformAdmin: user.isPlatformAdmin,
     };
   }
 
