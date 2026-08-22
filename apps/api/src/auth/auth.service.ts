@@ -1,81 +1,98 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcryptjs';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { AppConfig } from '../config/configuration';
 import { PrismaService } from '../prisma/prisma.service';
 
-/** Claims del JWT que emite el backend. */
-export interface JwtClaims {
-  sub: string; // userId
-  email: string;
+/** Identidad devuelta por Supabase Auth (GoTrue) para un token válido. */
+export interface SupabaseUser {
+  id: string; // auth.users.id (uuid)
+  email?: string;
+}
+
+/** Contexto resuelto de nuestra app (tenant + rol) para un usuario autenticado. */
+export interface ResolvedAuth {
+  userId: string;
   tenantId: string;
   role: string;
   emisorRut?: string;
 }
 
-export interface LoginResult {
-  accessToken: string;
-  user: { id: string; email: string; nombre: string };
-  tenant: { id: string; nombre: string };
-  role: string;
-}
-
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+  // Cache corto de tokens verificados para no pegarle a Supabase en cada request.
+  private readonly tokenCache = new Map<string, { user: SupabaseUser; expiresAt: number }>();
+  private readonly tokenTtlMs = 30_000;
+
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwt: JwtService,
+    private readonly config: ConfigService<AppConfig, true>,
   ) {}
 
   /**
-   * Valida email + contraseña y devuelve un JWT con el tenant y rol del usuario.
-   * El tenant sale de su membership (prefiere el homeTenant si tiene uno activo).
+   * Verifica un access token de Supabase contra GoTrue (/auth/v1/user). Sirve
+   * para cualquier algoritmo de firma (HS256 o llaves asimétricas), sin
+   * necesidad de conocer el secreto localmente.
    */
-  async login(email: string, password: string): Promise<LoginResult> {
-    const user = await this.prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
-      include: {
-        memberships: { where: { activo: true }, include: { tenant: true } },
+  async verifySupabaseToken(token: string): Promise<SupabaseUser> {
+    const cached = this.tokenCache.get(token);
+    if (cached && Date.now() < cached.expiresAt) return cached.user;
+
+    const { url, anonKey } = this.config.get('supabase', { infer: true });
+    if (!url || !anonKey) throw new UnauthorizedException('Supabase no configurado en el backend');
+
+    const res = await fetch(`${url}/auth/v1/user`, {
+      headers: { Authorization: `Bearer ${token}`, apikey: anonKey },
+    });
+    if (!res.ok) throw new UnauthorizedException('Token de Supabase inválido');
+
+    const body = (await res.json()) as { id: string; email?: string };
+    const user: SupabaseUser = { id: body.id, email: body.email };
+    this.tokenCache.set(token, { user, expiresAt: Date.now() + this.tokenTtlMs });
+    return user;
+  }
+
+  /**
+   * Mapea el usuario de Supabase a nuestro `User` (por authUserId o email) y
+   * resuelve su tenant y rol desde la membership. Enlaza authUserId en el primer
+   * login para futuros lookups.
+   */
+  async resolveContext(sup: SupabaseUser): Promise<ResolvedAuth> {
+    const email = sup.email?.trim().toLowerCase();
+    const user = await this.prisma.user.findFirst({
+      where: {
+        activo: true,
+        OR: [{ authUserId: sup.id }, ...(email ? [{ email }] : [])],
       },
+      include: { memberships: { where: { activo: true }, include: { tenant: true } } },
     });
 
-    // Mensaje genérico para no filtrar si el email existe.
-    if (!user || !user.passwordHash || !user.activo) {
-      throw new UnauthorizedException('Credenciales inválidas');
-    }
-    const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) throw new UnauthorizedException('Credenciales inválidas');
-
+    if (!user) throw new UnauthorizedException('El usuario no está habilitado en el sistema');
     if (user.memberships.length === 0) {
       throw new UnauthorizedException('El usuario no tiene acceso a ninguna verdulería');
     }
+
+    // Enlazar authUserId la primera vez (si entró por email).
+    if (user.authUserId !== sup.id) {
+      await this.prisma.user
+        .update({ where: { id: user.id }, data: { authUserId: sup.id } })
+        .catch((e) => this.logger.warn(`No se pudo enlazar authUserId: ${e}`));
+    }
+
     const membership =
       user.memberships.find((m) => m.tenantId === user.homeTenantId) ?? user.memberships[0];
-    const tenant = membership.tenant;
-
-    const claims: JwtClaims = {
-      sub: user.id,
-      email: user.email,
-      tenantId: tenant.id,
-      role: membership.role,
-      emisorRut: tenant.rut ?? undefined,
-    };
-    const accessToken = await this.jwt.signAsync(claims);
 
     return {
-      accessToken,
-      user: { id: user.id, email: user.email, nombre: user.nombre },
-      tenant: { id: tenant.id, nombre: tenant.nombre },
+      userId: user.id,
+      tenantId: membership.tenantId,
       role: membership.role,
+      emisorRut: membership.tenant.rut ?? undefined,
     };
   }
 
-  /** Verifica un token y devuelve sus claims (o lanza si es inválido/expirado). */
-  async verify(token: string): Promise<JwtClaims> {
-    return this.jwt.verifyAsync<JwtClaims>(token);
-  }
-
-  /** Hash de contraseña (para seed / alta de usuarios). */
-  static hash(password: string): Promise<string> {
-    return bcrypt.hash(password, 10);
+  /** Verifica el token y resuelve el contexto de la app en un solo paso. */
+  async authenticate(token: string): Promise<ResolvedAuth> {
+    const sup = await this.verifySupabaseToken(token);
+    return this.resolveContext(sup);
   }
 }

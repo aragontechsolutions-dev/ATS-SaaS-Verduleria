@@ -8,7 +8,7 @@ interface Props {
   listaPrecio: string | null;
   total: number;
   cash: CashSession | null;
-  tenantNombre?: string;
+  userEmail?: string;
   onOpenCash: () => void;
   onCloseCash: () => void;
   onLogout: () => void;
@@ -21,7 +21,7 @@ export function StatusBar({
   listaPrecio,
   total,
   cash,
-  tenantNombre,
+  userEmail,
   onOpenCash,
   onCloseCash,
   onLogout,
@@ -50,7 +50,7 @@ export function StatusBar({
         )}
       </div>
       <div className="statusbar__total">Total: {formatMoney(total)}</div>
-      {tenantNombre && <span className="statusbar__tenant">{tenantNombre}</span>}
+      {userEmail && <span className="statusbar__tenant">{userEmail}</span>}
       <button className="pill pill--cash" onClick={onLogout} title="Cerrar sesión">
         Salir
       </button>

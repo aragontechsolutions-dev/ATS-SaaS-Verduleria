@@ -15,41 +15,34 @@ import { useScanner } from './hooks/useScanner';
 import { useCash } from './hooks/useCash';
 import { cartItemFromProduct, useCart } from './state/cart';
 import { parseScan } from './lib/barcode';
-import { clearToken, getToken } from './lib/api';
+import { supabase } from './lib/supabase';
 import { countPending, enqueueSale, getSale } from './lib/db';
 import { flushOutbox, onSyncChange, startAutoSync } from './lib/sync';
 import type { CartItem, CatalogProduct, OutboxSale, SalePayment } from './lib/types';
-import type { LoginResponse } from './lib/api';
 
 export default function App() {
-  const [session, setSession] = useState<LoginResponse | null>(null);
-  const [authed, setAuthed] = useState<boolean>(() => !!getToken());
+  // undefined = cargando; null = sin sesión; Session = logueado.
+  const [session, setSession] = useState<import('@supabase/supabase-js').Session | null | undefined>(
+    undefined,
+  );
 
-  // Cierre de sesión ante 401 (token vencido/ inválido) desde cualquier request.
   useEffect(() => {
-    const onUnauth = () => {
-      setAuthed(false);
-      setSession(null);
-    };
-    window.addEventListener('ats:unauthorized', onUnauth);
-    return () => window.removeEventListener('ats:unauthorized', onUnauth);
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  if (!authed) {
-    return (
-      <Login
-        onLogged={(s) => {
-          setSession(s);
-          setAuthed(true);
-        }}
-      />
-    );
+  if (session === undefined) {
+    return <div className="login"><p style={{ color: '#fff' }}>Cargando…</p></div>;
+  }
+  if (session === null) {
+    return <Login onLogged={() => { /* onAuthStateChange actualiza la sesión */ }} />;
   }
 
-  return <Pos session={session} onLogout={() => { clearToken(); setAuthed(false); setSession(null); }} />;
+  return <Pos userEmail={session.user.email ?? ''} onLogout={() => void supabase.auth.signOut()} />;
 }
 
-function Pos({ session, onLogout }: { session: LoginResponse | null; onLogout: () => void }) {
+function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void }) {
   const online = useOnline();
   const { products, listaPrecio, loading, fromCache } = useCatalog();
   const cash = useCash();
@@ -166,7 +159,7 @@ function Pos({ session, onLogout }: { session: LoginResponse | null; onLogout: (
         listaPrecio={listaPrecio}
         total={cart.total}
         cash={cash.session}
-        tenantNombre={session?.tenant.nombre}
+        userEmail={userEmail}
         onOpenCash={() => setOpeningCash(true)}
         onCloseCash={() => setClosingCash(true)}
         onLogout={onLogout}
