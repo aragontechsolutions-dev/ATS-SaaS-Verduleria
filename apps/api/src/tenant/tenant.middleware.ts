@@ -1,21 +1,50 @@
 import { Injectable, type NestMiddleware } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { NextFunction, Request, Response } from 'express';
+import type { AppConfig } from '../config/configuration';
+import { AuthService } from '../auth/auth.service';
 import { tenantStorage, type TenantContext } from './tenant-context';
 
 /**
  * Resuelve el tenant del request y lo mete en el AsyncLocalStorage.
  *
- * Foundations: toma el tenant de los headers `x-tenant-id` (y opcional
- * `x-user-id` / `x-user-role`). En producción esto se reemplaza por la
- * resolución desde el JWT (custom claim tenant_id) validado por el AuthGuard.
+ * Producción: toma el tenant/usuario/rol del JWT (Authorization: Bearer),
+ * verificado con el secreto del backend. Esta es la vía segura.
+ *
+ * Dev/testing: si `ALLOW_HEADER_TENANT=true`, admite además los headers
+ * `x-tenant-id` / `x-user-id` / `x-user-role`. En producción queda apagado, así
+ * que nadie puede suplantar el tenant por header.
  */
 @Injectable()
 export class TenantMiddleware implements NestMiddleware {
-  use(req: Request, _res: Response, next: NextFunction): void {
-    const tenantId = req.header('x-tenant-id');
+  constructor(
+    private readonly auth: AuthService,
+    private readonly config: ConfigService<AppConfig, true>,
+  ) {}
+
+  async use(req: Request, _res: Response, next: NextFunction): Promise<void> {
+    const authHeader = req.header('authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const claims = await this.auth.verify(authHeader.slice(7).trim());
+        const ctx: TenantContext = {
+          tenantId: claims.tenantId,
+          userId: claims.sub,
+          role: claims.role,
+          emisorRut: claims.emisorRut,
+        };
+        tenantStorage.run(ctx, () => next());
+        return;
+      } catch {
+        // Token inválido/expirado: seguimos sin contexto → los guards responden 401/403.
+        next();
+        return;
+      }
+    }
+
+    const allowHeader = this.config.get('auth', { infer: true }).allowHeaderTenant;
+    const tenantId = allowHeader ? req.header('x-tenant-id') : undefined;
     if (!tenantId) {
-      // Sin tenant: dejamos pasar (rutas públicas/health lo permiten). Los
-      // recursos protegidos exigen tenant vía TenantGuard.
       next();
       return;
     }

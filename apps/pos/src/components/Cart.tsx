@@ -49,7 +49,7 @@ export function Cart({ items, total, onSetQty, onRemove, onClear, onCheckout }: 
           <button className="btn btn--ghost" onClick={onClear} disabled={items.length === 0}>
             Vaciar
           </button>
-          <button className="btn btn--primary" onClick={onCheckout} disabled={items.length === 0}>
+          <button className="btn btn--accent" onClick={onCheckout} disabled={items.length === 0}>
             Cobrar
           </button>
         </div>

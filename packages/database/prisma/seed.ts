@@ -13,6 +13,7 @@ import {
   ModuleKey,
   SubscriptionStatus,
 } from '../client';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -136,10 +137,11 @@ async function main() {
     },
   });
 
+  const passwordHash = await bcrypt.hash('aragon1234', 10);
   const admin = await prisma.user.upsert({
     where: { email: 'admin@demo.uy' },
-    update: {},
-    create: { email: 'admin@demo.uy', nombre: 'Admin Demo', homeTenantId: tenant.id },
+    update: { passwordHash },
+    create: { email: 'admin@demo.uy', nombre: 'Admin Demo', homeTenantId: tenant.id, passwordHash },
   });
 
   await prisma.membership.upsert({
@@ -256,6 +258,7 @@ async function main() {
   console.log(
     `✓ Seed OK. Tenant=${tenant.slug}  productos=${CATALOGO.length}  planes=${PLANES.length}  (sub demo=FULL)`,
   );
+  console.log('  Login demo → admin@demo.uy / aragon1234');
 }
 
 main()
