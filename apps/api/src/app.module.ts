@@ -11,6 +11,7 @@ import { EntitlementsModule } from './entitlements/entitlements.module';
 import { CfeModule } from './cfe/cfe.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { CustomersModule } from './customers/customers.module';
+import { LandingModule } from './landing/landing.module';
 import { SalesModule } from './sales/sales.module';
 import { CashModule } from './cash/cash.module';
 import { PlatformModule } from './platform/platform.module';
@@ -34,6 +35,7 @@ import { HealthController } from './health/health.controller';
     CfeModule,
     CatalogModule,
     CustomersModule,
+    LandingModule,
     SalesModule,
     CashModule,
     PlatformModule,

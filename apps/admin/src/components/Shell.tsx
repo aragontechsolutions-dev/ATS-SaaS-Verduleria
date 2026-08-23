@@ -5,11 +5,12 @@ import { ComprasPage } from './ComprasPage';
 import { StockPage } from './StockPage';
 import { SucursalesPage } from './SucursalesPage';
 import { MayoristasPage } from './MayoristasPage';
+import { LandingPage } from './LandingPage';
 import { UsersPage } from './UsersPage';
 import { ReportsPage } from './ReportsPage';
 import { SettingsPage } from './SettingsPage';
 
-type Tab = 'reportes' | 'productos' | 'categorias' | 'compras' | 'stock' | 'sucursales' | 'mayoristas' | 'usuarios' | 'config';
+type Tab = 'reportes' | 'productos' | 'categorias' | 'compras' | 'stock' | 'sucursales' | 'mayoristas' | 'miweb' | 'usuarios' | 'config';
 
 export function Shell({ email, onLogout }: { email: string; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>('reportes');
@@ -43,6 +44,9 @@ export function Shell({ email, onLogout }: { email: string; onLogout: () => void
           <button className={`tab ${tab === 'mayoristas' ? 'tab--on' : ''}`} onClick={() => setTab('mayoristas')}>
             Mayoristas
           </button>
+          <button className={`tab ${tab === 'miweb' ? 'tab--on' : ''}`} onClick={() => setTab('miweb')}>
+            Mi web
+          </button>
           <button className={`tab ${tab === 'usuarios' ? 'tab--on' : ''}`} onClick={() => setTab('usuarios')}>
             Usuarios
           </button>
@@ -64,6 +68,7 @@ export function Shell({ email, onLogout }: { email: string; onLogout: () => void
         {tab === 'stock' && <StockPage />}
         {tab === 'sucursales' && <SucursalesPage />}
         {tab === 'mayoristas' && <MayoristasPage />}
+        {tab === 'miweb' && <LandingPage />}
         {tab === 'usuarios' && <UsersPage />}
         {tab === 'config' && <SettingsPage />}
       </main>
