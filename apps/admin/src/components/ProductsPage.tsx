@@ -3,7 +3,7 @@ import { getCategorias, getProducts, updateProduct } from '../lib/api';
 import type { Categoria, Product } from '../lib/api';
 import { ProductModal } from './ProductModal';
 
-export function ProductsPage({ email, onLogout }: { email: string; onLogout: () => void }) {
+export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [q, setQ] = useState('');
@@ -49,20 +49,8 @@ export function ProductsPage({ email, onLogout }: { email: string; onLogout: () 
   }
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="topbar__brand">
-          <img src="/icon.svg" alt="Aragon" />
-          Administración
-        </div>
-        <div className="topbar__right">
-          <span className="topbar__user">{email}</span>
-          <button className="btn btn--ghost btn--sm" onClick={onLogout}>Salir</button>
-        </div>
-      </header>
-
-      <main className="content">
-        {error && <div className="banner banner--err">{error}</div>}
+    <>
+      {error && <div className="banner banner--err">{error}</div>}
 
         <section className="panel">
           <div className="panel__head">
@@ -129,14 +117,12 @@ export function ProductsPage({ email, onLogout }: { email: string; onLogout: () 
           )}
           <p className="hint">Tip: editá el precio directo en la columna y presioná Enter — se guarda solo.</p>
         </section>
-      </main>
-
       {creating && (
         <ProductModal categorias={categorias} onClose={() => setCreating(false)} onSaved={() => { setCreating(false); void load(); }} />
       )}
       {editing && (
         <ProductModal product={editing} categorias={categorias} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void load(); }} />
       )}
-    </div>
+    </>
   );
 }
