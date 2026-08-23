@@ -13,6 +13,7 @@ import {
   CreateWasteDto,
   ListQueryDto,
   StockAdjustDto,
+  StockQueryDto,
   UpdateSupplierDto,
 } from './purchases.dto';
 
@@ -67,8 +68,8 @@ export class PurchasesController {
   @Get('stock')
   @RequiresModule('INVENTORY')
   @Roles(Role.ADMIN, Role.ENCARGADO, Role.COMPRADOR, Role.DEPOSITO)
-  listStock(@CurrentTenant('tenantId') tenantId: string) {
-    return this.purchases.listStock(tenantId);
+  listStock(@CurrentTenant('tenantId') tenantId: string, @Query() q: StockQueryDto) {
+    return this.purchases.listStock(tenantId, q.sucursalId);
   }
 
   @Post('stock/ajuste')

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { adjustStock, createWaste, getStock, getWaste } from '../lib/api';
-import type { StockRow, WasteRow } from '../lib/api';
+import { adjustStock, createWaste, getStock, getSucursales, getWaste } from '../lib/api';
+import type { StockRow, Sucursal, WasteRow } from '../lib/api';
 
 type ModalKind = 'merma' | 'ajuste';
 
@@ -18,6 +18,8 @@ function margenClass(m: number | null): string {
 export function StockPage() {
   const [rows, setRows] = useState<StockRow[]>([]);
   const [waste, setWaste] = useState<WasteRow[]>([]);
+  const [sucursales, setSucursales] = useState<Sucursal[]>([]);
+  const [sucFilter, setSucFilter] = useState('');
   const [q, setQ] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
@@ -27,15 +29,16 @@ export function StockPage() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [s, w] = await Promise.all([getStock(), getWaste()]);
+      const [s, w, su] = await Promise.all([getStock(sucFilter || undefined), getWaste(), getSucursales()]);
       setRows(s);
       setWaste(w);
+      setSucursales(su.filter((x) => x.activo));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error cargando');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sucFilter]);
 
   useEffect(() => {
     void load();
@@ -66,6 +69,12 @@ export function StockPage() {
           <h2>Stock y márgenes</h2>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <span className="pill">Valor del stock: ${money(valorStock)}</span>
+            {sucursales.length > 1 && (
+              <select value={sucFilter} onChange={(e) => setSucFilter(e.target.value)}>
+                <option value="">Todas las sucursales</option>
+                {sucursales.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              </select>
+            )}
             <input className="search" placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
         </div>
@@ -141,6 +150,8 @@ export function StockPage() {
         <StockActionModal
           kind={modal.kind}
           row={modal.row}
+          sucursalId={sucFilter || undefined}
+          sucursalNombre={sucursales.find((s) => s.id === sucFilter)?.nombre ?? null}
           onClose={() => setModal(null)}
           onDone={(msg) => { setModal(null); flash(msg); void load(); }}
           onError={(m) => setError(m)}
@@ -153,12 +164,16 @@ export function StockPage() {
 function StockActionModal({
   kind,
   row,
+  sucursalId,
+  sucursalNombre,
   onClose,
   onDone,
   onError,
 }: {
   kind: ModalKind;
   row: StockRow;
+  sucursalId?: string;
+  sucursalNombre: string | null;
   onClose: () => void;
   onDone: (msg: string) => void;
   onError: (m: string) => void;
@@ -175,10 +190,10 @@ function StockActionModal({
     setSaving(true);
     try {
       if (esMerma) {
-        const r = await createWaste({ productId: row.productId, cantidad: Math.abs(n), motivo: motivo || undefined });
+        const r = await createWaste({ productId: row.productId, cantidad: Math.abs(n), sucursalId, motivo: motivo || undefined });
         onDone(`Merma registrada: −$${money(r.costoTotal)} en ${row.nombre}.`);
       } else {
-        const r = await adjustStock({ productId: row.productId, cantidad: n, motivo: motivo || undefined });
+        const r = await adjustStock({ productId: row.productId, cantidad: n, sucursalId, motivo: motivo || undefined });
         onDone(`Stock de ${row.nombre}: ${money(r.cantidad)} ${row.unidadVenta.toLowerCase()}.`);
       }
     } catch (err) {
@@ -192,6 +207,7 @@ function StockActionModal({
       <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
         <h3>{esMerma ? 'Registrar merma' : 'Ajustar stock'} — {row.nombre}</h3>
         <p className="modal__sub">
+          {sucursalNombre ? `Sucursal: ${sucursalNombre}. ` : ''}
           Stock actual: {money(row.cantidad)} {row.unidadVenta.toLowerCase()}.
           {esMerma ? ' Se descuenta al costo promedio.' : ' Usá negativo para restar, positivo para sumar.'}
         </p>

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { IvaIndicador, Prisma, SaleStatus } from '@ats/database';
+import { IvaIndicador, Prisma, SaleStatus, StockMovementType } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateSaleDto } from './sales.dto';
 
@@ -10,6 +10,8 @@ const TASA: Record<IvaIndicador, number> = {
   BASICA: 0.22,
   SUSPENSO: 0,
 };
+
+const num = (v: Prisma.Decimal | number | null | undefined): number => (v == null ? 0 : Number(v));
 
 @Injectable()
 export class SalesService {
@@ -33,6 +35,21 @@ export class SalesService {
       return existing;
     }
 
+    // Sucursal que descuenta stock: la de la venta, la de la caja abierta, o la principal.
+    const sucursalId = await this.resolveSucursalId(tenantId, dto);
+
+    // Costo real por producto en esa sucursal (para rentabilidad y descuento).
+    const productIds = [...new Set(dto.items.map((it) => it.productId).filter((x): x is string => !!x))];
+    const stockByProduct = new Map<string, { id: string; cantidad: number; costo: number }>();
+    if (sucursalId && productIds.length) {
+      const stocks = await this.prisma.stock.findMany({
+        where: { tenantId, sucursalId, productId: { in: productIds } },
+      });
+      for (const s of stocks) {
+        stockByProduct.set(s.productId, { id: s.id, cantidad: num(s.cantidad), costo: num(s.costoPromedio) });
+      }
+    }
+
     // Totales. Los precios vienen con IVA incluido.
     let subtotal = new Prisma.Decimal(0);
     let descuentoTotal = new Prisma.Decimal(0);
@@ -49,6 +66,8 @@ export class SalesService {
       descuentoTotal = descuentoTotal.plus(desc);
       ivaTotal = ivaTotal.plus(ivaLinea);
 
+      const stock = it.productId ? stockByProduct.get(it.productId) : undefined;
+
       return {
         tenantId,
         productId: it.productId,
@@ -58,6 +77,7 @@ export class SalesService {
         precioUnit: new Prisma.Decimal(it.precioUnit),
         descuento: desc,
         ivaIndicador: it.ivaIndicador,
+        costoUnit: stock ? new Prisma.Decimal(stock.costo) : null,
         total: lineaTotal,
       };
     });
@@ -71,24 +91,82 @@ export class SalesService {
       referencia: p.referencia,
     }));
 
-    return this.prisma.sale.create({
-      data: {
-        tenantId,
-        sucursalId: dto.sucursalId,
-        cashSessionId: dto.cashSessionId,
-        customerId: dto.customerId,
-        status: SaleStatus.COMPLETADA,
-        idempotencyKey: dto.idempotencyKey,
-        fecha: dto.fecha ? new Date(dto.fecha) : new Date(),
-        subtotal,
-        descuento: descuentoTotal,
-        ivaTotal,
-        total,
-        items: { create: items },
-        payments: { create: payments },
-      },
-      include: { items: true, payments: true, cfeDocument: true },
+    return this.prisma.$transaction(async (tx) => {
+      const sale = await tx.sale.create({
+        data: {
+          tenantId,
+          sucursalId: dto.sucursalId,
+          cashSessionId: dto.cashSessionId,
+          customerId: dto.customerId,
+          status: SaleStatus.COMPLETADA,
+          idempotencyKey: dto.idempotencyKey,
+          fecha: dto.fecha ? new Date(dto.fecha) : new Date(),
+          subtotal,
+          descuento: descuentoTotal,
+          ivaTotal,
+          total,
+          items: { create: items },
+          payments: { create: payments },
+        },
+        include: { items: true, payments: true, cfeDocument: true },
+      });
+
+      // Descuento de stock por sucursal (solo productos que ya se están
+      // controlando: si no hay fila de stock, no se crea una en negativo).
+      if (sucursalId) {
+        // Sumamos cantidades por producto (una venta puede repetir el mismo).
+        const vendidoPorProducto = new Map<string, number>();
+        for (const it of dto.items) {
+          if (!it.productId) continue;
+          vendidoPorProducto.set(it.productId, (vendidoPorProducto.get(it.productId) ?? 0) + it.cantidad);
+        }
+        for (const [productId, cantidad] of vendidoPorProducto) {
+          const stock = stockByProduct.get(productId);
+          if (!stock || cantidad <= 0) continue;
+          await tx.stock.update({
+            where: { id: stock.id },
+            data: { cantidad: new Prisma.Decimal(stock.cantidad - cantidad) },
+          });
+          await tx.stockMovement.create({
+            data: {
+              tenantId,
+              productId,
+              tipo: StockMovementType.VENTA,
+              cantidad: new Prisma.Decimal(-cantidad),
+              costoUnit: new Prisma.Decimal(stock.costo),
+              motivo: 'Venta',
+              refId: sale.id,
+            },
+          });
+        }
+      }
+
+      return sale;
     });
+  }
+
+  /**
+   * Sucursal para descontar el stock, en orden de prioridad:
+   * 1) la explícita de la venta; 2) la de la caja donde se abrió el turno;
+   * 3) la principal activa del tenant.
+   */
+  private async resolveSucursalId(tenantId: string, dto: CreateSaleDto): Promise<string | null> {
+    if (dto.sucursalId) {
+      const suc = await this.prisma.sucursal.findFirst({ where: { id: dto.sucursalId, tenantId } });
+      if (suc) return suc.id;
+    }
+    if (dto.cashSessionId) {
+      const cash = await this.prisma.cashSession.findFirst({
+        where: { id: dto.cashSessionId, tenantId },
+        select: { sucursalId: true },
+      });
+      if (cash?.sucursalId) return cash.sucursalId;
+    }
+    const suc = await this.prisma.sucursal.findFirst({
+      where: { tenantId, activo: true },
+      orderBy: { codigo: 'asc' },
+    });
+    return suc?.id ?? null;
   }
 
   async getSale(tenantId: string, id: string) {

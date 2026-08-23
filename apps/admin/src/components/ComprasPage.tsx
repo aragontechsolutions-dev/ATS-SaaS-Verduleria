@@ -5,9 +5,10 @@ import {
   getProducts,
   getPurchases,
   getSuppliers,
+  getSucursales,
   updateSupplier,
 } from '../lib/api';
-import type { Product, PurchaseRow, Supplier } from '../lib/api';
+import type { Product, PurchaseRow, Sucursal, Supplier } from '../lib/api';
 
 interface Line {
   productId: string;
@@ -25,6 +26,8 @@ function money(n: number): string {
 export function ComprasPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [sucursales, setSucursales] = useState<Sucursal[]>([]);
+  const [sucursalId, setSucursalId] = useState('');
   const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
@@ -40,10 +43,11 @@ export function ComprasPage() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [p, s, c] = await Promise.all([getProducts(), getSuppliers(), getPurchases()]);
+      const [p, s, c, su] = await Promise.all([getProducts(), getSuppliers(), getPurchases(), getSucursales()]);
       setProducts(p.filter((x) => x.activo));
       setSuppliers(s);
       setPurchases(c);
+      setSucursales(su.filter((x) => x.activo));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error cargando');
     } finally {
@@ -92,7 +96,7 @@ export function ComprasPage() {
     setSaving(true);
     setError(null);
     try {
-      const r = await createPurchase({ supplierId: supplierId || undefined, notas: notas || undefined, items });
+      const r = await createPurchase({ supplierId: supplierId || undefined, sucursalId: sucursalId || undefined, notas: notas || undefined, items });
       flash(`Compra registrada por $${money(r.total)}. Stock actualizado.`);
       setLines([{ ...emptyLine }]);
       setNotas('');
@@ -150,6 +154,15 @@ export function ComprasPage() {
                 <input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="ej. remito 1234" />
               </label>
             </div>
+            {sucursales.length > 1 && (
+              <label className="field">
+                Sucursal que recibe
+                <select value={sucursalId} onChange={(e) => setSucursalId(e.target.value)}>
+                  <option value="">Principal ({sucursales[0]?.nombre})</option>
+                  {sucursales.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                </select>
+              </label>
+            )}
 
             <div className="table-wrap">
               <table className="table">
