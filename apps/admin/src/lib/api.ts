@@ -170,3 +170,48 @@ export const getTopProducts = async (qs: { from?: string; to?: string } = {}) =>
 
 export const getDaily = async (days = 7) =>
   ok<DailyPoint[]>(await fetch(`${API_BASE}/reports/daily?days=${days}`, { headers: headers() }), 'daily');
+
+// --- Configuración del tenant (fiscal + CFE) --------------------------------
+
+export type RegimenFiscal =
+  | 'MONOTRIBUTO' | 'MONOTRIBUTO_MIDES' | 'LITERAL_E' | 'IVA_MINIMO' | 'REGIMEN_GENERAL';
+
+export interface Settings {
+  nombre: string;
+  slug: string;
+  razonSocial: string | null;
+  rut: string | null;
+  regimenFiscal: RegimenFiscal;
+  direccion: string | null;
+  telefono: string | null;
+  email: string | null;
+  cfe: {
+    provider: string;
+    ambiente: 'test' | 'produccion';
+    emisorRut: string;
+    sucursalDefault: number;
+    certificadoEstado: string;
+  } | null;
+}
+
+export interface SettingsInput {
+  nombre?: string;
+  razonSocial?: string;
+  rut?: string;
+  regimenFiscal?: RegimenFiscal;
+  direccion?: string;
+  telefono?: string;
+  email?: string;
+  cfeAmbiente?: 'test' | 'produccion';
+  emisorRut?: string;
+  sucursalDefault?: number;
+}
+
+export const getSettings = async () =>
+  ok<Settings>(await fetch(`${API_BASE}/settings`, { headers: headers() }), 'settings');
+
+export const updateSettings = async (input: SettingsInput) =>
+  ok<Settings>(
+    await fetch(`${API_BASE}/settings`, { method: 'PATCH', headers: headers(), body: JSON.stringify(input) }),
+    'updateSettings',
+  );
