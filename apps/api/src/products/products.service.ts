@@ -1,7 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, TipoListaPrecio } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
-import type { CreateCategoriaDto, CreateProductDto, UpdateProductDto } from './products.dto';
+import type {
+  BulkPriceDto,
+  CreateCategoriaDto,
+  CreateProductDto,
+  UpdateCategoriaDto,
+  UpdateProductDto,
+} from './products.dto';
 
 @Injectable()
 export class ProductsService {
@@ -101,6 +107,43 @@ export class ProductsService {
     return this.prisma.categoria.create({
       data: { tenantId, nombre: dto.nombre, ivaIndicadorDefault: dto.ivaIndicadorDefault },
     });
+  }
+
+  async updateCategoria(tenantId: string, id: string, dto: UpdateCategoriaDto) {
+    await this.assertCategoria(tenantId, id);
+    return this.prisma.categoria.update({
+      where: { id },
+      data: { nombre: dto.nombre, ivaIndicadorDefault: dto.ivaIndicadorDefault, orden: dto.orden },
+    });
+  }
+
+  /**
+   * Actualización masiva de precios de mostrador (por % o precio fijo), opcional
+   * por categoría y con redondeo. Pensado para el ajuste diario de la verdulería.
+   */
+  async bulkUpdatePrices(tenantId: string, dto: BulkPriceDto) {
+    if (dto.operacion === 'PORCENTAJE' && dto.valor <= -100) {
+      throw new BadRequestException('El porcentaje dejaría precios negativos');
+    }
+    const listId = await this.mostradorListId(tenantId);
+    const items = await this.prisma.priceListItem.findMany({
+      where: {
+        tenantId,
+        priceListId: listId,
+        product: { is: { activo: true, ...(dto.categoriaId ? { categoriaId: dto.categoriaId } : {}) } },
+      },
+    });
+
+    let actualizados = 0;
+    for (const it of items) {
+      const actual = Number(it.precio);
+      let nuevo = dto.operacion === 'FIJO' ? dto.valor : actual * (1 + dto.valor / 100);
+      if (dto.redondear && dto.redondear > 0) nuevo = Math.round(nuevo / dto.redondear) * dto.redondear;
+      nuevo = Math.max(0, Number(nuevo.toFixed(4)));
+      await this.prisma.priceListItem.update({ where: { id: it.id }, data: { precio: new Prisma.Decimal(nuevo) } });
+      actualizados++;
+    }
+    return { actualizados };
   }
 
   private async assertCategoria(tenantId: string, categoriaId: string): Promise<void> {

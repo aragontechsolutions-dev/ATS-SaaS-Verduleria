@@ -76,6 +76,31 @@ export const getProducts = async () =>
 export const getCategorias = async () =>
   ok<Categoria[]>(await fetch(`${API_BASE}/products/categorias/all`, { headers: headers() }), 'categorias');
 
+export const createCategoria = async (input: { nombre: string; ivaIndicadorDefault?: IvaIndicador }) =>
+  ok<Categoria>(
+    await fetch(`${API_BASE}/products/categorias`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
+    'createCategoria',
+  );
+
+export const updateCategoria = async (id: string, patch: { nombre?: string; ivaIndicadorDefault?: IvaIndicador }) =>
+  ok<Categoria>(
+    await fetch(`${API_BASE}/products/categorias/${id}`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) }),
+    'updateCategoria',
+  );
+
+export interface BulkPriceInput {
+  operacion: 'PORCENTAJE' | 'FIJO';
+  valor: number;
+  categoriaId?: string;
+  redondear?: number;
+}
+
+export const bulkPrices = async (input: BulkPriceInput) =>
+  ok<{ actualizados: number }>(
+    await fetch(`${API_BASE}/products/prices/bulk`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
+    'bulkPrices',
+  );
+
 export const createProduct = async (input: ProductInput) =>
   ok<{ id: string }>(
     await fetch(`${API_BASE}/products`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
