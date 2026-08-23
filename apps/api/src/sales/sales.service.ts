@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { IvaIndicador, Prisma, SaleStatus, StockMovementType } from '@ats/database';
+import { IvaIndicador, MedioPago, Prisma, SaleStatus, StockMovementType } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateSaleDto } from './sales.dto';
 
@@ -137,6 +137,26 @@ export class SalesService {
               motivo: 'Venta',
               refId: sale.id,
             },
+          });
+        }
+      }
+
+      // Fiado: si hay cliente y una parte se pagó con CUENTA_CORRIENTE, se carga
+      // a su cuenta corriente (crea la cuenta si no existía) y queda trazado.
+      if (dto.customerId) {
+        const credito = (dto.payments ?? [])
+          .filter((p) => p.medio === MedioPago.CUENTA_CORRIENTE)
+          .reduce((s, p) => s + Number(p.monto), 0);
+        if (credito > 0) {
+          const account =
+            (await tx.accountReceivable.findUnique({ where: { customerId: dto.customerId } })) ??
+            (await tx.accountReceivable.create({ data: { tenantId, customerId: dto.customerId, saldo: new Prisma.Decimal(0) } }));
+          await tx.accountReceivable.update({
+            where: { id: account.id },
+            data: { saldo: new Prisma.Decimal(Number(account.saldo) + credito) },
+          });
+          await tx.accountMovement.create({
+            data: { tenantId, accountId: account.id, monto: new Prisma.Decimal(credito), concepto: 'Venta a cuenta', refId: sale.id },
           });
         }
       }

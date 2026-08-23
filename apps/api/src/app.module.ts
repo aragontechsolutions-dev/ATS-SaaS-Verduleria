@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { EntitlementsModule } from './entitlements/entitlements.module';
 import { CfeModule } from './cfe/cfe.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { CustomersModule } from './customers/customers.module';
 import { SalesModule } from './sales/sales.module';
 import { CashModule } from './cash/cash.module';
 import { PlatformModule } from './platform/platform.module';
@@ -32,6 +33,7 @@ import { HealthController } from './health/health.controller';
     EntitlementsModule,
     CfeModule,
     CatalogModule,
+    CustomersModule,
     SalesModule,
     CashModule,
     PlatformModule,
