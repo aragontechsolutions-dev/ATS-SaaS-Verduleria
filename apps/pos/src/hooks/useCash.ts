@@ -6,7 +6,7 @@ export interface CashState {
   session: CashSession | null;
   loading: boolean;
   error: string | null;
-  open: (montoApertura: number) => Promise<void>;
+  open: (montoApertura: number, sucursalId?: string) => Promise<void>;
   refresh: () => Promise<void>;
   clear: () => void;
 }
@@ -26,11 +26,11 @@ export function useCash(): CashState {
     }
   }, []);
 
-  const open = useCallback(async (montoApertura: number) => {
+  const open = useCallback(async (montoApertura: number, sucursalId?: string) => {
     setLoading(true);
     setError(null);
     try {
-      setSession(await openCash(montoApertura));
+      setSession(await openCash(montoApertura, sucursalId));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
