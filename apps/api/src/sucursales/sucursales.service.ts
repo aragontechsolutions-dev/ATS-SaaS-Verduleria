@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, StockMovementType } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
+import { promedioPonderado } from '../common/money';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import type { CreateSucursalDto, TransferStockDto, UpdateSucursalDto } from './sucursales.dto';
 
@@ -99,7 +100,7 @@ export class SucursalesService {
       const prevCant = num(destino?.cantidad);
       const prevCosto = num(destino?.costoPromedio);
       const nuevaCant = prevCant + dto.cantidad;
-      const nuevoCosto = nuevaCant > 0 ? (prevCant * prevCosto + dto.cantidad * costoUnit) / nuevaCant : costoUnit;
+      const nuevoCosto = promedioPonderado(prevCant, prevCosto, dto.cantidad, costoUnit);
 
       if (destino) {
         await tx.stock.update({

@@ -11,7 +11,7 @@
     "start:debug": "nest start --debug --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint \"src/**/*.ts\"",
-    "test": "node --test"
+    "test": "node --experimental-strip-types --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@ats/cfe": "*",

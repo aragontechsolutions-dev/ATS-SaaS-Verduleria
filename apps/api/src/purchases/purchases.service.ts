@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, StockMovementType, TipoListaPrecio } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
+import { costoUnitConMerma, margenPct, promedioPonderado } from '../common/money';
 import type {
   CreatePurchaseDto,
   CreateSupplierDto,
@@ -143,8 +144,7 @@ export class PurchasesService {
         const costoLinea = it.cantidadCompra * it.costoUnitCompra;
         total += costoLinea;
 
-        const merma = Math.min(0.99, Math.max(0, num(prod.mermaPct)));
-        const costoUnitVenta = costoLinea / rinde / (1 - merma);
+        const costoUnitVenta = costoUnitConMerma(costoLinea, rinde, num(prod.mermaPct));
 
         await tx.purchaseItem.create({
           data: {
@@ -164,7 +164,7 @@ export class PurchasesService {
         const prevCant = num(stock?.cantidad);
         const prevCosto = num(stock?.costoPromedio);
         const nuevaCant = prevCant + rinde;
-        const nuevoCosto = nuevaCant > 0 ? (prevCant * prevCosto + rinde * costoUnitVenta) / nuevaCant : costoUnitVenta;
+        const nuevoCosto = promedioPonderado(prevCant, prevCosto, rinde, costoUnitVenta);
 
         if (stock) {
           await tx.stock.update({
@@ -224,7 +224,7 @@ export class PurchasesService {
       const costoPeso = p.stockItems.reduce((s, x) => s + num(x.cantidad) * num(x.costoPromedio), 0);
       const costoPromedio = cantidad > 0 ? costoPeso / cantidad : num(p.stockItems[0]?.costoPromedio);
       const precio = num(p.priceItems[0]?.precio);
-      const margenPct = precio > 0 && costoPromedio > 0 ? ((precio - costoPromedio) / precio) * 100 : null;
+      const margen = costoPromedio > 0 ? margenPct(precio, costoPromedio) : null;
       return {
         productId: p.id,
         nombre: p.nombre,
@@ -233,7 +233,7 @@ export class PurchasesService {
         cantidad: Number(cantidad.toFixed(3)),
         costoPromedio: Number(costoPromedio.toFixed(4)),
         precio,
-        margenPct: margenPct == null ? null : Number(margenPct.toFixed(1)),
+        margenPct: margen == null ? null : Number(margen.toFixed(1)),
       };
     });
   }

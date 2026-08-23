@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancela corridas viejas de la misma rama/PR cuando llega un push nuevo.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Typecheck, build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # El cliente Prisma y el paquete CFE son dependencias de la API: se
+      # construyen primero para que el typecheck y el build las encuentren.
+      - name: Generar cliente Prisma (@ats/database)
+        run: npm run build -w @ats/database
+
+      - name: Build @ats/cfe
+        run: npm run build -w @ats/cfe
+
+      - name: Typecheck (todos los workspaces)
+        run: npm run typecheck
+
+      - name: Build API
+        run: npm run build -w @ats/api
+
+      - name: Build frontends
+        run: |
+          npm run build -w @ats/admin
+          npm run build -w @ats/pos
+          npm run build -w @ats/console
+
+      - name: Tests unitarios (@ats/api)
+        run: npm test -w @ats/api
