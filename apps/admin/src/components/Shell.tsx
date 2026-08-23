@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { ProductsPage } from './ProductsPage';
 import { UsersPage } from './UsersPage';
+import { ReportsPage } from './ReportsPage';
 
-type Tab = 'productos' | 'usuarios';
+type Tab = 'reportes' | 'productos' | 'usuarios';
 
 export function Shell({ email, onLogout }: { email: string; onLogout: () => void }) {
-  const [tab, setTab] = useState<Tab>('productos');
+  const [tab, setTab] = useState<Tab>('reportes');
 
   return (
     <div className="app">
@@ -15,6 +16,9 @@ export function Shell({ email, onLogout }: { email: string; onLogout: () => void
           Administración
         </div>
         <nav className="tabs">
+          <button className={`tab ${tab === 'reportes' ? 'tab--on' : ''}`} onClick={() => setTab('reportes')}>
+            Reportes
+          </button>
           <button className={`tab ${tab === 'productos' ? 'tab--on' : ''}`} onClick={() => setTab('productos')}>
             Productos
           </button>
@@ -29,7 +33,9 @@ export function Shell({ email, onLogout }: { email: string; onLogout: () => void
       </header>
 
       <main className="content">
-        {tab === 'productos' ? <ProductsPage /> : <UsersPage />}
+        {tab === 'reportes' && <ReportsPage />}
+        {tab === 'productos' && <ProductsPage />}
+        {tab === 'usuarios' && <UsersPage />}
       </main>
     </div>
   );
