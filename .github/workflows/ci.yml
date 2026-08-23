@@ -47,3 +47,6 @@ jobs:
 
       - name: Tests unitarios (@ats/api)
         run: npm test -w @ats/api
+
+      - name: Tests del POS (@ats/pos)
+        run: npm test -w @ats/pos

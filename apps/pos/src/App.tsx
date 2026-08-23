@@ -9,10 +9,12 @@ import { PaymentModal } from './components/PaymentModal';
 import { OpenCashModal } from './components/OpenCashModal';
 import { CloseCashModal } from './components/CloseCashModal';
 import { TicketModal } from './components/TicketModal';
+import { ScaleSettingsModal } from './components/ScaleSettingsModal';
 import { useCatalog } from './hooks/useCatalog';
 import { useOnline } from './hooks/useOnline';
 import { useScanner } from './hooks/useScanner';
 import { useCash } from './hooks/useCash';
+import { useScale } from './hooks/useScale';
 import { cartItemFromProduct, useCart } from './state/cart';
 import { parseScan } from './lib/barcode';
 import { getSucursales } from './lib/api';
@@ -54,6 +56,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const [paying, setPaying] = useState(false);
   const [openingCash, setOpeningCash] = useState(false);
   const [closingCash, setClosingCash] = useState(false);
+  const [scaleOpen, setScaleOpen] = useState(false);
+  const scale = useScale();
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
 
   useEffect(() => {
@@ -173,9 +177,11 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         total={cart.total}
         cash={cash.session}
         sucursalNombre={sucursalNombre}
+        scaleLive={scale.live && scale.connected}
         userEmail={userEmail}
         onOpenCash={() => setOpeningCash(true)}
         onCloseCash={() => setClosingCash(true)}
+        onOpenScale={() => setScaleOpen(true)}
         onLogout={onLogout}
       />
       <main className="main">
@@ -197,6 +203,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
       {weighing && (
         <WeighModal
           product={weighing}
+          liveReading={scale.live && scale.connected ? scale.reading : null}
           onConfirm={(cantidad) => {
             addProduct(weighing, cantidad);
             setWeighing(null);
@@ -204,6 +211,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
           onCancel={() => setWeighing(null)}
         />
       )}
+
+      {scaleOpen && <ScaleSettingsModal scale={scale} onClose={() => setScaleOpen(false)} />}
 
       {paying && !cobrarDisabled && (
         <PaymentModal total={cart.total} onConfirm={onConfirmPayment} onCancel={() => setPaying(false)} />
