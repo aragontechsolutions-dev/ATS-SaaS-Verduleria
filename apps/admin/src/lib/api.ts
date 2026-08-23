@@ -325,6 +325,49 @@ export const addCustomerPayment = async (id: string, input: { monto: number; con
 export const addCustomerCharge = async (id: string, input: { monto: number; concepto?: string }) =>
   ok<{ saldo: number }>(await fetch(`${API_BASE}/customers/${id}/charges`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }), 'charge');
 
+// --- Mi web (landing del tenant) --------------------------------------------
+
+export interface LandingProducto {
+  nombre: string;
+  precio: string;
+  imagenUrl: string;
+}
+
+export interface LandingConfig {
+  tema: { color: string };
+  hero: { mostrar: boolean; titulo: string; lema: string; imagenUrl: string };
+  productos: { mostrar: boolean; titulo: string; items: LandingProducto[] };
+  horarios: { mostrar: boolean; texto: string; direccion: string; mapaUrl: string };
+  contacto: { mostrar: boolean; whatsapp: string; telefono: string; instagram: string; facebook: string };
+}
+
+export interface LandingState {
+  slug: string;
+  estaPublicado: boolean;
+  draft: LandingConfig;
+}
+
+export const getLanding = async () =>
+  ok<LandingState>(await fetch(`${API_BASE}/landing`, { headers: headers() }), 'landing');
+
+export const saveLanding = async (config: LandingConfig) =>
+  ok<{ draft: LandingConfig }>(
+    await fetch(`${API_BASE}/landing`, { method: 'PUT', headers: headers(), body: JSON.stringify({ config }) }),
+    'saveLanding',
+  );
+
+export const publishLanding = async () =>
+  ok<{ estaPublicado: boolean }>(
+    await fetch(`${API_BASE}/landing/publish`, { method: 'POST', headers: headers() }),
+    'publishLanding',
+  );
+
+export const unpublishLanding = async () =>
+  ok<{ estaPublicado: boolean }>(
+    await fetch(`${API_BASE}/landing/unpublish`, { method: 'POST', headers: headers() }),
+    'unpublishLanding',
+  );
+
 // --- Usuarios ---------------------------------------------------------------
 
 export type Role =

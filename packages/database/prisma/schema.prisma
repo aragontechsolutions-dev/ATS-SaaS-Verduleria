@@ -234,8 +234,27 @@ model Tenant {
   deliveryOrders DeliveryOrder[]
   routes        Route[]
   accounts      AccountReceivable[]
+  landing       TenantLanding?
 
   @@index([activo])
+}
+
+/// Landing pública configurable por el admin del tenant (motor único,
+/// contenido por tenant). `draft` es lo que edita el admin; `publicado` es lo
+/// que ve el público (por slug). La estructura del JSON la define la app.
+model TenantLanding {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @unique @db.Uuid
+  estaPublicado Boolean  @default(false)
+  /// Borrador que edita el admin (secciones: hero, productos, horarios, contacto, tema).
+  draft         Json
+  /// Snapshot publicado que consume la página pública. Null hasta la 1ª publicación.
+  publicado     Json?
+  updatedAt     DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 /// Configuración del proveedor de facturación electrónica por tenant.
