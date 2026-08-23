@@ -87,3 +87,46 @@ export const updateProduct = async (id: string, patch: Partial<ProductInput> & {
     await fetch(`${API_BASE}/products/${id}`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) }),
     'updateProduct',
   );
+
+// --- Usuarios ---------------------------------------------------------------
+
+export type Role =
+  | 'ADMIN' | 'ENCARGADO' | 'CAJERO' | 'DEPOSITO'
+  | 'REPARTIDOR' | 'COMPRADOR' | 'MAYORISTA' | 'CONTADOR';
+
+export interface TenantUser {
+  membershipId: string;
+  userId: string;
+  email: string;
+  nombre: string;
+  role: Role;
+  activo: boolean;
+}
+
+export interface CreateUserInput {
+  email: string;
+  nombre: string;
+  role: Role;
+  password?: string;
+}
+
+export interface CreateUserResult {
+  email: string;
+  password?: string;
+  loginCreado: boolean;
+}
+
+export const getUsers = async () =>
+  ok<TenantUser[]>(await fetch(`${API_BASE}/users`, { headers: headers() }), 'users');
+
+export const createUser = async (input: CreateUserInput) =>
+  ok<CreateUserResult>(
+    await fetch(`${API_BASE}/users`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
+    'createUser',
+  );
+
+export const updateUser = async (membershipId: string, patch: { role?: Role; activo?: boolean }) =>
+  ok<unknown>(
+    await fetch(`${API_BASE}/users/${membershipId}`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) }),
+    'updateUser',
+  );
