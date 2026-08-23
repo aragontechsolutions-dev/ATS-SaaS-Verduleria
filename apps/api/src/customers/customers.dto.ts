@@ -1,0 +1,116 @@
+import { TipoDocumentoCliente } from '@ats/database';
+import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+
+export class CreateCustomerDto {
+  @IsString()
+  @MinLength(2)
+  nombre!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  esMayorista?: boolean;
+
+  @IsOptional()
+  @IsEnum(TipoDocumentoCliente)
+  tipoDocumento?: TipoDocumentoCliente;
+
+  @IsOptional()
+  @IsString()
+  documento?: string;
+
+  @IsOptional()
+  @IsString()
+  razonSocial?: string;
+
+  @IsOptional()
+  @IsString()
+  direccion?: string;
+
+  @IsOptional()
+  @IsString()
+  telefono?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  priceListId?: string;
+
+  /** Límite de crédito para la cuenta corriente (0 = sin límite definido). */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  limiteCredito?: number;
+}
+
+export class UpdateCustomerDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  nombre?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  esMayorista?: boolean;
+
+  @IsOptional()
+  @IsEnum(TipoDocumentoCliente)
+  tipoDocumento?: TipoDocumentoCliente;
+
+  @IsOptional()
+  @IsString()
+  documento?: string;
+
+  @IsOptional()
+  @IsString()
+  razonSocial?: string;
+
+  @IsOptional()
+  @IsString()
+  direccion?: string;
+
+  @IsOptional()
+  @IsString()
+  telefono?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  priceListId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  limiteCredito?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  activo?: boolean;
+}
+
+/** Cobranza: reduce el saldo de la cuenta corriente. */
+export class PaymentDto {
+  @IsNumber()
+  @Min(0.01)
+  monto!: number;
+
+  @IsOptional()
+  @IsString()
+  concepto?: string;
+}
+
+/** Cargo manual: aumenta el saldo (ajuste/deuda fuera de una venta). */
+export class ChargeDto {
+  @IsNumber()
+  @Min(0.01)
+  monto!: number;
+
+  @IsOptional()
+  @IsString()
+  concepto?: string;
+}

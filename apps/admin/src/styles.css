@@ -148,3 +148,6 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 /* Rentabilidad: destacar la ganancia bruta */
 .tile--accent { background: linear-gradient(140deg, rgba(18,140,126,.10), rgba(130,211,61,.12)); border-color: rgba(18,140,126,.30); }
 .tile--accent .tile__value { color: var(--primary); }
+
+/* Modal ancho para la cuenta corriente */
+.modal--wide { width: 620px; }

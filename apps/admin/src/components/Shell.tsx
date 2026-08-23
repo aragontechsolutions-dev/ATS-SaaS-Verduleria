@@ -4,11 +4,12 @@ import { CategoriasPage } from './CategoriasPage';
 import { ComprasPage } from './ComprasPage';
 import { StockPage } from './StockPage';
 import { SucursalesPage } from './SucursalesPage';
+import { MayoristasPage } from './MayoristasPage';
 import { UsersPage } from './UsersPage';
 import { ReportsPage } from './ReportsPage';
 import { SettingsPage } from './SettingsPage';
 
-type Tab = 'reportes' | 'productos' | 'categorias' | 'compras' | 'stock' | 'sucursales' | 'usuarios' | 'config';
+type Tab = 'reportes' | 'productos' | 'categorias' | 'compras' | 'stock' | 'sucursales' | 'mayoristas' | 'usuarios' | 'config';
 
 export function Shell({ email, onLogout }: { email: string; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>('reportes');
@@ -39,6 +40,9 @@ export function Shell({ email, onLogout }: { email: string; onLogout: () => void
           <button className={`tab ${tab === 'sucursales' ? 'tab--on' : ''}`} onClick={() => setTab('sucursales')}>
             Sucursales
           </button>
+          <button className={`tab ${tab === 'mayoristas' ? 'tab--on' : ''}`} onClick={() => setTab('mayoristas')}>
+            Mayoristas
+          </button>
           <button className={`tab ${tab === 'usuarios' ? 'tab--on' : ''}`} onClick={() => setTab('usuarios')}>
             Usuarios
           </button>
@@ -59,6 +63,7 @@ export function Shell({ email, onLogout }: { email: string; onLogout: () => void
         {tab === 'compras' && <ComprasPage />}
         {tab === 'stock' && <StockPage />}
         {tab === 'sucursales' && <SucursalesPage />}
+        {tab === 'mayoristas' && <MayoristasPage />}
         {tab === 'usuarios' && <UsersPage />}
         {tab === 'config' && <SettingsPage />}
       </main>

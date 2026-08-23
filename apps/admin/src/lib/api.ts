@@ -262,6 +262,69 @@ export const transferStock = async (input: TransferInput) =>
     'transferStock',
   );
 
+// --- Mayoristas / cuenta corriente ------------------------------------------
+
+export type TipoDocumento = 'NIE' | 'RUC' | 'CI' | 'OTROS' | 'PASAPORTE' | 'DNI' | 'NIFE';
+
+export interface Customer {
+  id: string;
+  nombre: string;
+  esMayorista: boolean;
+  documento: string | null;
+  razonSocial: string | null;
+  telefono: string | null;
+  email: string | null;
+  priceListId: string | null;
+  limiteCredito: number;
+  saldo: number;
+  activo: boolean;
+}
+
+export interface CustomerInput {
+  nombre: string;
+  esMayorista?: boolean;
+  tipoDocumento?: TipoDocumento;
+  documento?: string;
+  razonSocial?: string;
+  telefono?: string;
+  email?: string;
+  limiteCredito?: number;
+}
+
+export interface AccountMovement {
+  id: string;
+  fecha: string;
+  monto: number;
+  tipo: 'CARGO' | 'PAGO';
+  concepto: string | null;
+}
+
+export interface CustomerAccount {
+  customer: Customer;
+  saldo: number;
+  limiteCredito: number;
+  disponible: number | null;
+  movimientos: AccountMovement[];
+}
+
+export const getCustomers = async () =>
+  ok<Customer[]>(await fetch(`${API_BASE}/customers`, { headers: headers() }), 'customers');
+
+export const createCustomer = async (input: CustomerInput) =>
+  ok<Customer>(await fetch(`${API_BASE}/customers`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }), 'createCustomer');
+
+export const updateCustomer = async (id: string, patch: Partial<CustomerInput> & { activo?: boolean }) =>
+  ok<Customer>(await fetch(`${API_BASE}/customers/${id}`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) }), 'updateCustomer');
+
+export const getCustomerAccount = async (id: string) =>
+  ok<CustomerAccount>(await fetch(`${API_BASE}/customers/${id}/account`, { headers: headers() }), 'account');
+
+export const addCustomerPayment = async (id: string, input: { monto: number; concepto?: string }) =>
+  ok<{ saldo: number }>(await fetch(`${API_BASE}/customers/${id}/payments`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }), 'payment');
+
+export const addCustomerCharge = async (id: string, input: { monto: number; concepto?: string }) =>
+  ok<{ saldo: number }>(await fetch(`${API_BASE}/customers/${id}/charges`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }), 'charge');
+
 // --- Usuarios ---------------------------------------------------------------
 
 export type Role =
