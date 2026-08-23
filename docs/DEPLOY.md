@@ -173,3 +173,27 @@ Entra con el usuario **ADMIN/ENCARGADO** de esa verdulería (ej. `admin@demo.uy`
 - Restringir `CORS_ORIGIN` al dominio real (ya soportado).
 - Activar y probar **RLS** si se expone la BD vía PostgREST.
 - Nunca usar la **service_role key** de Supabase desde el cliente.
+
+## Sitio público — `apps/web` (Vercel, 4º proyecto)
+
+Una sola app pública sirve **dos cosas**:
+
+- `/` → landing de **Aragon** (el SaaS).
+- `/v/:slug` → landing pública de **cada verdulería** (lee `GET /api/public/landing/:slug`; 404 si no está publicada).
+
+### Vercel
+- **Root Directory**: `apps/web` · **Framework**: Vite · **Output**: `dist`.
+- `apps/web/vercel.json` ya reescribe las rutas al `index.html` (SPA), así `/v/:slug` funciona con recarga.
+- **Variables** (Build):
+  - `VITE_API_URL` → `https://<api-en-render>/api`
+  - `VITE_CONSOLE_URL` → URL del login del dueño (Consola)
+  - `VITE_ADMIN_URL` → URL del login de las verdulerías (Panel)
+- Recordá: Vite hornea las env en el build → si las cambiás, **redeploy**.
+
+### Acceso al login (oculto)
+El login no se muestra en la landing. Para entrar, **Ctrl + Shift + click en el logo**:
+- en `/` (Aragon) → va a la **Consola** (`VITE_CONSOLE_URL`);
+- en `/v/:slug` (verdulería) → va al **Panel** (`VITE_ADMIN_URL`).
+
+> En móvil no hay Ctrl/Shift; el acceso oculto es para desktop. Si querés un
+> atajo móvil (ej. mantener presionado el logo), se agrega aparte.
