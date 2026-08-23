@@ -8,6 +8,7 @@ interface Props {
   listaPrecio: string | null;
   total: number;
   cash: CashSession | null;
+  sucursalNombre?: string | null;
   userEmail?: string;
   onOpenCash: () => void;
   onCloseCash: () => void;
@@ -21,6 +22,7 @@ export function StatusBar({
   listaPrecio,
   total,
   cash,
+  sucursalNombre,
   userEmail,
   onOpenCash,
   onCloseCash,
@@ -37,6 +39,7 @@ export function StatusBar({
           {online ? '● En línea' : '○ Sin conexión'}
         </span>
         {pendientes > 0 && <span className="pill pill--info">↻ {pendientes} por sincronizar</span>}
+        {sucursalNombre && <span className="pill pill--info">🏪 {sucursalNombre}</span>}
         {fromCache && <span className="pill pill--muted">catálogo local</span>}
         {listaPrecio && <span className="pill pill--muted">{listaPrecio}</span>}
         {cash ? (

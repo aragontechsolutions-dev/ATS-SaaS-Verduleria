@@ -79,6 +79,7 @@ export interface CashSession {
   status: 'ABIERTA' | 'CERRADA';
   montoApertura: string | number;
   aperturaAt: string;
+  sucursalId?: string | null;
 }
 
 export interface CashSummary {

@@ -15,6 +15,8 @@ import { useScanner } from './hooks/useScanner';
 import { useCash } from './hooks/useCash';
 import { cartItemFromProduct, useCart } from './state/cart';
 import { parseScan } from './lib/barcode';
+import { getSucursales } from './lib/api';
+import type { Sucursal } from './lib/api';
 import { supabase } from './lib/supabase';
 import { countPending, enqueueSale, getSale } from './lib/db';
 import { flushOutbox, onSyncChange, startAutoSync } from './lib/sync';
@@ -52,6 +54,11 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const [paying, setPaying] = useState(false);
   const [openingCash, setOpeningCash] = useState(false);
   const [closingCash, setClosingCash] = useState(false);
+  const [sucursales, setSucursales] = useState<Sucursal[]>([]);
+
+  useEffect(() => {
+    void getSucursales().then(setSucursales).catch(() => setSucursales([]));
+  }, []);
   const [ticket, setTicket] = useState<OutboxSale | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -150,6 +157,12 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
 
   const cobrarDisabled = cart.items.length === 0;
 
+  // Nombre de la sucursal del turno (solo si hay más de una, para diferenciar).
+  const sucursalNombre =
+    sucursales.length > 1 && cash.session?.sucursalId
+      ? sucursales.find((s) => s.id === cash.session?.sucursalId)?.nombre ?? null
+      : null;
+
   return (
     <div className="app">
       <StatusBar
@@ -159,6 +172,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         listaPrecio={listaPrecio}
         total={cart.total}
         cash={cash.session}
+        sucursalNombre={sucursalNombre}
         userEmail={userEmail}
         onOpenCash={() => setOpeningCash(true)}
         onCloseCash={() => setClosingCash(true)}
@@ -198,8 +212,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
       {openingCash && (
         <OpenCashModal
           loading={cash.loading}
-          onConfirm={async (monto) => {
-            await cash.open(monto);
+          onConfirm={async (monto, sucursalId) => {
+            await cash.open(monto, sucursalId);
             setOpeningCash(false);
             showToast('Caja abierta');
           }}

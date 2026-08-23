@@ -98,6 +98,19 @@ export async function getCfePdf(cfeDocId: string, tipo: 'A4' | 'ticket80' = 'tic
   return res.blob();
 }
 
+// --- Sucursales -------------------------------------------------------------
+
+export interface Sucursal {
+  id: string;
+  nombre: string;
+  codigo: number;
+  activo: boolean;
+}
+
+export async function getSucursales(): Promise<Sucursal[]> {
+  return ok(await fetch(`${API_BASE}/sucursales`, { headers: headers() }), 'sucursales');
+}
+
 // --- Caja / arqueo ----------------------------------------------------------
 
 export async function openCash(montoApertura: number, sucursalId?: string): Promise<CashSession> {
