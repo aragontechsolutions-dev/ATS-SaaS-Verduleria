@@ -50,6 +50,7 @@ import { HealthController } from './health/health.controller';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     // Resuelve el tenant en TODAS las rutas (lo mete en el AsyncLocalStorage).
-    consumer.apply(TenantMiddleware).forRoutes('*');
+    // Express 5 / path-to-regexp v8: el comodín ahora es un parámetro nombrado.
+    consumer.apply(TenantMiddleware).forRoutes('{*path}');
   }
 }

@@ -3,14 +3,19 @@ import helmet from 'helmet';
 import { json, urlencoded } from 'express';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { ExpressAdapter, type NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 import type { AppConfig } from './config/configuration';
 
 async function bootstrap(): Promise<void> {
+  // Pasamos el adapter de Express explícitamente (en vez de dejar que NestFactory
+  // lo resuelva dinámicamente) para que no dependa del hoisting del monorepo.
   // Desactivamos el body-parser por defecto para fijar un límite de tamaño
   // explícito (evita DoS por payloads gigantes).
-  const app = await NestFactory.create(AppModule, { bodyParser: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, new ExpressAdapter(), {
+    bodyParser: false,
+  });
   app.use(json({ limit: '1mb' }));
   app.use(urlencoded({ extended: true, limit: '1mb' }));
   app.setGlobalPrefix('api');
