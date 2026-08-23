@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { ProductsPage } from './ProductsPage';
 import { CategoriasPage } from './CategoriasPage';
+import { ComprasPage } from './ComprasPage';
+import { StockPage } from './StockPage';
 import { UsersPage } from './UsersPage';
 import { ReportsPage } from './ReportsPage';
 import { SettingsPage } from './SettingsPage';
 
-type Tab = 'reportes' | 'productos' | 'categorias' | 'usuarios' | 'config';
+type Tab = 'reportes' | 'productos' | 'categorias' | 'compras' | 'stock' | 'usuarios' | 'config';
 
 export function Shell({ email, onLogout }: { email: string; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>('reportes');
@@ -27,6 +29,12 @@ export function Shell({ email, onLogout }: { email: string; onLogout: () => void
           <button className={`tab ${tab === 'categorias' ? 'tab--on' : ''}`} onClick={() => setTab('categorias')}>
             Categorías
           </button>
+          <button className={`tab ${tab === 'compras' ? 'tab--on' : ''}`} onClick={() => setTab('compras')}>
+            Compras
+          </button>
+          <button className={`tab ${tab === 'stock' ? 'tab--on' : ''}`} onClick={() => setTab('stock')}>
+            Stock
+          </button>
           <button className={`tab ${tab === 'usuarios' ? 'tab--on' : ''}`} onClick={() => setTab('usuarios')}>
             Usuarios
           </button>
@@ -44,6 +52,8 @@ export function Shell({ email, onLogout }: { email: string; onLogout: () => void
         {tab === 'reportes' && <ReportsPage />}
         {tab === 'productos' && <ProductsPage />}
         {tab === 'categorias' && <CategoriasPage />}
+        {tab === 'compras' && <ComprasPage />}
+        {tab === 'stock' && <StockPage />}
         {tab === 'usuarios' && <UsersPage />}
         {tab === 'config' && <SettingsPage />}
       </main>

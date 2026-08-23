@@ -129,3 +129,18 @@ code { font-family: ui-monospace, monospace; }
 .seg { padding: 8px 14px; border: none; background: transparent; border-radius: 8px; font-weight: 600; color: var(--muted); font-size: 13px; }
 .seg--on { background: var(--primary); color: #fff; }
 .modal__sub { color: var(--muted); margin: 0 0 6px; }
+
+/* Compras / Stock */
+.btn--danger { background: var(--warn); color: #fff; }
+.btn--danger:disabled { background: #d98a8a; }
+.num { text-align: right; }
+th.num, td.num { text-align: right; white-space: nowrap; }
+.pill { background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.mrg { font-weight: 700; padding: 2px 8px; border-radius: 999px; font-size: 13px; }
+.mrg--ok { background: #e6f4ea; color: #1b7a3e; }
+.mrg--warn { background: #fff4e0; color: #a15c00; }
+.mrg--bad { background: #fdeaea; color: var(--warn); }
+.compra__foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
+.compra__total { margin-left: auto; font-size: 16px; color: var(--text); }
+.compra__total strong { font-family: var(--font-head); }
