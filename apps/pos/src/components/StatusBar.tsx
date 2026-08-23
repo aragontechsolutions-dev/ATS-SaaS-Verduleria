@@ -9,9 +9,11 @@ interface Props {
   total: number;
   cash: CashSession | null;
   sucursalNombre?: string | null;
+  scaleLive?: boolean;
   userEmail?: string;
   onOpenCash: () => void;
   onCloseCash: () => void;
+  onOpenScale: () => void;
   onLogout: () => void;
 }
 
@@ -23,9 +25,11 @@ export function StatusBar({
   total,
   cash,
   sucursalNombre,
+  scaleLive,
   userEmail,
   onOpenCash,
   onCloseCash,
+  onOpenScale,
   onLogout,
 }: Props) {
   return (
@@ -51,6 +55,9 @@ export function StatusBar({
             🔒 Abrir caja
           </button>
         )}
+        <button className={`pill ${scaleLive ? 'pill--ok' : 'pill--muted'}`} onClick={onOpenScale} title="Balanza">
+          ⚖ Balanza{scaleLive ? ' ●' : ''}
+        </button>
       </div>
       <div className="statusbar__total">Total: {formatMoney(total)}</div>
       {userEmail && <span className="statusbar__tenant">{userEmail}</span>}

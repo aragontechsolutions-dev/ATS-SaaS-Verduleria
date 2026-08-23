@@ -173,3 +173,17 @@ button { font: inherit; cursor: pointer; }
 .login__btn { margin-top: 8px; }
 .login__err { color: var(--warn); font-size: 14px; margin: 0; text-align: center; }
 .login__foot { color: rgba(255,255,255,.85); font-size: 12px; text-align: center; max-width: 380px; }
+
+/* Balanza — configuración y lectura en vivo */
+.modal__hint { font-size: 13px; color: var(--muted); margin: -6px 0 8px; }
+.modal__hint--warn { color: var(--warn); }
+.scale-live { display: flex; align-items: center; gap: 12px; margin: 10px 0; }
+.scale-status { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+.scale-status.is-on { background: #e6f4ea; color: #1b7a3e; border-color: #b7e0c2; }
+.scale-live__w { font-family: var(--font-head); font-weight: 800; font-size: 22px; color: var(--primary-dark); }
+.scale-live__w.is-stable { color: #1b7a3e; }
+.scale-read { width: 100%; display: flex; flex-direction: column; gap: 2px; align-items: center; padding: 14px; margin-bottom: 12px; border: 2px dashed var(--border); border-radius: 12px; background: var(--bg); cursor: pointer; }
+.scale-read.is-stable { border-color: #1b7a3e; border-style: solid; background: #e6f4ea; }
+.scale-read__w { font-family: var(--font-head); font-weight: 800; font-size: 34px; color: var(--primary-dark); }
+.scale-read.is-stable .scale-read__w { color: #1b7a3e; }
+.scale-read__hint { font-size: 13px; color: var(--muted); }
