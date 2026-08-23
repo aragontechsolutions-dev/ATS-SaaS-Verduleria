@@ -100,22 +100,25 @@ export class BillingService {
   }
 
   /**
-   * Marca como VENCIDA las facturas PENDIENTE pasadas de vencimiento y suspende
-   * a esos tenants (suscripción SUSPENDIDA + tenant inactivo). Impago → corte.
+   * Marca como VENCIDA las facturas PENDIENTE pasadas de vencimiento. Si
+   * `suspend` es true, además suspende al tenant (suscripción SUSPENDIDA +
+   * tenant inactivo). Impago → corte.
    */
-  async processOverdue() {
+  async processOverdue(suspend = true) {
     const vencidas = await this.prisma.platformInvoice.findMany({
       where: { estado: 'PENDIENTE', vencimiento: { lt: new Date() } },
     });
     let suspendidos = 0;
     for (const inv of vencidas) {
       await this.prisma.platformInvoice.update({ where: { id: inv.id }, data: { estado: 'VENCIDA' } });
-      await this.prisma.subscription.updateMany({
-        where: { tenantId: inv.tenantId, estado: { not: SubscriptionStatus.CANCELADA } },
-        data: { estado: SubscriptionStatus.SUSPENDIDA },
-      });
-      await this.prisma.tenant.update({ where: { id: inv.tenantId }, data: { activo: false } });
-      suspendidos++;
+      if (suspend) {
+        await this.prisma.subscription.updateMany({
+          where: { tenantId: inv.tenantId, estado: { not: SubscriptionStatus.CANCELADA } },
+          data: { estado: SubscriptionStatus.SUSPENDIDA },
+        });
+        await this.prisma.tenant.update({ where: { id: inv.tenantId }, data: { activo: false } });
+        suspendidos++;
+      }
     }
     return { vencidas: vencidas.length, suspendidos };
   }
