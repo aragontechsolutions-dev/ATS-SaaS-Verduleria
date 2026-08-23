@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getDaily, getSummary, getTopProducts } from '../lib/api';
-import type { DailyPoint, ReportSummary, TopProduct } from '../lib/api';
+import { getDaily, getProfit, getSummary, getTopProducts } from '../lib/api';
+import type { DailyPoint, ProfitReport, ReportSummary, TopProduct } from '../lib/api';
 
 const money = new Intl.NumberFormat('es-UY', { style: 'currency', currency: 'UYU', maximumFractionDigits: 0 });
+
+function margenClass(m: number | null): string {
+  if (m == null) return 'muted';
+  if (m < 15) return 'mrg mrg--bad';
+  if (m < 30) return 'mrg mrg--warn';
+  return 'mrg mrg--ok';
+}
 
 type Preset = 'hoy' | '7d' | '30d';
 
@@ -20,6 +27,8 @@ export function ReportsPage() {
   const [summary, setSummary] = useState<ReportSummary | null>(null);
   const [top, setTop] = useState<TopProduct[]>([]);
   const [daily, setDaily] = useState<DailyPoint[]>([]);
+  const [profit, setProfit] = useState<ProfitReport | null>(null);
+  const [profitLocked, setProfitLocked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -40,6 +49,15 @@ export function ReportsPage() {
       setError(e instanceof Error ? e.message : 'Error cargando reportes');
     } finally {
       setLoading(false);
+    }
+    // Rentabilidad es un reporte avanzado: si el plan no lo incluye devuelve 403,
+    // así que lo cargamos aparte para no romper el resto de la página.
+    try {
+      setProfit(await getProfit(rangeFor(p)));
+      setProfitLocked(false);
+    } catch {
+      setProfit(null);
+      setProfitLocked(true);
     }
   }, []);
 
@@ -71,6 +89,71 @@ export function ReportsPage() {
             <div className="tile"><span className="tile__label">Ticket prom.</span><span className="tile__value">{money.format(summary?.ticketPromedio ?? 0)}</span></div>
             <div className="tile"><span className="tile__label">IVA</span><span className="tile__value">{money.format(summary?.ivaTotal ?? 0)}</span></div>
           </section>
+
+          {profit && (
+            <section className="panel">
+              <div className="panel__head">
+                <h2>Rentabilidad</h2>
+                {profit.coberturaPct != null && profit.coberturaPct < 99.5 && (
+                  <span className="pill">Cobertura de costos: {profit.coberturaPct}%</span>
+                )}
+              </div>
+              <section className="tiles">
+                <div className="tile tile--accent">
+                  <span className="tile__label">Ganancia bruta</span>
+                  <span className="tile__value">{money.format(profit.ganancia)}</span>
+                </div>
+                <div className="tile">
+                  <span className="tile__label">Margen</span>
+                  <span className="tile__value">{profit.margenPct != null ? `${profit.margenPct}%` : '—'}</span>
+                </div>
+                <div className="tile">
+                  <span className="tile__label">Costo mercadería</span>
+                  <span className="tile__value">{money.format(profit.costo)}</span>
+                </div>
+                <div className="tile">
+                  <span className="tile__label">Ingresos</span>
+                  <span className="tile__value">{money.format(profit.ingresos)}</span>
+                </div>
+              </section>
+
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th className="num">Ingresos</th>
+                      <th className="num">Costo</th>
+                      <th className="num">Ganancia</th>
+                      <th className="num">Margen</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {profit.productos.map((p, i) => (
+                      <tr key={p.productId ?? `x${i}`}>
+                        <td>
+                          <strong>{p.nombre}</strong>
+                          {p.parcial && <span className="muted" title="Parte de las ventas no tenía costo cargado"> · parcial</span>}
+                        </td>
+                        <td className="num">{money.format(p.ingresos)}</td>
+                        <td className="num">{money.format(p.costo)}</td>
+                        <td className="num" style={{ fontWeight: 700 }}>{p.ganancia != null ? money.format(p.ganancia) : 's/d'}</td>
+                        <td className="num"><span className={margenClass(p.margenPct)}>{p.margenPct != null ? `${p.margenPct}%` : '—'}</span></td>
+                      </tr>
+                    ))}
+                    {profit.productos.length === 0 && <tr><td colSpan={5} className="muted">Sin ventas en el período.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+              <p className="hint">Ganancia = precio de venta − costo real (con merma). Los productos sin costo cargado se muestran como “s/d”.</p>
+            </section>
+          )}
+          {profitLocked && (
+            <section className="panel">
+              <div className="panel__head"><h2>Rentabilidad</h2></div>
+              <p className="muted">Los reportes de rentabilidad están disponibles en el plan Pro o Full.</p>
+            </section>
+          )}
 
           <div className="cols">
             <section className="panel">

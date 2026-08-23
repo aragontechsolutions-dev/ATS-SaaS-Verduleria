@@ -144,3 +144,7 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 .compra__foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
 .compra__total { margin-left: auto; font-size: 16px; color: var(--text); }
 .compra__total strong { font-family: var(--font-head); }
+
+/* Rentabilidad: destacar la ganancia bruta */
+.tile--accent { background: linear-gradient(140deg, rgba(18,140,126,.10), rgba(130,211,61,.12)); border-color: rgba(18,140,126,.30); }
+.tile--accent .tile__value { color: var(--primary); }

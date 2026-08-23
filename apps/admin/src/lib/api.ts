@@ -345,6 +345,31 @@ export const getTopProducts = async (qs: { from?: string; to?: string } = {}) =>
 export const getDaily = async (days = 7) =>
   ok<DailyPoint[]>(await fetch(`${API_BASE}/reports/daily?days=${days}`, { headers: headers() }), 'daily');
 
+export interface ProfitProduct {
+  productId: string | null;
+  nombre: string;
+  cantidad: number;
+  ingresos: number;
+  costo: number;
+  ganancia: number | null;
+  margenPct: number | null;
+  parcial: boolean;
+}
+
+export interface ProfitReport {
+  desde: string;
+  ingresos: number;
+  costo: number;
+  ganancia: number;
+  margenPct: number | null;
+  coberturaPct: number | null;
+  ingresosSinCosto: number;
+  productos: ProfitProduct[];
+}
+
+export const getProfit = async (qs: { from?: string; to?: string } = {}) =>
+  ok<ProfitReport>(await fetch(`${API_BASE}/reports/profit${range(qs)}`, { headers: headers() }), 'profit');
+
 // --- Configuración del tenant (fiscal + CFE) --------------------------------
 
 export type RegimenFiscal =

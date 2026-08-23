@@ -38,4 +38,16 @@ export class ReportsController {
   daily(@CurrentTenant('tenantId') tenantId: string, @Query('days') days?: string) {
     return this.reports.daily(tenantId, days ? Number(days) : 7);
   }
+
+  /** Rentabilidad (ingresos, costo, ganancia y margen) — reporte avanzado. */
+  @Get('profit')
+  @RequiresModule('REPORTS_ADVANCED')
+  profit(
+    @CurrentTenant('tenantId') tenantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.reports.profit(tenantId, from, to, limit ? Number(limit) : 50);
+  }
 }
