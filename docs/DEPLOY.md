@@ -141,6 +141,19 @@ La consola de Aragon (`apps/console`) se despliega como **otro proyecto** de Ver
 Authentication → Users (mismo email que el seed marca `isPlatformAdmin`). Con esa
 cuenta entrás a la consola y das de alta clientes.
 
+## 3c. Panel de Administración del tenant (tercer proyecto en Vercel)
+
+El panel del cliente (`apps/admin`) — donde el dueño de la verdulería gestiona
+productos, precios y usuarios — se despliega como **otro proyecto** de Vercel:
+- **Add New → Project** → mismo repo → **Root Directory = `apps/admin`** →
+  Framework **Vite**.
+- Env vars: `VITE_API_URL` (misma URL de Render + `/api`), `VITE_SUPABASE_URL`,
+  `VITE_SUPABASE_ANON_KEY`.
+- Sumá su dominio a `CORS_ORIGIN` en Render (lista separada por comas junto al
+  POS y la consola).
+
+Entra con el usuario **ADMIN/ENCARGADO** de esa verdulería (ej. `admin@demo.uy`).
+
 ## 4. Verificación end-to-end
 1. Abrí el POS en Vercel. Debería cargar el catálogo (10 productos del seed).
 2. Abrí caja → vendé un pesable (ej. 1.5 kg) → cobrá en efectivo.
