@@ -1,0 +1,99 @@
+/* Consola de Plataforma — identidad Aragon Tech Solutions */
+:root {
+  --primary: #128C7E;
+  --primary-dark: #005662;
+  --accent: #82D33D;
+  --success: #76C789;
+  --bg: #EAEAEA;
+  --surface: #F4F4F4;
+  --panel: #ffffff;
+  --border: #dfe1df;
+  --text: #333333;
+  --muted: #6b726b;
+  --warn: #c62828;
+  --font-head: 'Poppins', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font-body); }
+h1, h2, h3 { font-family: var(--font-head); letter-spacing: -0.01em; }
+button { font: inherit; cursor: pointer; }
+code { font-family: ui-monospace, monospace; }
+
+/* Botones */
+.btn { padding: 10px 16px; border: none; border-radius: 10px; font-weight: 700; font-family: var(--font-head); font-size: 14px; }
+.btn--primary { background: var(--primary); color: #fff; }
+.btn--primary:disabled { background: #9cc5bf; }
+.btn--ghost { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.btn--sm { padding: 6px 12px; font-size: 13px; }
+
+/* Auth */
+.auth {
+  height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 20px;
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+}
+.auth__card { width: 100%; max-width: 360px; background: var(--panel); border-radius: 18px; padding: 30px 26px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+.auth__logo { width: 64px; height: 64px; align-self: center; }
+.auth__title { text-align: center; margin: 4px 0 0; color: var(--primary-dark); font-size: 24px; font-weight: 800; }
+.auth__sub { text-align: center; color: var(--muted); margin: 0 0 6px; }
+.auth__foot { color: rgba(255,255,255,.85); font-size: 12px; }
+
+.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+.field input, .field select { padding: 10px 12px; font-size: 15px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+.err { color: var(--warn); font-size: 14px; margin: 4px 0 0; }
+.warn { color: var(--warn); font-size: 14px; }
+.muted { color: var(--muted); }
+
+/* Layout app */
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; color: #fff; background: linear-gradient(90deg, var(--primary), var(--primary-dark)); }
+.topbar__brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-head); font-weight: 700; font-size: 18px; }
+.topbar__brand img { height: 28px; }
+.topbar__right { display: flex; align-items: center; gap: 12px; }
+.topbar__user { font-size: 13px; opacity: .9; }
+.content { padding: 20px; max-width: 1100px; width: 100%; margin: 0 auto; }
+.banner { padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; }
+.banner--err { background: #fdecea; color: var(--warn); }
+
+/* Tiles */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.tile { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+.tile__label { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.tile__value { font-family: var(--font-head); font-size: 30px; font-weight: 800; color: var(--primary-dark); }
+
+/* Panel + tabla */
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+.panel__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.panel__head h2 { margin: 0; font-size: 18px; }
+.table-wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th { text-align: left; color: var(--muted); font-weight: 600; padding: 8px 10px; border-bottom: 2px solid var(--border); }
+.table td { padding: 10px; border-bottom: 1px solid var(--border); }
+.table select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; }
+.row--off { opacity: .55; }
+.badge { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--surface); }
+.badge--activa { background: #e6f4ea; color: #1b7a3e; }
+.badge--trial { background: #eef3ff; color: #2d5bd0; }
+.badge--suspendida { background: #fdecea; color: var(--warn); }
+.badge--cancelada { background: #eee; color: #777; }
+
+/* Modal */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+.modal { background: var(--panel); border-radius: 16px; padding: 22px; width: 460px; max-width: 96vw; display: flex; flex-direction: column; gap: 12px; max-height: 92vh; overflow-y: auto; }
+.modal h3 { margin: 0; }
+.modal__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.creds { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.creds > div { display: flex; justify-content: space-between; gap: 10px; }
+.creds span { color: var(--muted); font-size: 13px; }
+.creds code { font-weight: 700; }
+
+/* Admin: productos */
+.search { padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; }
+.price-input { width: 100px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; text-align: right; font-weight: 700; }
+.price-input:focus { border-color: var(--primary); outline: none; }
+.hint { color: var(--muted); font-size: 13px; margin-top: 12px; }
+.tag { margin-left: 6px; font-size: 12px; color: var(--muted); }
+.field--check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); }
+.field--check input { width: auto; }
