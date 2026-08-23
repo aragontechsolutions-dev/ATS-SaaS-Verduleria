@@ -67,6 +67,100 @@ export class ReportsService {
     }));
   }
 
+  /**
+   * Rentabilidad del rango: ingresos, costo de mercadería, ganancia bruta y
+   * margen, más el detalle por producto. Usa el costo real capturado en cada
+   * venta (SaleItem.costoUnit). Los ítems sin costo (productos que no se
+   * controlan en stock) se excluyen del costo y se reportan como "cobertura"
+   * para no inflar el margen.
+   */
+  async profit(tenantId: string, from?: string, to?: string, limit = 50) {
+    const fecha = parseRange(from, to);
+    const items = await this.prisma.saleItem.findMany({
+      where: { tenantId, sale: { is: { status: SaleStatus.COMPLETADA, fecha } } },
+      select: {
+        productId: true,
+        concepto: true,
+        cantidad: true,
+        total: true,
+        costoUnit: true,
+        product: { select: { nombre: true } },
+      },
+    });
+
+    let ingresos = 0;
+    let ingresosConCosto = 0;
+    let costo = 0;
+
+    type Row = {
+      productId: string | null;
+      nombre: string;
+      ingresos: number; // total vendido (con y sin costo)
+      ingresosConCosto: number; // solo lo que tiene costo, base del margen
+      costo: number;
+      cantidad: number;
+    };
+    const byProduct = new Map<string, Row>();
+
+    for (const it of items) {
+      const lineTotal = Number(it.total);
+      const cant = Number(it.cantidad);
+      const tieneCosto = it.costoUnit != null;
+      const lineCost = tieneCosto ? Number(it.costoUnit) * cant : 0;
+
+      ingresos += lineTotal;
+      if (tieneCosto) {
+        ingresosConCosto += lineTotal;
+        costo += lineCost;
+      }
+
+      const key = it.productId ?? `c:${it.concepto}`;
+      const nombre = it.product?.nombre ?? it.concepto;
+      const row = byProduct.get(key) ?? { productId: it.productId, nombre, ingresos: 0, ingresosConCosto: 0, costo: 0, cantidad: 0 };
+      row.ingresos += lineTotal;
+      row.cantidad += cant;
+      if (tieneCosto) {
+        row.ingresosConCosto += lineTotal;
+        row.costo += lineCost;
+      }
+      byProduct.set(key, row);
+    }
+
+    const ganancia = ingresosConCosto - costo;
+    const round = (n: number) => Number(n.toFixed(2));
+
+    // Ganancia y margen siempre sobre la base con costo (para que reconcilie con
+    // el total); `parcial` avisa si el producto tuvo ventas sin costo cargado.
+    const productos = [...byProduct.values()]
+      .map((r) => {
+        const conCosto = r.ingresosConCosto > 0;
+        const gan = r.ingresosConCosto - r.costo;
+        return {
+          productId: r.productId,
+          nombre: r.nombre,
+          cantidad: Number(r.cantidad.toFixed(3)),
+          ingresos: round(r.ingresos),
+          costo: round(r.costo),
+          ganancia: conCosto ? round(gan) : null,
+          margenPct: conCosto ? Number(((gan / r.ingresosConCosto) * 100).toFixed(1)) : null,
+          parcial: conCosto && r.ingresosConCosto < r.ingresos - 0.005,
+        };
+      })
+      .sort((a, b) => (b.ganancia ?? -1) - (a.ganancia ?? -1))
+      .slice(0, limit);
+
+    return {
+      desde: fecha.gte.toISOString(),
+      ingresos: round(ingresos),
+      costo: round(costo),
+      ganancia: round(ganancia),
+      margenPct: ingresosConCosto > 0 ? Number(((ganancia / ingresosConCosto) * 100).toFixed(1)) : null,
+      coberturaPct: ingresos > 0 ? Number(((ingresosConCosto / ingresos) * 100).toFixed(1)) : null,
+      ingresosSinCosto: round(ingresos - ingresosConCosto),
+      productos,
+    };
+  }
+
   /** Ventas por día en los últimos N días (para el gráfico). */
   async daily(tenantId: string, days = 7) {
     const end = new Date();
