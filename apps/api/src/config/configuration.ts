@@ -19,12 +19,20 @@ export interface AuthConfig {
   allowHeaderTenant: boolean;
 }
 
+export interface BillingConfig {
+  /** Genera automáticamente las facturas del mes (cron). */
+  autoGenerate: boolean;
+  /** Suspende automáticamente a los morosos en el cron diario (sensible). */
+  autoSuspend: boolean;
+}
+
 export interface AppConfig {
   port: number;
   databaseUrl: string;
   feu: FeuConfig;
   supabase: SupabaseConfig;
   auth: AuthConfig;
+  billing: BillingConfig;
   /** Intervalo (ms) del worker de polling de estado DGI. */
   cfePollingIntervalMs: number;
 }
@@ -45,6 +53,10 @@ export default (): AppConfig => ({
   },
   auth: {
     allowHeaderTenant: process.env.ALLOW_HEADER_TENANT === 'true',
+  },
+  billing: {
+    autoGenerate: process.env.BILLING_AUTO_GENERATE !== 'false', // ON por defecto
+    autoSuspend: process.env.BILLING_AUTO_SUSPEND === 'true', // OFF por defecto (sensible)
   },
   cfePollingIntervalMs: Number(process.env.CFE_POLLING_INTERVAL_MS ?? 60_000),
 });

@@ -2,6 +2,7 @@ import { IvaIndicador, UnidadMedida } from '@ats/database';
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -90,4 +91,40 @@ export class CreateCategoriaDto {
   @IsOptional()
   @IsEnum(IvaIndicador)
   ivaIndicadorDefault?: IvaIndicador;
+}
+
+export class UpdateCategoriaDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  nombre?: string;
+
+  @IsOptional()
+  @IsEnum(IvaIndicador)
+  ivaIndicadorDefault?: IvaIndicador;
+
+  @IsOptional()
+  @IsInt()
+  orden?: number;
+}
+
+/** Actualización masiva de precios de mostrador. */
+export class BulkPriceDto {
+  /** PORCENTAJE: ajusta ±% sobre el precio actual. FIJO: setea el mismo precio. */
+  @IsIn(['PORCENTAJE', 'FIJO'])
+  operacion!: 'PORCENTAJE' | 'FIJO';
+
+  @IsNumber()
+  valor!: number;
+
+  /** Opcional: acotar a una categoría. */
+  @IsOptional()
+  @IsString()
+  categoriaId?: string;
+
+  /** Opcional: redondear al múltiplo indicado (ej. 1 = entero, 5 = a $5). */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  redondear?: number;
 }

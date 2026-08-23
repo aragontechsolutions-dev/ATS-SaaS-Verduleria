@@ -38,6 +38,12 @@ services:
       # En producción NO se permite resolver el tenant por header (solo token).
       - key: ALLOW_HEADER_TENANT
         value: "false"
+      # Facturación del SaaS (crons). Defaults seguros: genera facturas el 1° de
+      # cada mes; NO corta morosos automáticamente (poné "true" para activarlo).
+      - key: BILLING_AUTO_GENERATE
+        value: "true"
+      - key: BILLING_AUTO_SUSPEND
+        value: "false"
       # FEU / Surtec (facturación electrónica)
       - key: FEU_AMBIENTE
         value: test

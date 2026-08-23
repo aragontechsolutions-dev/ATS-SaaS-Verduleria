@@ -120,3 +120,12 @@ code { font-family: ui-monospace, monospace; }
 .form-grid .field { color: var(--text); }
 .banner--ok { background: #e6f4ea; color: #1b7a3e; }
 @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+
+/* Categorías / masiva */
+.cat-new { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.cat-new .search { flex: 1; min-width: 180px; }
+.cat-new select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; }
+.segmented { display: inline-flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 3px; margin-bottom: 4px; }
+.seg { padding: 8px 14px; border: none; background: transparent; border-radius: 8px; font-weight: 600; color: var(--muted); font-size: 13px; }
+.seg--on { background: var(--primary); color: #fff; }
+.modal__sub { color: var(--muted); margin: 0 0 6px; }

@@ -7,7 +7,13 @@ import { Roles } from '../tenant/roles.decorator';
 import { EntitlementsGuard } from '../entitlements/entitlements.guard';
 import { RequiresModule } from '../entitlements/requires-module.decorator';
 import { ProductsService } from './products.service';
-import { CreateCategoriaDto, CreateProductDto, UpdateProductDto } from './products.dto';
+import {
+  BulkPriceDto,
+  CreateCategoriaDto,
+  CreateProductDto,
+  UpdateCategoriaDto,
+  UpdateProductDto,
+} from './products.dto';
 
 @Controller('products')
 @UseGuards(TenantGuard, EntitlementsGuard, RolesGuard)
@@ -35,6 +41,12 @@ export class ProductsController {
     return this.products.update(tenantId, id, dto);
   }
 
+  /** Actualización masiva de precios (por % o fijo, opcional por categoría). */
+  @Post('prices/bulk')
+  bulkPrices(@CurrentTenant('tenantId') tenantId: string, @Body() dto: BulkPriceDto) {
+    return this.products.bulkUpdatePrices(tenantId, dto);
+  }
+
   @Get('categorias/all')
   listCategorias(@CurrentTenant('tenantId') tenantId: string) {
     return this.products.listCategorias(tenantId);
@@ -43,5 +55,14 @@ export class ProductsController {
   @Post('categorias')
   createCategoria(@CurrentTenant('tenantId') tenantId: string, @Body() dto: CreateCategoriaDto) {
     return this.products.createCategoria(tenantId, dto);
+  }
+
+  @Patch('categorias/:id')
+  updateCategoria(
+    @CurrentTenant('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateCategoriaDto,
+  ) {
+    return this.products.updateCategoria(tenantId, id, dto);
   }
 }

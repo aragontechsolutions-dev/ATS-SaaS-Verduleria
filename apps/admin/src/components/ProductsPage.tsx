@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getCategorias, getProducts, updateProduct } from '../lib/api';
 import type { Categoria, Product } from '../lib/api';
 import { ProductModal } from './ProductModal';
+import { BulkPriceModal } from './BulkPriceModal';
 
 export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -11,6 +12,8 @@ export function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
+  const [bulk, setBulk] = useState(false);
+  const [okMsg, setOkMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -51,12 +54,14 @@ export function ProductsPage() {
   return (
     <>
       {error && <div className="banner banner--err">{error}</div>}
+      {okMsg && <div className="banner banner--ok">{okMsg}</div>}
 
         <section className="panel">
           <div className="panel__head">
             <h2>Productos</h2>
             <div style={{ display: 'flex', gap: 10 }}>
               <input className="search" placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
+              <button className="btn btn--ghost" onClick={() => setBulk(true)}>Precios en masa</button>
               <button className="btn btn--primary" onClick={() => setCreating(true)}>+ Nuevo producto</button>
             </div>
           </div>
@@ -122,6 +127,13 @@ export function ProductsPage() {
       )}
       {editing && (
         <ProductModal product={editing} categorias={categorias} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void load(); }} />
+      )}
+      {bulk && (
+        <BulkPriceModal
+          categorias={categorias}
+          onClose={() => setBulk(false)}
+          onDone={(n) => { setBulk(false); setOkMsg(`Precios actualizados: ${n} productos.`); void load(); window.setTimeout(() => setOkMsg(null), 3000); }}
+        />
       )}
     </>
   );
