@@ -130,3 +130,43 @@ export const updateUser = async (membershipId: string, patch: { role?: Role; act
     await fetch(`${API_BASE}/users/${membershipId}`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) }),
     'updateUser',
   );
+
+// --- Reportes ---------------------------------------------------------------
+
+export interface ReportSummary {
+  desde: string;
+  ventas: number;
+  totalVendido: number;
+  ivaTotal: number;
+  ticketPromedio: number;
+  porMedio: Array<{ medio: string; monto: number }>;
+}
+
+export interface TopProduct {
+  productId: string | null;
+  nombre: string;
+  monto: number;
+  cantidad: number;
+}
+
+export interface DailyPoint {
+  dia: string;
+  total: number;
+}
+
+function range(qs: { from?: string; to?: string }): string {
+  const p = new URLSearchParams();
+  if (qs.from) p.set('from', qs.from);
+  if (qs.to) p.set('to', qs.to);
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+
+export const getSummary = async (qs: { from?: string; to?: string } = {}) =>
+  ok<ReportSummary>(await fetch(`${API_BASE}/reports/summary${range(qs)}`, { headers: headers() }), 'summary');
+
+export const getTopProducts = async (qs: { from?: string; to?: string } = {}) =>
+  ok<TopProduct[]>(await fetch(`${API_BASE}/reports/top-products${range(qs)}`, { headers: headers() }), 'top');
+
+export const getDaily = async (days = 7) =>
+  ok<DailyPoint[]>(await fetch(`${API_BASE}/reports/daily?days=${days}`, { headers: headers() }), 'daily');
