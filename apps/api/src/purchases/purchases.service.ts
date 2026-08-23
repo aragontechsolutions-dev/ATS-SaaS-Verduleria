@@ -120,7 +120,7 @@ export class PurchasesService {
       if (!byId.has(it.productId)) throw new BadRequestException('Producto inexistente en la compra');
     }
 
-    const sucursalId = await this.defaultSucursalId(tenantId);
+    const sucursalId = await this.resolveSucursalId(tenantId, dto.sucursalId);
 
     return this.prisma.$transaction(async (tx) => {
       let total = 0;
@@ -206,14 +206,14 @@ export class PurchasesService {
 
   // --- Stock ----------------------------------------------------------------
 
-  async listStock(tenantId: string) {
+  async listStock(tenantId: string, sucursalId?: string) {
     const listId = await this.mostradorListId(tenantId);
     const products = await this.prisma.product.findMany({
       where: { tenantId, activo: true },
       orderBy: { nombre: 'asc' },
       include: {
         categoria: true,
-        stockItems: true,
+        stockItems: sucursalId ? { where: { sucursalId } } : true,
         priceItems: { where: { priceListId: listId } },
       },
     });
@@ -244,7 +244,7 @@ export class PurchasesService {
     if (!prod) throw new BadRequestException('Producto inexistente');
     if (dto.cantidad === 0) throw new BadRequestException('El ajuste no puede ser 0');
 
-    const sucursalId = await this.defaultSucursalId(tenantId);
+    const sucursalId = await this.resolveSucursalId(tenantId, dto.sucursalId);
 
     return this.prisma.$transaction(async (tx) => {
       const stock = await tx.stock.findUnique({
@@ -301,7 +301,7 @@ export class PurchasesService {
     const prod = await this.prisma.product.findFirst({ where: { id: dto.productId, tenantId } });
     if (!prod) throw new BadRequestException('Producto inexistente');
 
-    const sucursalId = await this.defaultSucursalId(tenantId);
+    const sucursalId = await this.resolveSucursalId(tenantId, dto.sucursalId);
 
     return this.prisma.$transaction(async (tx) => {
       const stock = await tx.stock.findUnique({
@@ -342,7 +342,16 @@ export class PurchasesService {
 
   // --- Helpers --------------------------------------------------------------
 
-  private async defaultSucursalId(tenantId: string): Promise<string> {
+  /**
+   * Resuelve la sucursal destino: si viene una, valida que sea del tenant; si
+   * no, usa la principal (la crea si el tenant aún no tiene ninguna).
+   */
+  private async resolveSucursalId(tenantId: string, sucursalId?: string): Promise<string> {
+    if (sucursalId) {
+      const suc = await this.prisma.sucursal.findFirst({ where: { id: sucursalId, tenantId } });
+      if (!suc) throw new BadRequestException('Sucursal inexistente');
+      return suc.id;
+    }
     const suc = await this.prisma.sucursal.findFirst({
       where: { tenantId, activo: true },
       orderBy: { codigo: 'asc' },

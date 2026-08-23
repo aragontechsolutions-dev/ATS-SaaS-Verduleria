@@ -87,6 +87,11 @@ export class CreatePurchaseDto {
   @IsString()
   supplierId?: string;
 
+  /** Sucursal que recibe la mercadería. Por defecto, la principal. */
+  @IsOptional()
+  @IsString()
+  sucursalId?: string;
+
   /** Fecha de la compra (ISO). Por defecto, ahora. */
   @IsOptional()
   @IsString()
@@ -115,6 +120,10 @@ export class StockAdjustDto {
 
   @IsOptional()
   @IsString()
+  sucursalId?: string;
+
+  @IsOptional()
+  @IsString()
   motivo?: string;
 }
 
@@ -129,6 +138,10 @@ export class CreateWasteDto {
   @Min(0.001)
   cantidad!: number;
 
+  @IsOptional()
+  @IsString()
+  sucursalId?: string;
+
   /** pudrición, golpe, remarque, descarte… */
   @IsOptional()
   @IsString()
@@ -141,4 +154,11 @@ export class ListQueryDto {
   @Type(() => Number)
   @Min(1)
   limit?: number;
+}
+
+export class StockQueryDto {
+  /** Filtra el stock a una sucursal. Si se omite, agrega todas. */
+  @IsOptional()
+  @IsString()
+  sucursalId?: string;
 }

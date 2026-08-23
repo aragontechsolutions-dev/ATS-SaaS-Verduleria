@@ -140,9 +140,25 @@ export interface PurchaseLine {
 
 export interface PurchaseInput {
   supplierId?: string;
+  sucursalId?: string;
   fecha?: string;
   notas?: string;
   items: PurchaseLine[];
+}
+
+export interface Sucursal {
+  id: string;
+  nombre: string;
+  codigo: number;
+  direccion: string | null;
+  activo: boolean;
+}
+
+export interface TransferInput {
+  productId: string;
+  fromSucursalId: string;
+  toSucursalId: string;
+  cantidad: number;
 }
 
 export interface PurchaseRow {
@@ -202,10 +218,13 @@ export const createPurchase = async (input: PurchaseInput) =>
     'createPurchase',
   );
 
-export const getStock = async () =>
-  ok<StockRow[]>(await fetch(`${API_BASE}/purchases/stock`, { headers: headers() }), 'stock');
+export const getStock = async (sucursalId?: string) =>
+  ok<StockRow[]>(
+    await fetch(`${API_BASE}/purchases/stock${sucursalId ? `?sucursalId=${sucursalId}` : ''}`, { headers: headers() }),
+    'stock',
+  );
 
-export const adjustStock = async (input: { productId: string; cantidad: number; motivo?: string }) =>
+export const adjustStock = async (input: { productId: string; cantidad: number; sucursalId?: string; motivo?: string }) =>
   ok<{ productId: string; cantidad: number }>(
     await fetch(`${API_BASE}/purchases/stock/ajuste`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
     'adjustStock',
@@ -214,10 +233,33 @@ export const adjustStock = async (input: { productId: string; cantidad: number; 
 export const getWaste = async () =>
   ok<WasteRow[]>(await fetch(`${API_BASE}/purchases/waste`, { headers: headers() }), 'waste');
 
-export const createWaste = async (input: { productId: string; cantidad: number; motivo?: string }) =>
+export const createWaste = async (input: { productId: string; cantidad: number; sucursalId?: string; motivo?: string }) =>
   ok<{ id: string; costoTotal: number }>(
     await fetch(`${API_BASE}/purchases/waste`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
     'createWaste',
+  );
+
+// --- Sucursales -------------------------------------------------------------
+
+export const getSucursales = async () =>
+  ok<Sucursal[]>(await fetch(`${API_BASE}/sucursales`, { headers: headers() }), 'sucursales');
+
+export const createSucursal = async (input: { nombre: string; direccion?: string }) =>
+  ok<Sucursal>(
+    await fetch(`${API_BASE}/sucursales`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
+    'createSucursal',
+  );
+
+export const updateSucursal = async (id: string, patch: { nombre?: string; direccion?: string; activo?: boolean }) =>
+  ok<Sucursal>(
+    await fetch(`${API_BASE}/sucursales/${id}`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) }),
+    'updateSucursal',
+  );
+
+export const transferStock = async (input: TransferInput) =>
+  ok<{ productId: string; from: { nombre: string; cantidad: number }; to: { nombre: string; cantidad: number } }>(
+    await fetch(`${API_BASE}/sucursales/transfer`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
+    'transferStock',
   );
 
 // --- Usuarios ---------------------------------------------------------------
