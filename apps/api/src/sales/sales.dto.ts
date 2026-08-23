@@ -1,29 +1,92 @@
 import { IvaIndicador, MedioPago, UnidadMedida } from '@ats/database';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsEnum,
+  IsISO8601,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
-export interface CreateSaleItemDto {
+export class CreateSaleItemDto {
+  @IsOptional()
+  @IsString()
   productId?: string;
-  concepto: string;
-  unidad: UnidadMedida;
-  cantidad: number;
-  precioUnit: number; // con IVA incluido
+
+  @IsString()
+  @MinLength(1)
+  concepto!: string;
+
+  @IsEnum(UnidadMedida)
+  unidad!: UnidadMedida;
+
+  @IsNumber()
+  @Min(0.001)
+  cantidad!: number;
+
+  /** Precio unitario con IVA incluido. */
+  @IsNumber()
+  @Min(0)
+  precioUnit!: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   descuento?: number;
-  ivaIndicador: IvaIndicador;
+
+  @IsEnum(IvaIndicador)
+  ivaIndicador!: IvaIndicador;
 }
 
-export interface CreateSalePaymentDto {
-  medio: MedioPago;
-  monto: number;
+export class CreateSalePaymentDto {
+  @IsEnum(MedioPago)
+  medio!: MedioPago;
+
+  @IsNumber()
+  @Min(0)
+  monto!: number;
+
+  @IsOptional()
+  @IsString()
   referencia?: string;
 }
 
-export interface CreateSaleDto {
+export class CreateSaleDto {
   /** Idempotencia: uuid generado en el POS (sobrevive al sync offline). */
-  idempotencyKey: string;
+  @IsString()
+  @MinLength(8)
+  idempotencyKey!: string;
+
+  @IsOptional()
+  @IsString()
   sucursalId?: string;
+
+  @IsOptional()
+  @IsString()
   cashSessionId?: string;
+
+  @IsOptional()
+  @IsString()
   customerId?: string;
-  items: CreateSaleItemDto[];
-  payments: CreateSalePaymentDto[];
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateSaleItemDto)
+  items!: CreateSaleItemDto[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateSalePaymentDto)
+  payments!: CreateSalePaymentDto[];
+
   /** ISO date de la venta (la que ocurrió offline, no la de sync). */
+  @IsOptional()
+  @IsISO8601()
   fecha?: string;
 }

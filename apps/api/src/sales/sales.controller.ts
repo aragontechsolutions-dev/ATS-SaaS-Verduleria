@@ -4,7 +4,7 @@ import { TenantGuard } from '../tenant/tenant.guard';
 import { EntitlementsGuard } from '../entitlements/entitlements.guard';
 import { RequiresModule } from '../entitlements/requires-module.decorator';
 import { SalesService } from './sales.service';
-import type { CreateSaleDto } from './sales.dto';
+import { CreateSaleDto } from './sales.dto';
 
 @Controller('sales')
 @UseGuards(TenantGuard, EntitlementsGuard)

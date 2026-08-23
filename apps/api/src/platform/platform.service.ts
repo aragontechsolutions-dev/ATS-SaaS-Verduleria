@@ -4,10 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { randomBytes } from 'node:crypto';
 import { Prisma, Role, SubscriptionStatus, TipoListaPrecio } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
+import { generateTempPassword } from '../common/password.util';
 import type { CreateTenantDto, UpdateTenantDto } from './platform.dto';
 
 @Injectable()
@@ -129,7 +129,7 @@ export class PlatformService {
 
   /** Contraseña inicial legible (para comunicar al cliente). */
   private generatePassword(): string {
-    return 'ATS-' + randomBytes(4).toString('hex');
+    return generateTempPassword();
   }
 
   /** Activar/suspender un tenant y/o cambiarle el plan. */

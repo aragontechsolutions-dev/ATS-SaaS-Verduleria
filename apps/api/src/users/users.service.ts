@@ -1,7 +1,7 @@
-import { randomBytes } from 'node:crypto';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
+import { generateTempPassword } from '../common/password.util';
 import type { CreateUserDto, UpdateUserDto } from './users.dto';
 
 @Injectable()
@@ -34,7 +34,7 @@ export class UsersService {
    */
   async create(tenantId: string, dto: CreateUserDto) {
     const email = dto.email.trim().toLowerCase();
-    const password = dto.password || 'ATS-' + randomBytes(4).toString('hex');
+    const password = dto.password || generateTempPassword();
 
     const existingMembership = await this.prisma.membership.findFirst({
       where: { tenantId, user: { email } },

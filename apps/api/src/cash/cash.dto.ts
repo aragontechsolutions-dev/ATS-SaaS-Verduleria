@@ -1,10 +1,22 @@
-export interface OpenCashDto {
+import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
+
+export class OpenCashDto {
+  @IsOptional()
+  @IsString()
   sucursalId?: string;
-  montoApertura: number;
+
+  @IsNumber()
+  @Min(0)
+  montoApertura!: number;
 }
 
-export interface CloseCashDto {
+export class CloseCashDto {
   /** Efectivo contado en el arqueo. */
-  montoCierre: number;
+  @IsNumber()
+  @Min(0)
+  montoCierre!: number;
+
+  @IsOptional()
+  @IsString()
   notas?: string;
 }
