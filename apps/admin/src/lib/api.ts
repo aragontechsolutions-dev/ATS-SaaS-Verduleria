@@ -113,6 +113,113 @@ export const updateProduct = async (id: string, patch: Partial<ProductInput> & {
     'updateProduct',
   );
 
+// --- Compras / Stock / Merma ------------------------------------------------
+
+export interface Supplier {
+  id: string;
+  nombre: string;
+  rut: string | null;
+  telefono: string | null;
+  esUam: boolean;
+  activo: boolean;
+}
+
+export interface SupplierInput {
+  nombre: string;
+  rut?: string;
+  telefono?: string;
+  esUam?: boolean;
+}
+
+export interface PurchaseLine {
+  productId: string;
+  cantidadCompra: number;
+  costoUnitCompra: number;
+  rindeVenta?: number;
+}
+
+export interface PurchaseInput {
+  supplierId?: string;
+  fecha?: string;
+  notas?: string;
+  items: PurchaseLine[];
+}
+
+export interface PurchaseRow {
+  id: string;
+  fecha: string;
+  supplierId: string | null;
+  supplierNombre: string | null;
+  total: number;
+  lineas: number;
+  notas: string | null;
+}
+
+export interface StockRow {
+  productId: string;
+  nombre: string;
+  categoriaNombre: string | null;
+  unidadVenta: string;
+  cantidad: number;
+  costoPromedio: number;
+  precio: number;
+  margenPct: number | null;
+}
+
+export interface WasteRow {
+  id: string;
+  fecha: string;
+  productId: string;
+  nombre: string;
+  unidadVenta: string;
+  cantidad: number;
+  costoUnit: number;
+  costoTotal: number;
+  motivo: string | null;
+}
+
+export const getSuppliers = async () =>
+  ok<Supplier[]>(await fetch(`${API_BASE}/purchases/suppliers`, { headers: headers() }), 'suppliers');
+
+export const createSupplier = async (input: SupplierInput) =>
+  ok<Supplier>(
+    await fetch(`${API_BASE}/purchases/suppliers`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
+    'createSupplier',
+  );
+
+export const updateSupplier = async (id: string, patch: Partial<SupplierInput> & { activo?: boolean }) =>
+  ok<Supplier>(
+    await fetch(`${API_BASE}/purchases/suppliers/${id}`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) }),
+    'updateSupplier',
+  );
+
+export const getPurchases = async () =>
+  ok<PurchaseRow[]>(await fetch(`${API_BASE}/purchases`, { headers: headers() }), 'purchases');
+
+export const createPurchase = async (input: PurchaseInput) =>
+  ok<{ id: string; total: number }>(
+    await fetch(`${API_BASE}/purchases`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
+    'createPurchase',
+  );
+
+export const getStock = async () =>
+  ok<StockRow[]>(await fetch(`${API_BASE}/purchases/stock`, { headers: headers() }), 'stock');
+
+export const adjustStock = async (input: { productId: string; cantidad: number; motivo?: string }) =>
+  ok<{ productId: string; cantidad: number }>(
+    await fetch(`${API_BASE}/purchases/stock/ajuste`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
+    'adjustStock',
+  );
+
+export const getWaste = async () =>
+  ok<WasteRow[]>(await fetch(`${API_BASE}/purchases/waste`, { headers: headers() }), 'waste');
+
+export const createWaste = async (input: { productId: string; cantidad: number; motivo?: string }) =>
+  ok<{ id: string; costoTotal: number }>(
+    await fetch(`${API_BASE}/purchases/waste`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
+    'createWaste',
+  );
+
 // --- Usuarios ---------------------------------------------------------------
 
 export type Role =
