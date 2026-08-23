@@ -44,6 +44,7 @@ jobs:
           npm run build -w @ats/admin
           npm run build -w @ats/pos
           npm run build -w @ats/console
+          npm run build -w @ats/web
 
       - name: Tests unitarios (@ats/api)
         run: npm test -w @ats/api
