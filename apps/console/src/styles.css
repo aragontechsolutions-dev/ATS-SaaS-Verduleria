@@ -88,3 +88,14 @@ code { font-family: ui-monospace, monospace; }
 .creds > div { display: flex; justify-content: space-between; gap: 10px; }
 .creds span { color: var(--muted); font-size: 13px; }
 .creds code { font-weight: 700; }
+
+/* Pestañas */
+.tabs { display: flex; gap: 4px; flex: 1; margin: 0 20px; }
+.tab { padding: 8px 16px; border: none; background: transparent; color: rgba(255,255,255,.75); font-family: var(--font-head); font-weight: 600; border-radius: 8px; }
+.tab:hover { background: rgba(255,255,255,.12); color: #fff; }
+.tab--on { background: rgba(255,255,255,.2); color: #fff; }
+.banner--ok { background: #e6f4ea; color: #1b7a3e; }
+.badge--pendiente { background: #eef3ff; color: #2d5bd0; }
+.badge--pagada { background: #e6f4ea; color: #1b7a3e; }
+.badge--vencida { background: #fdecea; color: var(--warn); }
+.badge--anulada { background: #eee; color: #777; }

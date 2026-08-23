@@ -104,3 +104,48 @@ export const updateTenant = async (id: string, patch: { activo?: boolean; planCo
     }),
     'updateTenant',
   );
+
+// --- Facturación del SaaS ---------------------------------------------------
+
+export interface BillingSummary {
+  mrr: number;
+  pendiente: { monto: number; cantidad: number };
+  vencido: { monto: number; cantidad: number };
+}
+
+export interface Invoice {
+  id: string;
+  tenant: string;
+  slug: string;
+  plan: string;
+  periodo: string;
+  monto: number;
+  moneda: string;
+  estado: 'PENDIENTE' | 'PAGADA' | 'VENCIDA' | 'ANULADA';
+  vencimiento: string;
+  pagadaAt: string | null;
+}
+
+export const getBillingSummary = async () =>
+  ok<BillingSummary>(await fetch(`${API_BASE}/platform/billing/summary`, { headers: headers() }), 'billing-summary');
+
+export const getInvoices = async (estado?: string) =>
+  ok<Invoice[]>(
+    await fetch(`${API_BASE}/platform/billing/invoices${estado ? `?estado=${estado}` : ''}`, { headers: headers() }),
+    'invoices',
+  );
+
+export const generateInvoices = async (periodo: string) =>
+  ok<{ periodo: string; suscripciones: number; creadas: number }>(
+    await fetch(`${API_BASE}/platform/billing/generate`, { method: 'POST', headers: headers(), body: JSON.stringify({ periodo }) }),
+    'generate',
+  );
+
+export const payInvoice = async (id: string) =>
+  ok<unknown>(await fetch(`${API_BASE}/platform/billing/invoices/${id}/pay`, { method: 'POST', headers: headers() }), 'pay');
+
+export const processOverdue = async () =>
+  ok<{ vencidas: number; suspendidos: number }>(
+    await fetch(`${API_BASE}/platform/billing/process-overdue`, { method: 'POST', headers: headers() }),
+    'overdue',
+  );

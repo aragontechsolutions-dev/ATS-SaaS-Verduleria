@@ -214,6 +214,7 @@ model Tenant {
 
   // Suscripción / plan (módulos habilitados)
   subscription Subscription?
+  platformInvoices PlatformInvoice[]
 
   memberships   Membership[]
   sucursales    Sucursal[]
@@ -322,8 +323,40 @@ model Subscription {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   plan   Plan   @relation(fields: [planId], references: [id])
+  invoices PlatformInvoice[]
 
   @@index([planId])
+  @@index([estado])
+}
+
+enum PlatformInvoiceStatus {
+  PENDIENTE
+  PAGADA
+  VENCIDA
+  ANULADA
+}
+
+/// Factura del SaaS: lo que Aragon le cobra a cada verdulería por el abono.
+model PlatformInvoice {
+  id             String                @id @default(uuid()) @db.Uuid
+  subscriptionId String                @db.Uuid
+  tenantId       String                @db.Uuid
+  periodo        String // "YYYY-MM"
+  monto          Decimal               @db.Decimal(12, 2)
+  moneda         String                @default("UYU")
+  estado         PlatformInvoiceStatus @default(PENDIENTE)
+  emitidaAt      DateTime              @default(now())
+  vencimiento    DateTime
+  pagadaAt       DateTime?
+  notas          String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, periodo])
+  @@index([tenantId])
   @@index([estado])
 }
 

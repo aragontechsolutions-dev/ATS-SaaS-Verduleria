@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import { Login } from './components/Login';
-import { Dashboard } from './components/Dashboard';
+import { Shell } from './components/Shell';
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -22,5 +22,5 @@ export default function App() {
   }
   if (session === null) return <Login />;
 
-  return <Dashboard email={session.user.email ?? ''} onLogout={() => void supabase.auth.signOut()} />;
+  return <Shell email={session.user.email ?? ''} onLogout={() => void supabase.auth.signOut()} />;
 }
