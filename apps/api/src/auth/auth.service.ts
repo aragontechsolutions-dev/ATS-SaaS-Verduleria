@@ -25,6 +25,7 @@ export class AuthService {
   // Cache corto de tokens verificados para no pegarle a Supabase en cada request.
   private readonly tokenCache = new Map<string, { user: SupabaseUser; expiresAt: number }>();
   private readonly tokenTtlMs = 30_000;
+  private readonly tokenCacheMax = 5_000;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -50,8 +51,17 @@ export class AuthService {
 
     const body = (await res.json()) as { id: string; email?: string };
     const user: SupabaseUser = { id: body.id, email: body.email };
+    this.pruneTokenCache();
     this.tokenCache.set(token, { user, expiresAt: Date.now() + this.tokenTtlMs });
     return user;
+  }
+
+  /** Evita crecimiento ilimitado del cache: purga vencidos y, si hace falta, lo vacía. */
+  private pruneTokenCache(): void {
+    if (this.tokenCache.size < this.tokenCacheMax) return;
+    const now = Date.now();
+    for (const [k, v] of this.tokenCache) if (now >= v.expiresAt) this.tokenCache.delete(k);
+    if (this.tokenCache.size >= this.tokenCacheMax) this.tokenCache.clear();
   }
 
   /**

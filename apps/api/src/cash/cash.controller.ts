@@ -4,7 +4,7 @@ import { TenantGuard } from '../tenant/tenant.guard';
 import { EntitlementsGuard } from '../entitlements/entitlements.guard';
 import { RequiresModule } from '../entitlements/requires-module.decorator';
 import { CashService } from './cash.service';
-import type { CloseCashDto, OpenCashDto } from './cash.dto';
+import { CloseCashDto, OpenCashDto } from './cash.dto';
 
 @Controller('cash-sessions')
 @UseGuards(TenantGuard, EntitlementsGuard)

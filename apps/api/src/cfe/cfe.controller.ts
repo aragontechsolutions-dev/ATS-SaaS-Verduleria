@@ -1,14 +1,18 @@
 import { Controller, Get, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
+import { Role } from '@ats/database';
 import { CurrentTenant } from '../tenant/current-tenant.decorator';
 import { TenantGuard } from '../tenant/tenant.guard';
+import { RolesGuard } from '../tenant/roles.guard';
+import { Roles } from '../tenant/roles.decorator';
 import { EntitlementsGuard } from '../entitlements/entitlements.guard';
 import { RequiresModule } from '../entitlements/requires-module.decorator';
 import { CfeService } from './cfe.service';
 
 @Controller('cfe')
-@UseGuards(TenantGuard, EntitlementsGuard)
+@UseGuards(TenantGuard, EntitlementsGuard, RolesGuard)
 @RequiresModule('CFE') // todo el módulo CFE requiere el entitlement CFE en el plan
+@Roles(Role.ADMIN, Role.ENCARGADO, Role.CAJERO, Role.CONTADOR)
 export class CfeController {
   constructor(private readonly cfeService: CfeService) {}
 
