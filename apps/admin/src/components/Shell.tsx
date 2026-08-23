@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { ProductsPage } from './ProductsPage';
 import { UsersPage } from './UsersPage';
 import { ReportsPage } from './ReportsPage';
+import { SettingsPage } from './SettingsPage';
 
-type Tab = 'reportes' | 'productos' | 'usuarios';
+type Tab = 'reportes' | 'productos' | 'usuarios' | 'config';
 
 export function Shell({ email, onLogout }: { email: string; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>('reportes');
@@ -25,6 +26,9 @@ export function Shell({ email, onLogout }: { email: string; onLogout: () => void
           <button className={`tab ${tab === 'usuarios' ? 'tab--on' : ''}`} onClick={() => setTab('usuarios')}>
             Usuarios
           </button>
+          <button className={`tab ${tab === 'config' ? 'tab--on' : ''}`} onClick={() => setTab('config')}>
+            Configuración
+          </button>
         </nav>
         <div className="topbar__right">
           <span className="topbar__user">{email}</span>
@@ -36,6 +40,7 @@ export function Shell({ email, onLogout }: { email: string; onLogout: () => void
         {tab === 'reportes' && <ReportsPage />}
         {tab === 'productos' && <ProductsPage />}
         {tab === 'usuarios' && <UsersPage />}
+        {tab === 'config' && <SettingsPage />}
       </main>
     </div>
   );
