@@ -45,7 +45,7 @@ const PLANES: Array<{
     code: 'PRO',
     nombre: 'Pro',
     descripcion: 'Suma compras, listas de precios, reportes avanzados y cuenta corriente.',
-    precioMensual: 0,
+    precioMensual: 990,
     orden: 2,
     modules: [
       ModuleKey.POS,
@@ -65,7 +65,7 @@ const PLANES: Array<{
     code: 'FULL',
     nombre: 'Full',
     descripcion: 'Todo: reparto con app, multi-sucursal y balanza en vivo.',
-    precioMensual: 0,
+    precioMensual: 1990,
     orden: 3,
     modules: [
       ModuleKey.POS,

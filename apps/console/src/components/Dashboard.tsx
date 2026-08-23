@@ -3,7 +3,7 @@ import { getOverview, getPlans, getTenants, updateTenant } from '../lib/api';
 import type { Overview, Plan, TenantRow } from '../lib/api';
 import { NewClientModal } from './NewClientModal';
 
-export function Dashboard({ email, onLogout }: { email: string; onLogout: () => void }) {
+export function Dashboard() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [tenants, setTenants] = useState<TenantRow[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -39,20 +39,8 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout: () => 
   }
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="topbar__brand">
-          <img src="/icon.svg" alt="Aragon" />
-          Consola Aragon
-        </div>
-        <div className="topbar__right">
-          <span className="topbar__user">{email}</span>
-          <button className="btn btn--ghost btn--sm" onClick={onLogout}>Salir</button>
-        </div>
-      </header>
-
-      <main className="content">
-        {error && <div className="banner banner--err">{error}</div>}
+    <>
+      {error && <div className="banner banner--err">{error}</div>}
 
         <section className="tiles">
           <div className="tile">
@@ -127,7 +115,6 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout: () => 
             </div>
           )}
         </section>
-      </main>
 
       {creating && (
         <NewClientModal
@@ -139,6 +126,6 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout: () => 
           }}
         />
       )}
-    </div>
+    </>
   );
 }
