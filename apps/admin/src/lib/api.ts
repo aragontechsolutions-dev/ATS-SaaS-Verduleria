@@ -47,6 +47,7 @@ export interface Product {
   unidadVenta: string;
   esPesable: boolean;
   ivaIndicador: IvaIndicador;
+  imagenUrl: string | null;
   activo: boolean;
   precio: number;
 }
@@ -66,6 +67,7 @@ export interface ProductInput {
   categoriaId?: string;
   plu?: number;
   codigoBarras?: string;
+  imagenUrl?: string;
 }
 
 export const getMe = async () => ok<Me>(await fetch(`${API_BASE}/auth/me`, { headers: headers() }), 'me');

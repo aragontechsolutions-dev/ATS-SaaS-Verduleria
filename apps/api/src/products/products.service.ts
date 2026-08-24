@@ -43,6 +43,7 @@ export class ProductsService {
       unidadVenta: p.unidadVenta,
       esPesable: p.esPesable,
       ivaIndicador: p.ivaIndicador,
+      imagenUrl: p.imagenUrl,
       activo: p.activo,
       precio: Number(p.priceItems[0]?.precio ?? 0),
     }));
@@ -62,6 +63,7 @@ export class ProductsService {
         categoriaId: dto.categoriaId,
         plu: dto.plu,
         codigoBarras: dto.codigoBarras,
+        imagenUrl: dto.imagenUrl,
         priceItems: { create: { tenantId, priceListId: listId, precio: new Prisma.Decimal(dto.precio) } },
       },
     });
@@ -83,6 +85,7 @@ export class ProductsService {
         categoriaId: dto.categoriaId,
         plu: dto.plu,
         codigoBarras: dto.codigoBarras,
+        imagenUrl: dto.imagenUrl,
         activo: dto.activo,
       },
     });

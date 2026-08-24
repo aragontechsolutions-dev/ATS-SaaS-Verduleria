@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { createProduct, updateProduct } from '../lib/api';
 import type { Categoria, IvaIndicador, Product } from '../lib/api';
+import { ImageUpload } from './ImageUpload';
 
 interface Props {
   product?: Product;
@@ -21,6 +22,7 @@ export function ProductModal({ product, categorias, onClose, onSaved }: Props) {
   const [precio, setPrecio] = useState(String(product?.precio ?? ''));
   const [categoriaId, setCategoriaId] = useState(product?.categoriaId ?? '');
   const [plu, setPlu] = useState(product?.plu != null ? String(product.plu) : '');
+  const [imagenUrl, setImagenUrl] = useState(product?.imagenUrl ?? '');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -36,6 +38,7 @@ export function ProductModal({ product, categorias, onClose, onSaved }: Props) {
       precio: parseFloat(precio) || 0,
       categoriaId: categoriaId || undefined,
       plu: plu ? parseInt(plu, 10) : undefined,
+      imagenUrl: imagenUrl || undefined,
     };
     try {
       if (editing) await updateProduct(product!.id, payload);
@@ -91,6 +94,11 @@ export function ProductModal({ product, categorias, onClose, onSaved }: Props) {
             <input type="checkbox" checked={esPesable} onChange={(e) => setEsPesable(e.target.checked)} />
             Se vende por peso (balanza)
           </label>
+        </div>
+
+        <div className="field">
+          <span>Foto del producto (se usa en tu web)</span>
+          <ImageUpload value={imagenUrl} onChange={setImagenUrl} hint="Cuadrada, se ve mejor." />
         </div>
 
         {error && <p className="err">{error}</p>}

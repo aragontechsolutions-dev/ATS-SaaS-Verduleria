@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getLanding, publishLanding, saveLanding, unpublishLanding } from '../lib/api';
 import type { LandingConfig } from '../lib/api';
 import { formatUyPhone, osmEmbedUrl, tieneUbicacion } from '../lib/mapPhone';
+import { ImageUpload } from './ImageUpload';
 import { LandingPreview } from './LandingPreview';
 
 type SectionId = 'portada' | 'productos' | 'horarios' | 'contacto';
@@ -185,7 +186,10 @@ export function LandingPage() {
             <SectionHead label="Portada" on={config.hero.mostrar} onToggle={(v) => update('hero', { mostrar: v })} />
             <label className="field">Nombre / título<input value={config.hero.titulo} onChange={(e) => update('hero', { titulo: e.target.value })} /></label>
             <label className="field">Lema<input value={config.hero.lema} onChange={(e) => update('hero', { lema: e.target.value })} placeholder="Lo más fresco del barrio" /></label>
-            <label className="field">Imagen de fondo (URL)<input value={config.hero.imagenUrl} onChange={(e) => update('hero', { imagenUrl: e.target.value })} placeholder="https://…" /></label>
+            <div className="field">
+              <span>Imagen de fondo</span>
+              <ImageUpload value={config.hero.imagenUrl} onChange={(u) => update('hero', { imagenUrl: u })} hint="Horizontal, se ve mejor." />
+            </div>
             <label className="field field--row">Color de la marca
               <input type="color" value={config.tema.color} onChange={(e) => update('tema', { color: e.target.value })} />
             </label>

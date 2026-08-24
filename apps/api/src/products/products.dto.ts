@@ -41,6 +41,10 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   codigoBarras?: string;
+
+  @IsOptional()
+  @IsString()
+  imagenUrl?: string;
 }
 
 export class UpdateProductDto {
@@ -77,6 +81,10 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   codigoBarras?: string;
+
+  @IsOptional()
+  @IsString()
+  imagenUrl?: string;
 
   @IsOptional()
   @IsBoolean()
