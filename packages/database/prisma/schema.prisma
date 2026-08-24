@@ -469,6 +469,8 @@ model Product {
   plu    Int?
   /// Código de barras (EAN) para productos empaquetados.
   codigoBarras String?
+  /// Foto del producto (URL en Supabase Storage). Se usa en la web del tenant.
+  imagenUrl String?
 
   /// Unidades: se compra en una unidad y se vende en otra con factor.
   unidadCompra    UnidadMedida @default(CAJON)

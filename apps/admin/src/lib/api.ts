@@ -47,6 +47,7 @@ export interface Product {
   unidadVenta: string;
   esPesable: boolean;
   ivaIndicador: IvaIndicador;
+  imagenUrl: string | null;
   activo: boolean;
   precio: number;
 }
@@ -66,6 +67,7 @@ export interface ProductInput {
   categoriaId?: string;
   plu?: number;
   codigoBarras?: string;
+  imagenUrl?: string;
 }
 
 export const getMe = async () => ok<Me>(await fetch(`${API_BASE}/auth/me`, { headers: headers() }), 'me');
@@ -337,7 +339,7 @@ export interface LandingConfig {
   tema: { color: string };
   hero: { mostrar: boolean; titulo: string; lema: string; imagenUrl: string };
   productos: { mostrar: boolean; titulo: string; items: LandingProducto[] };
-  horarios: { mostrar: boolean; texto: string; direccion: string; mapaUrl: string };
+  horarios: { mostrar: boolean; texto: string; direccion: string; mapaUrl: string; lat: number; lng: number };
   contacto: { mostrar: boolean; whatsapp: string; telefono: string; instagram: string; facebook: string };
 }
 

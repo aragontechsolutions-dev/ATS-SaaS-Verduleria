@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getLanding, publishLanding, saveLanding, unpublishLanding } from '../lib/api';
 import type { LandingConfig } from '../lib/api';
+import { formatUyPhone, osmEmbedUrl, tieneUbicacion } from '../lib/mapPhone';
+import { ImageUpload } from './ImageUpload';
 import { LandingPreview } from './LandingPreview';
 
 type SectionId = 'portada' | 'productos' | 'horarios' | 'contacto';
@@ -57,9 +59,33 @@ export function LandingPage() {
     return () => obs.disconnect();
   }, [config]);
 
+  const [geoLoading, setGeoLoading] = useState(false);
+
   function update<K extends keyof LandingConfig>(section: K, partial: Partial<LandingConfig[K]>) {
     setConfig((c) => (c ? { ...c, [section]: { ...c[section], ...partial } } : c));
     setDirty(true);
+  }
+
+  function usarMiUbicacion() {
+    if (!navigator.geolocation) {
+      setError('Tu navegador no permite ubicación. Ingresá las coordenadas a mano.');
+      return;
+    }
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        update('horarios', {
+          lat: Number(pos.coords.latitude.toFixed(6)),
+          lng: Number(pos.coords.longitude.toFixed(6)),
+        });
+        setGeoLoading(false);
+      },
+      () => {
+        setError('No pudimos obtener tu ubicación. Revisá los permisos o ingresá las coordenadas a mano.');
+        setGeoLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
   }
 
   function goTo(id: SectionId) {
@@ -160,7 +186,10 @@ export function LandingPage() {
             <SectionHead label="Portada" on={config.hero.mostrar} onToggle={(v) => update('hero', { mostrar: v })} />
             <label className="field">Nombre / título<input value={config.hero.titulo} onChange={(e) => update('hero', { titulo: e.target.value })} /></label>
             <label className="field">Lema<input value={config.hero.lema} onChange={(e) => update('hero', { lema: e.target.value })} placeholder="Lo más fresco del barrio" /></label>
-            <label className="field">Imagen de fondo (URL)<input value={config.hero.imagenUrl} onChange={(e) => update('hero', { imagenUrl: e.target.value })} placeholder="https://…" /></label>
+            <div className="field">
+              <span>Imagen de fondo</span>
+              <ImageUpload value={config.hero.imagenUrl} onChange={(u) => update('hero', { imagenUrl: u })} hint="Horizontal, se ve mejor." />
+            </div>
             <label className="field field--row">Color de la marca
               <input type="color" value={config.tema.color} onChange={(e) => update('tema', { color: e.target.value })} />
             </label>
@@ -191,14 +220,34 @@ export function LandingPage() {
             <SectionHead label="Horarios y ubicación" on={config.horarios.mostrar} onToggle={(v) => update('horarios', { mostrar: v })} />
             <label className="field">Horarios<input value={config.horarios.texto} onChange={(e) => update('horarios', { texto: e.target.value })} placeholder="Lun a Sáb 8:00–20:00" /></label>
             <label className="field">Dirección<input value={config.horarios.direccion} onChange={(e) => update('horarios', { direccion: e.target.value })} /></label>
-            <label className="field">Link del mapa (Google Maps)<input value={config.horarios.mapaUrl} onChange={(e) => update('horarios', { mapaUrl: e.target.value })} placeholder="https://maps.google.com/…" /></label>
+
+            <div className="miweb-ubic">
+              <div className="miweb-ubic__head">
+                <span>Ubicación en el mapa</span>
+                <button className="btn btn--sm btn--ghost" type="button" onClick={usarMiUbicacion} disabled={geoLoading}>
+                  {geoLoading ? 'Ubicando…' : '📍 Usar mi ubicación'}
+                </button>
+              </div>
+              <div className="row2">
+                <label className="field">Latitud<input type="number" step="0.000001" value={config.horarios.lat || ''} onChange={(e) => update('horarios', { lat: parseFloat(e.target.value) || 0 })} placeholder="-34.9011" /></label>
+                <label className="field">Longitud<input type="number" step="0.000001" value={config.horarios.lng || ''} onChange={(e) => update('horarios', { lng: parseFloat(e.target.value) || 0 })} placeholder="-56.1645" /></label>
+              </div>
+              {tieneUbicacion(config.horarios.lat, config.horarios.lng) ? (
+                <>
+                  <iframe className="miweb-map" title="Mapa" src={osmEmbedUrl(config.horarios.lat, config.horarios.lng)} loading="lazy" />
+                  <button className="btn btn--sm btn--ghost" type="button" onClick={() => update('horarios', { lat: 0, lng: 0 })}>Quitar ubicación</button>
+                </>
+              ) : (
+                <p className="hint">Tocá “Usar mi ubicación” estando en el local, o pegá las coordenadas. Se muestra un mapa en tu web.</p>
+              )}
+            </div>
           </section>
 
           {/* Contacto */}
           <section className="miweb-sec" data-id="contacto">
             <SectionHead label="Contacto y redes" on={config.contacto.mostrar} onToggle={(v) => update('contacto', { mostrar: v })} />
-            <label className="field">WhatsApp<input value={config.contacto.whatsapp} onChange={(e) => update('contacto', { whatsapp: e.target.value })} placeholder="099 123 456" /></label>
-            <label className="field">Teléfono<input value={config.contacto.telefono} onChange={(e) => update('contacto', { telefono: e.target.value })} /></label>
+            <label className="field">WhatsApp<input value={config.contacto.whatsapp} onChange={(e) => update('contacto', { whatsapp: e.target.value })} onBlur={(e) => update('contacto', { whatsapp: formatUyPhone(e.target.value) })} placeholder="099 123 456" /></label>
+            <label className="field">Teléfono<input value={config.contacto.telefono} onChange={(e) => update('contacto', { telefono: e.target.value })} onBlur={(e) => update('contacto', { telefono: formatUyPhone(e.target.value) })} placeholder="099 123 456" /></label>
             <label className="field">Instagram (URL)<input value={config.contacto.instagram} onChange={(e) => update('contacto', { instagram: e.target.value })} /></label>
             <label className="field">Facebook (URL)<input value={config.contacto.facebook} onChange={(e) => update('contacto', { facebook: e.target.value })} /></label>
           </section>
