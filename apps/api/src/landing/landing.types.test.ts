@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultLanding, normalizeLanding } from './landing.types.ts';
+import { defaultLanding, normalizeLanding, normalizeUyPhone } from './landing.types.ts';
 
 test('defaultLanding usa el nombre de la verdulería en el hero', () => {
   const c = defaultLanding('Verdulería La Esquina', 'Roosevelt 1234');
@@ -32,6 +32,37 @@ test('normalizeLanding limita la cantidad de productos a 24', () => {
   assert.equal(c.productos.items.length, 24);
   assert.equal(c.productos.items[0].nombre, 'P0');
   assert.equal(c.productos.items[0].precio, '');
+});
+
+test('normalizeUyPhone: 099… → +598 con bloques', () => {
+  assert.equal(normalizeUyPhone('099123456'), '+598 99 123 456');
+  assert.equal(normalizeUyPhone('099 123 456'), '+598 99 123 456');
+});
+
+test('normalizeUyPhone: acepta ya con +598 o 598', () => {
+  assert.equal(normalizeUyPhone('+598 99 123 456'), '+598 99 123 456');
+  assert.equal(normalizeUyPhone('59899123456'), '+598 99 123 456');
+});
+
+test('normalizeUyPhone: vacío o sin dígitos → ""', () => {
+  assert.equal(normalizeUyPhone(''), '');
+  assert.equal(normalizeUyPhone('sin numero'), '');
+});
+
+test('normalizeLanding: normaliza whatsapp/telefono y valida coordenadas', () => {
+  const c = normalizeLanding({
+    contacto: { whatsapp: '099123456' },
+    horarios: { lat: -34.9011, lng: -56.1645, texto: 'x' },
+  });
+  assert.equal(c.contacto.whatsapp, '+598 99 123 456');
+  assert.equal(c.horarios.lat, -34.9011);
+  assert.equal(c.horarios.lng, -56.1645);
+});
+
+test('normalizeLanding: coordenadas fuera de rango → 0', () => {
+  const c = normalizeLanding({ horarios: { lat: 999, lng: 'abc' } });
+  assert.equal(c.horarios.lat, 0);
+  assert.equal(c.horarios.lng, 0);
 });
 
 test('normalizeLanding coacciona tipos raros sin romper', () => {

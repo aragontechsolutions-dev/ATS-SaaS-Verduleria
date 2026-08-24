@@ -337,7 +337,7 @@ export interface LandingConfig {
   tema: { color: string };
   hero: { mostrar: boolean; titulo: string; lema: string; imagenUrl: string };
   productos: { mostrar: boolean; titulo: string; items: LandingProducto[] };
-  horarios: { mostrar: boolean; texto: string; direccion: string; mapaUrl: string };
+  horarios: { mostrar: boolean; texto: string; direccion: string; mapaUrl: string; lat: number; lng: number };
   contacto: { mostrar: boolean; whatsapp: string; telefono: string; instagram: string; facebook: string };
 }
 

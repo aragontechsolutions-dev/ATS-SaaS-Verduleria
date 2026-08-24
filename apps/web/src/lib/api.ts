@@ -10,8 +10,19 @@ export interface LandingConfig {
   tema: { color: string };
   hero: { mostrar: boolean; titulo: string; lema: string; imagenUrl: string };
   productos: { mostrar: boolean; titulo: string; items: LandingProducto[] };
-  horarios: { mostrar: boolean; texto: string; direccion: string; mapaUrl: string };
+  horarios: { mostrar: boolean; texto: string; direccion: string; mapaUrl: string; lat: number; lng: number };
   contacto: { mostrar: boolean; whatsapp: string; telefono: string; instagram: string; facebook: string };
+}
+
+/** URL de mapa embebido de OpenStreetMap (sin API key) con un marcador. */
+export function osmEmbedUrl(lat: number, lng: number): string {
+  const d = 0.004;
+  const bbox = `${lng - d},${lat - d},${lng + d},${lat + d}`;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${lat},${lng}`;
+}
+
+export function tieneUbicacion(lat: number, lng: number): boolean {
+  return lat !== 0 || lng !== 0;
 }
 
 export interface PublicLanding {

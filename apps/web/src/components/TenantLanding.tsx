@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { getPublicLanding, NotFoundError } from '../lib/api';
+import { getPublicLanding, NotFoundError, osmEmbedUrl, tieneUbicacion } from '../lib/api';
 import type { PublicLanding } from '../lib/api';
 import { ADMIN_URL, secretLogin } from '../lib/secretLogin';
 
@@ -91,13 +91,16 @@ function LandingView({
         </section>
       )}
 
-      {config.horarios.mostrar && (config.horarios.texto || config.horarios.direccion) && (
+      {config.horarios.mostrar && (config.horarios.texto || config.horarios.direccion || tieneUbicacion(config.horarios.lat, config.horarios.lng)) && (
         <section className="lp-sec lp-sec--alt">
           <h2>Horarios y ubicación</h2>
           {config.horarios.texto && <p className="lp-line">🕐 {config.horarios.texto}</p>}
           {config.horarios.direccion && <p className="lp-line">📍 {config.horarios.direccion}</p>}
+          {tieneUbicacion(config.horarios.lat, config.horarios.lng) && (
+            <iframe className="lp-map" title="Ubicación" src={osmEmbedUrl(config.horarios.lat, config.horarios.lng)} loading="lazy" />
+          )}
           {config.horarios.mapaUrl && (
-            <a className="lp-link" href={config.horarios.mapaUrl} target="_blank" rel="noreferrer">Ver en el mapa</a>
+            <a className="lp-link" href={config.horarios.mapaUrl} target="_blank" rel="noreferrer">Cómo llegar</a>
           )}
         </section>
       )}
