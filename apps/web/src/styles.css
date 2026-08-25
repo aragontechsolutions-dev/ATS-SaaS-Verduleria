@@ -200,8 +200,13 @@ section { padding: 60px 0; }
 .pub-404 h1 { font-size: 26px; color: var(--ink); }
 .pub-404 a { color: var(--teal); font-weight: 600; }
 
-.lp-map { width: 100%; max-width: 640px; height: 300px; border: 1px solid var(--border); border-radius: 14px; margin: 8px auto 0; display: block; overflow: hidden; z-index: 0; }
-.lp-map .leaflet-container { height: 100%; width: 100%; font: inherit; border-radius: 14px; }
+.lp-map { width: 100%; height: clamp(300px, 48vh, 460px); border: 1px solid var(--border-strong); border-radius: 16px; margin: 16px auto 0; display: block; overflow: hidden; z-index: 0; box-shadow: var(--shadow); }
+.lp-map .leaflet-container { height: 100%; width: 100%; font: inherit; border-radius: 16px; background: var(--surface); }
+/* Botón "Llévame hasta allí" → abre Google Maps con la navegación */
+.lp-go { display: inline-flex; align-items: center; gap: 8px; margin: 16px auto 0; background: var(--lp-accent); color: #fff; font-weight: 700; font-family: var(--font-head); padding: 13px 24px; border-radius: 999px; text-decoration: none; box-shadow: var(--shadow); transition: transform .15s ease, filter .15s ease; }
+.lp-go:hover { transform: translateY(-2px); filter: brightness(1.05); }
+.lp-go__wrap { display: flex; justify-content: center; }
+@media (prefers-reduced-motion: reduce) { .lp-go:hover { transform: none; } }
 .lp-pin { background: none; border: none; }
 .lp-pin__dot {
   display: block; width: 20px; height: 20px; border-radius: 50% 50% 50% 0;

@@ -39,6 +39,7 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: string }> = [
 export function LandingPage() {
   const [config, setConfig] = useState<LandingConfig | null>(null);
   const [slug, setSlug] = useState('');
+  const [apiPublicUrl, setApiPublicUrl] = useState('');
   const [publicado, setPublicado] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -56,6 +57,7 @@ export function LandingPage() {
         const l = await getLanding();
         setConfig(l.draft);
         setSlug(l.slug);
+        setApiPublicUrl(l.publicUrl ?? '');
         setPublicado(l.estaPublicado);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'No se pudo cargar');
@@ -182,11 +184,13 @@ export function LandingPage() {
   }
 
   const publicPath = useMemo(() => `/v/${slug}`, [slug]);
-  // URL pública completa: usa VITE_WEB_URL si está; si no, el mismo origen.
+  // URL pública del LANDING (nunca la del panel). Prioridad: la que arma el
+  // backend con WEB_URL; si no, VITE_WEB_URL del Panel; si no, solo el path.
   const publicUrl = useMemo(() => {
-    const base = (import.meta.env.VITE_WEB_URL ?? window.location.origin).replace(/\/+$/, '');
-    return slug ? `${base}${publicPath}` : '';
-  }, [slug, publicPath]);
+    if (apiPublicUrl) return apiPublicUrl;
+    const base = (import.meta.env.VITE_WEB_URL ?? '').replace(/\/+$/, '');
+    return base && slug ? `${base}${publicPath}` : '';
+  }, [apiPublicUrl, slug, publicPath]);
   const [copiado, setCopiado] = useState(false);
 
   async function copiarUrl() {

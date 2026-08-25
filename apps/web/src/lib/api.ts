@@ -25,6 +25,14 @@ export function tieneUbicacion(lat: number, lng: number): boolean {
   return lat !== 0 || lng !== 0;
 }
 
+/**
+ * URL de Google Maps para ir hasta el local: abre las indicaciones y permite
+ * iniciar la navegación. En el celu deep-linkea a la app de Google Maps.
+ */
+export function gmapsDirUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+}
+
 export interface PublicLanding {
   nombre: string;
   config: LandingConfig;

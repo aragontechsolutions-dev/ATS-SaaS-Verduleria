@@ -35,6 +35,8 @@ export interface AppConfig {
   billing: BillingConfig;
   /** Intervalo (ms) del worker de polling de estado DGI. */
   cfePollingIntervalMs: number;
+  /** Dominio público del sitio de landings (apps/web), ej. https://ats-web.vercel.app. */
+  webUrl: string;
 }
 
 export default (): AppConfig => ({
@@ -59,4 +61,5 @@ export default (): AppConfig => ({
     autoSuspend: process.env.BILLING_AUTO_SUSPEND === 'true', // OFF por defecto (sensible)
   },
   cfePollingIntervalMs: Number(process.env.CFE_POLLING_INTERVAL_MS ?? 60_000),
+  webUrl: (process.env.WEB_URL ?? '').replace(/\/+$/, ''),
 });

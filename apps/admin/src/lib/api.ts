@@ -345,6 +345,8 @@ export interface LandingConfig {
 
 export interface LandingState {
   slug: string;
+  /** URL pública completa del landing (la arma el backend con WEB_URL). '' si no está configurada. */
+  publicUrl: string;
   estaPublicado: boolean;
   draft: LandingConfig;
 }

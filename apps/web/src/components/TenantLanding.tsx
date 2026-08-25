@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { getPublicLanding, NotFoundError, tieneUbicacion } from '../lib/api';
+import { getPublicLanding, gmapsDirUrl, NotFoundError, tieneUbicacion } from '../lib/api';
 import type { PublicLanding } from '../lib/api';
 import { ADMIN_URL, secretLogin } from '../lib/secretLogin';
 import { LandingMap } from './LandingMap';
@@ -98,7 +98,19 @@ function LandingView({
           {config.horarios.texto && <p className="lp-line">🕐 {config.horarios.texto}</p>}
           {config.horarios.direccion && <p className="lp-line">📍 {config.horarios.direccion}</p>}
           {tieneUbicacion(config.horarios.lat, config.horarios.lng) && (
-            <LandingMap lat={config.horarios.lat} lng={config.horarios.lng} nombre={config.horarios.direccion || undefined} />
+            <>
+              <LandingMap lat={config.horarios.lat} lng={config.horarios.lng} nombre={config.horarios.direccion || undefined} />
+              <div className="lp-go__wrap">
+                <a
+                  className="lp-go"
+                  href={gmapsDirUrl(config.horarios.lat, config.horarios.lng)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  🧭 Llevame hasta allí
+                </a>
+              </div>
+            </>
           )}
           {config.horarios.mapaUrl && (
             <a className="lp-link" href={config.horarios.mapaUrl} target="_blank" rel="noreferrer">Cómo llegar</a>
