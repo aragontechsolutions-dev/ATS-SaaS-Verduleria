@@ -19,7 +19,7 @@ import { ClasificarDto } from '../iva/iva.dto';
 @Controller('products')
 @UseGuards(TenantGuard, EntitlementsGuard, RolesGuard)
 @RequiresModule('POS')
-@Roles(Role.ADMIN, Role.ENCARGADO)
+@Roles(Role.ADMIN, Role.ENCARGADO, Role.CONTADOR)
 export class ProductsController {
   constructor(private readonly products: ProductsService) {}
 

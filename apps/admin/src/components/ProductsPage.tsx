@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getCategorias, getProducts, updateProduct } from '../lib/api';
+import { getCategorias, getMe, getProducts, updateProduct } from '../lib/api';
 import type { Categoria, Product } from '../lib/api';
 import { ProductModal } from './ProductModal';
 import { BulkPriceModal } from './BulkPriceModal';
 import { SkeletonRows } from './Skeleton';
 import { useToast } from '../lib/toast';
+
+// Solo ADMIN y CONTADOR pueden fijar el IVA a mano (override del motor).
+const ROLES_OVERRIDE_IVA = ['ADMIN', 'CONTADOR'];
 
 export function ProductsPage() {
   const toast = useToast();
@@ -15,6 +18,7 @@ export function ProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
   const [bulk, setBulk] = useState(false);
+  const [canOverrideIva, setCanOverrideIva] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -27,6 +31,10 @@ export function ProductsPage() {
       setLoading(false);
     }
   }, [toast]);
+
+  useEffect(() => {
+    getMe().then((me) => setCanOverrideIva(ROLES_OVERRIDE_IVA.includes(me.role ?? ''))).catch(() => {});
+  }, []);
 
   useEffect(() => {
     void load();
@@ -128,10 +136,10 @@ export function ProductsPage() {
           <p className="hint">Tip: editá el precio directo en la columna y presioná Enter — se guarda solo.</p>
         </section>
       {creating && (
-        <ProductModal categorias={categorias} onClose={() => setCreating(false)} onSaved={() => { setCreating(false); void load(); }} />
+        <ProductModal categorias={categorias} canOverrideIva={canOverrideIva} onClose={() => setCreating(false)} onSaved={() => { setCreating(false); void load(); }} />
       )}
       {editing && (
-        <ProductModal product={editing} categorias={categorias} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void load(); }} />
+        <ProductModal product={editing} categorias={categorias} canOverrideIva={canOverrideIva} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void load(); }} />
       )}
       {bulk && (
         <BulkPriceModal

@@ -1,10 +1,12 @@
 // Reglas base del MOTOR DE IVA, sembradas desde la nómina oficial DGI
-// (docs/CFE-IVA.md, Ley 19.407). Son GLOBALES: aplican a todas las verdulerías.
-// Aragon las edita/extiende desde la Consola. El fallback del motor es
-// MÍNIMA + estado natural, así que una fruta/verdura no listada igual va a 10%.
+// (docs/CFE-IVA.md, Ley 19.407 + Título 10 Arts. 28/34/36). Son GLOBALES:
+// aplican a todas las verdulerías. Aragon las edita/extiende desde la Consola.
+// El fallback del motor es MÍNIMA + estado natural, así que una fruta/verdura no
+// listada igual va a 10%.
 //
-// prioridad: 0 = fruta/verdura/flor natural (default) · 5 = almacén 1ª necesidad
-//            10 = elaborados / limpieza (ganan cuando el nombre mezcla términos)
+// prioridad: 0 = fruta/verdura/flor/fruto seco natural · 5 = canasta Art. 36 ·
+//            10 = elaborados / limpieza (ganan cuando el nombre mezcla términos) ·
+//            20 = específicos que ganan al genérico (jabón común 10%, dulce de leche 22%)
 
 import type { PrismaClient, IvaIndicador } from '../client';
 
@@ -27,6 +29,10 @@ const GRUPOS: RuleSeed[] = [
       'lenteja', 'maiz', 'choclo', 'nabo', 'oregano', 'papa', 'pepino', 'perejil', 'pimiento', 'aji', 'morron',
       'poroto', 'puerro', 'rabanito', 'rabano', 'remolacha', 'repollo', 'salsifi', 'tomate', 'zanahoria',
       'zapallito', 'zapallo', 'apio', 'rucula', 'chaucha', 'calabaza',
+      // ampliación catálogo verdulería
+      'cilantro', 'ciboulette', 'laurel', 'romero', 'tomillo', 'menta', 'hierbabuena', 'jengibre',
+      'zapallo kabutia', 'zapallo criollo', 'calabacin', 'endivia', 'diente de leon', 'brotes', 'germinado',
+      'cebolla de verdeo', 'cebolla morada', 'papa criolla', 'batata',
     ],
   },
   {
@@ -35,6 +41,8 @@ const GRUPOS: RuleSeed[] = [
       'anana', 'banana', 'platano', 'cereza', 'ciruela', 'damasco', 'durazno', 'frambuesa', 'frutilla',
       'granada', 'grosella', 'guayabo', 'higo', 'kiwi', 'mango', 'manzana', 'membrillo', 'palta', 'papaya',
       'pelon', 'pera', 'uva', 'sandia', 'melon', 'arandano', 'mora', 'coco', 'maracuya',
+      // ampliación
+      'nectarin', 'caqui', 'tuna', 'chirimoya', 'zarzamora', 'physalis', 'granadilla', 'durazno blanco',
     ],
   },
   {
@@ -43,22 +51,45 @@ const GRUPOS: RuleSeed[] = [
   },
   {
     ivaIndicador: 'MINIMA', esEstadoNatural: true, prioridad: 0, nota: 'Flores y plantas ornamentales (10%)',
-    terminos: ['flor', 'ramo', 'planta', 'maceta', 'clavel', 'rosa', 'girasol', 'orquidea'],
+    terminos: ['flor', 'ramo', 'planta', 'maceta', 'plantin', 'clavel', 'rosa', 'girasol', 'orquidea', 'crisantemo'],
   },
   {
-    ivaIndicador: 'MINIMA', esEstadoNatural: false, prioridad: 5, nota: 'Almacén 1ª necesidad — tasa mínima por Título 10 (10%)',
-    terminos: ['pan', 'arroz', 'fideo', 'pasta seca', 'aceite', 'azucar', 'yerba', 'cafe', 'sal', 'harina', 'carne', 'pollo', 'pescado'],
+    // Frutos secos y desecados A GRANEL / estado natural → 10% (agropecuario natural).
+    // Envasados o procesados van a 22%: el contador lo ajusta por producto (override).
+    ivaIndicador: 'MINIMA', esEstadoNatural: true, prioridad: 0, nota: 'Frutos secos a granel en estado natural (10%). Envasado/procesado → override 22%.',
+    terminos: ['mani', 'nuez', 'almendra', 'castana', 'avellana', 'pistacho', 'pasa de uva', 'pasa', 'ciruela pasa', 'orejon'],
   },
   {
-    ivaIndicador: 'EXENTO', esEstadoNatural: false, prioridad: 10, nota: 'Exentos de IVA',
-    terminos: ['leche', 'libro', 'diario', 'revista'],
-  },
-  {
-    ivaIndicador: 'BASICA', esEstadoNatural: false, prioridad: 10, nota: 'Elaborados/procesados — tasa básica (22%)',
+    ivaIndicador: 'MINIMA', esEstadoNatural: false, prioridad: 5, nota: 'Canasta tasa mínima — Título 10 Art. 36 (10%)',
     terminos: [
-      'seco', 'pure', 'salsa', 'conserva', 'encurtido', 'mermelada', 'dulce', 'jalea', 'congelado', 'ensalada lista',
-      'jugo', 'nectar', 'gaseosa', 'refresco', 'agua saborizada', 'snack', 'papas fritas', 'galleta', 'chocolate',
-      'alfajor', 'cerveza', 'vino', 'fruto seco', 'mani', 'almendra', 'nuez', 'pasa de uva',
+      'pan', 'arroz', 'fideo', 'pasta seca', 'aceite', 'azucar', 'yerba', 'cafe', 'te', 'sal', 'harina',
+      'carne', 'pollo', 'pescado', 'menudencia', 'grasa comestible',
+    ],
+  },
+  {
+    // Específicos "común/de campaña" del Art. 36: ganan sobre el genérico (jabón/galleta 22%).
+    ivaIndicador: 'MINIMA', esEstadoNatural: false, prioridad: 20, nota: 'Art. 36 específico — jabón común / galleta de campaña (10%)',
+    terminos: ['jabon comun', 'jabon blanco', 'galleta de campana', 'galleta de campaña'],
+  },
+  {
+    ivaIndicador: 'EXENTO', esEstadoNatural: false, prioridad: 10, nota: 'Exentos de IVA (huevos, leche, miel, libros/diarios)',
+    terminos: ['leche', 'huevo', 'miel', 'libro', 'diario', 'revista'],
+  },
+  {
+    // Procesados lácteos que contienen "leche" pero NO son exentos: ganan al exento.
+    ivaIndicador: 'BASICA', esEstadoNatural: false, prioridad: 20, nota: 'Derivados procesados de leche — 22%',
+    terminos: ['dulce de leche', 'leche condensada', 'leche en polvo'],
+  },
+  {
+    // Nota: congelar/enfriar es CONSERVACIÓN → mantiene estado natural. Carne,
+    // pescado y verdura simplemente congelados siguen a 10% (Art. 36 / Art. 28),
+    // por eso NO se lista "congelado" como básica. Solo lo transformado va a 22%.
+    ivaIndicador: 'BASICA', esEstadoNatural: false, prioridad: 10, nota: 'Elaborados/procesados — tasa básica (22%). No es "estado natural".',
+    terminos: [
+      'tomate seco', 'pure', 'salsa', 'conserva', 'encurtido', 'mermelada', 'dulce', 'jalea', 'ensalada lista',
+      'triturado', 'enlatado', 'en lata', 'deshidratado', 'almibar', 'rallado', 'pickle', 'aceituna', 'milanesa', 'prefrito',
+      'jugo', 'nectar', 'gaseosa', 'refresco', 'agua saborizada', 'agua mineral', 'snack', 'papas fritas', 'galleta', 'chocolate',
+      'alfajor', 'cerveza', 'vino', 'golosina', 'caramelo', 'helado', 'yogur', 'queso', 'fiambre', 'embutido',
     ],
   },
   {
