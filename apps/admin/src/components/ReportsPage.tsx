@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getDaily, getProfit, getSummary, getTopProducts } from '../lib/api';
 import type { DailyPoint, ProfitReport, ReportSummary, TopProduct } from '../lib/api';
+import { SkeletonCards } from './Skeleton';
+import { useToast } from '../lib/toast';
 
 const money = new Intl.NumberFormat('es-UY', { style: 'currency', currency: 'UYU', maximumFractionDigits: 0 });
 
@@ -23,18 +25,17 @@ function rangeFor(preset: Preset): { from: string; to: string } {
 }
 
 export function ReportsPage() {
+  const toast = useToast();
   const [preset, setPreset] = useState<Preset>('hoy');
   const [summary, setSummary] = useState<ReportSummary | null>(null);
   const [top, setTop] = useState<TopProduct[]>([]);
   const [daily, setDaily] = useState<DailyPoint[]>([]);
   const [profit, setProfit] = useState<ProfitReport | null>(null);
   const [profitLocked, setProfitLocked] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async (p: Preset) => {
     setLoading(true);
-    setError(null);
     try {
       const r = rangeFor(p);
       const [s, t, d] = await Promise.all([
@@ -46,7 +47,7 @@ export function ReportsPage() {
       setTop(t);
       setDaily(d);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error cargando reportes');
+      toast.error(e instanceof Error ? e.message : 'Error cargando reportes');
     } finally {
       setLoading(false);
     }
@@ -59,7 +60,7 @@ export function ReportsPage() {
       setProfit(null);
       setProfitLocked(true);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     void load(preset);
@@ -69,8 +70,6 @@ export function ReportsPage() {
 
   return (
     <>
-      {error && <div className="banner banner--err">{error}</div>}
-
       <div className="segmented">
         {(['hoy', '7d', '30d'] as Preset[]).map((p) => (
           <button key={p} className={`seg ${preset === p ? 'seg--on' : ''}`} onClick={() => setPreset(p)}>
@@ -80,7 +79,7 @@ export function ReportsPage() {
       </div>
 
       {loading ? (
-        <p className="muted">Cargando…</p>
+        <SkeletonCards count={4} />
       ) : (
         <>
           <section className="tiles">

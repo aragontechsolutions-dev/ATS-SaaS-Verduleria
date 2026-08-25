@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { getSettings, updateSettings } from '../lib/api';
 import type { RegimenFiscal, Settings } from '../lib/api';
+import { Spinner } from './Skeleton';
+import { useToast } from '../lib/toast';
 
 const REGIMENES: Array<{ v: RegimenFiscal; label: string }> = [
   { v: 'LITERAL_E', label: 'Literal E (IVA mínimo) — emite CFE' },
@@ -11,9 +13,9 @@ const REGIMENES: Array<{ v: RegimenFiscal; label: string }> = [
 ];
 
 export function SettingsPage() {
+  const toast = useToast();
   const [s, setS] = useState<Settings | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [okMsg, setOkMsg] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Campos del formulario
@@ -40,33 +42,33 @@ export function SettingsPage() {
           sucursalDefault: data.cfe?.sucursalDefault ?? 1,
         });
       })
-      .catch((e) => setError(String(e)));
-  }, []);
+      .catch((e) => { const m = e instanceof Error ? e.message : String(e); setError(m); toast.error(m); });
+  }, [toast]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
-    setOkMsg(false);
     try {
       const data = await updateSettings({ ...f, sucursalDefault: Number(f.sucursalDefault) });
       setS(data);
-      setOkMsg(true);
+      toast.success('Cambios guardados correctamente');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar');
+      const m = err instanceof Error ? err.message : 'No se pudo guardar';
+      setError(m);
+      toast.error(m);
     } finally {
       setSaving(false);
     }
   }
 
-  if (!s && !error) return <p className="muted">Cargando…</p>;
+  if (!s && !error) return <p className="loading-row"><Spinner /> Cargando ajustes…</p>;
 
   const exento = f.regimenFiscal === 'MONOTRIBUTO' || f.regimenFiscal === 'MONOTRIBUTO_MIDES';
 
   return (
     <form onSubmit={submit}>
       {error && <div className="banner banner--err">{error}</div>}
-      {okMsg && <div className="banner banner--ok">Cambios guardados ✓</div>}
 
       <section className="panel">
         <div className="panel__head"><h2>Datos del negocio</h2></div>

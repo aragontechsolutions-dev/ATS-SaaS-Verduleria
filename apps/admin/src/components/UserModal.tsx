@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { createUser } from '../lib/api';
 import type { CreateUserResult, Role } from '../lib/api';
+import { useToast } from '../lib/toast';
 
 const ROLES: Role[] = ['CAJERO', 'ENCARGADO', 'DEPOSITO', 'REPARTIDOR', 'COMPRADOR', 'CONTADOR', 'ADMIN'];
 
 export function UserModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const toast = useToast();
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('CAJERO');
@@ -19,17 +21,20 @@ export function UserModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     setError(null);
     try {
       const res = await createUser({ email: email.trim(), nombre: nombre.trim(), role, password: password || undefined });
+      toast.success(`Usuario “${nombre.trim()}” creado correctamente`);
       setResult(res);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear');
+      const msg = err instanceof Error ? err.message : 'No se pudo crear';
+      setError(msg);
+      toast.error(msg);
       setSaving(false);
     }
   }
 
   if (result) {
     return (
-      <div className="modal-backdrop" onClick={onSaved}>
-        <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-backdrop">
+        <div className="modal">
           <h3>✓ Usuario creado</h3>
           {result.loginCreado ? (
             <>
@@ -55,8 +60,8 @@ export function UserModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+    <div className="modal-backdrop">
+      <form className="modal" onSubmit={submit}>
         <h3>Nuevo usuario</h3>
         <label className="field">
           Nombre

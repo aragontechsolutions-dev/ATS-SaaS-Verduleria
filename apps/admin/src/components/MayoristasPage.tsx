@@ -7,40 +7,35 @@ import {
   getCustomers,
 } from '../lib/api';
 import type { Customer, CustomerAccount } from '../lib/api';
+import { SkeletonRows, Spinner } from './Skeleton';
+import { useToast } from '../lib/toast';
 
 const money = new Intl.NumberFormat('es-UY', { style: 'currency', currency: 'UYU', maximumFractionDigits: 0 });
 
 export function MayoristasPage() {
+  const toast = useToast();
   const [rows, setRows] = useState<Customer[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [okMsg, setOkMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [locked, setLocked] = useState(false);
   const [creating, setCreating] = useState(false);
   const [selId, setSelId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setError(null);
     try {
       setRows(await getCustomers());
       setLocked(false);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error';
       if (msg.includes('permisos') || msg.includes('plan') || msg.includes('403')) setLocked(true);
-      else setError(msg);
+      else toast.error(msg);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     void load();
   }, [load]);
-
-  function flash(m: string) {
-    setOkMsg(m);
-    window.setTimeout(() => setOkMsg(null), 3000);
-  }
 
   if (locked) {
     return (
@@ -55,9 +50,6 @@ export function MayoristasPage() {
 
   return (
     <>
-      {error && <div className="banner banner--err">{error}</div>}
-      {okMsg && <div className="banner banner--ok">{okMsg}</div>}
-
       <section className="panel">
         <div className="panel__head">
           <h2>Mayoristas — cuenta corriente</h2>
@@ -68,7 +60,7 @@ export function MayoristasPage() {
         </div>
 
         {loading ? (
-          <p className="muted">Cargando…</p>
+          <SkeletonRows rows={5} cols={5} />
         ) : (
           <div className="table-wrap">
             <table className="table">
@@ -105,7 +97,6 @@ export function MayoristasPage() {
           customerId={selId}
           onClose={() => setSelId(null)}
           onChanged={() => void load()}
-          flash={flash}
         />
       )}
     </>
@@ -113,6 +104,7 @@ export function MayoristasPage() {
 }
 
 function NewCustomerModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const toast = useToast();
   const [nombre, setNombre] = useState('');
   const [documento, setDocumento] = useState('');
   const [telefono, setTelefono] = useState('');
@@ -123,26 +115,30 @@ function NewCustomerModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!nombre.trim()) return;
+    const n = nombre.trim();
     setSaving(true);
     try {
       await createCustomer({
-        nombre: nombre.trim(),
+        nombre: n,
         esMayorista: true,
         tipoDocumento: 'RUC',
         documento: documento || undefined,
         telefono: telefono || undefined,
         limiteCredito: limite ? parseFloat(limite) : undefined,
       });
+      toast.success(`Cliente “${n}” agregado correctamente`);
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear');
+      const m = err instanceof Error ? err.message : 'No se pudo crear';
+      setError(m);
+      toast.error(m);
       setSaving(false);
     }
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+    <div className="modal-backdrop">
+      <form className="modal" onSubmit={submit}>
         <h3>Nuevo cliente mayorista</h3>
         <label className="field">Nombre<input value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus required /></label>
         <div className="row2">
@@ -164,13 +160,12 @@ function AccountModal({
   customerId,
   onClose,
   onChanged,
-  flash,
 }: {
   customerId: string;
   onClose: () => void;
   onChanged: () => void;
-  flash: (m: string) => void;
 }) {
+  const toast = useToast();
   const [acc, setAcc] = useState<CustomerAccount | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'cobranza' | 'cargo' | null>(null);
@@ -182,9 +177,11 @@ function AccountModal({
     try {
       setAcc(await getCustomerAccount(customerId));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error');
+      const m = e instanceof Error ? e.message : 'Error';
+      setError(m);
+      toast.error(m);
     }
-  }, [customerId]);
+  }, [customerId, toast]);
 
   useEffect(() => {
     void reload();
@@ -198,10 +195,10 @@ function AccountModal({
     try {
       if (mode === 'cobranza') {
         await addCustomerPayment(customerId, { monto: n, concepto: concepto || undefined });
-        flash(`Cobranza registrada: ${money.format(n)}.`);
+        toast.success(`Cobranza registrada: ${money.format(n)}`);
       } else {
         await addCustomerCharge(customerId, { monto: n, concepto: concepto || undefined });
-        flash(`Cargo registrado: ${money.format(n)}.`);
+        toast.success(`Cargo registrado: ${money.format(n)}`);
       }
       setMode(null);
       setMonto('');
@@ -209,17 +206,17 @@ function AccountModal({
       await reload();
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo registrar');
+      toast.error(err instanceof Error ? err.message : 'No se pudo registrar');
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal modal--wide" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop">
+      <div className="modal modal--wide">
         {!acc ? (
-          <p className="muted">Cargando…</p>
+          <p className="loading-row"><Spinner /> Cargando cuenta…</p>
         ) : (
           <>
             <div className="panel__head" style={{ marginBottom: 6 }}>

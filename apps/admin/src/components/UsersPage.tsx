@@ -2,42 +2,52 @@ import { useCallback, useEffect, useState } from 'react';
 import { getUsers, updateUser } from '../lib/api';
 import type { Role, TenantUser } from '../lib/api';
 import { UserModal } from './UserModal';
+import { SkeletonRows } from './Skeleton';
+import { useToast } from '../lib/toast';
 
 const ROLES: Role[] = ['ADMIN', 'ENCARGADO', 'CAJERO', 'DEPOSITO', 'REPARTIDOR', 'COMPRADOR', 'CONTADOR', 'MAYORISTA'];
 
 export function UsersPage() {
+  const toast = useToast();
   const [users, setUsers] = useState<TenantUser[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
-    setError(null);
     try {
       setUsers(await getUsers());
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error cargando');
+      toast.error(e instanceof Error ? e.message : 'Error cargando usuarios');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   async function changeRole(u: TenantUser, role: Role) {
-    await updateUser(u.membershipId, { role }).catch((e) => setError(String(e)));
+    try {
+      await updateUser(u.membershipId, { role });
+      toast.success(`Rol de ${u.nombre} cambiado a ${role}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo cambiar el rol');
+    }
     void load();
   }
   async function toggleActivo(u: TenantUser) {
-    await updateUser(u.membershipId, { activo: !u.activo }).catch((e) => setError(String(e)));
+    try {
+      await updateUser(u.membershipId, { activo: !u.activo });
+      toast.success(`${u.nombre} ${u.activo ? 'desactivado' : 'activado'}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo cambiar el estado');
+    }
     void load();
   }
 
   return (
     <>
-      {error && <div className="banner banner--err">{error}</div>}
       <section className="panel">
         <div className="panel__head">
           <h2>Usuarios</h2>
@@ -45,7 +55,7 @@ export function UsersPage() {
         </div>
 
         {loading ? (
-          <p className="muted">Cargando…</p>
+          <SkeletonRows rows={5} cols={4} />
         ) : (
           <div className="table-wrap">
             <table className="table">

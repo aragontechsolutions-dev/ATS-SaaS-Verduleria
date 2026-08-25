@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createSucursal, getProducts, getSucursales, transferStock, updateSucursal } from '../lib/api';
 import type { Product, Sucursal } from '../lib/api';
+import { SkeletonRows } from './Skeleton';
+import { useToast } from '../lib/toast';
 
 function money(n: number): string {
   return n.toLocaleString('es-UY', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
 }
 
 export function SucursalesPage() {
+  const toast = useToast();
   const [sucs, setSucs] = useState<Sucursal[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [okMsg, setOkMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [nombre, setNombre] = useState('');
@@ -24,50 +25,55 @@ export function SucursalesPage() {
   const [transfering, setTransfering] = useState(false);
 
   const load = useCallback(async () => {
-    setError(null);
     try {
       const [s, p] = await Promise.all([getSucursales(), getProducts()]);
       setSucs(s);
       setProducts(p.filter((x) => x.activo));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error cargando');
+      toast.error(e instanceof Error ? e.message : 'Error cargando sucursales');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  function flash(m: string) {
-    setOkMsg(m);
-    window.setTimeout(() => setOkMsg(null), 3500);
-  }
-
   async function crear(e: React.FormEvent) {
     e.preventDefault();
     if (!nombre.trim()) return;
+    const n = nombre.trim();
     try {
-      await createSucursal({ nombre: nombre.trim(), direccion: direccion || undefined });
+      await createSucursal({ nombre: n, direccion: direccion || undefined });
       setNombre('');
       setDireccion('');
-      flash('Sucursal creada.');
+      toast.success(`Sucursal “${n}” agregada correctamente`);
       void load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      toast.error(err instanceof Error ? err.message : 'No se pudo crear la sucursal');
     }
   }
 
   async function renombrar(s: Sucursal) {
     const nuevo = window.prompt('Nuevo nombre', s.nombre);
     if (!nuevo || nuevo.trim() === s.nombre) return;
-    await updateSucursal(s.id, { nombre: nuevo.trim() }).catch((e) => setError(String(e)));
+    try {
+      await updateSucursal(s.id, { nombre: nuevo.trim() });
+      toast.success('Sucursal renombrada correctamente');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo renombrar');
+    }
     void load();
   }
 
   async function toggle(s: Sucursal) {
-    await updateSucursal(s.id, { activo: !s.activo }).catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    try {
+      await updateSucursal(s.id, { activo: !s.activo });
+      toast.success(`${s.nombre} ${s.activo ? 'desactivada' : 'activada'}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo cambiar el estado');
+    }
     void load();
   }
 
@@ -75,21 +81,20 @@ export function SucursalesPage() {
     e.preventDefault();
     const cant = parseFloat(tCant);
     if (!tProd || !tFrom || !tTo || Number.isNaN(cant) || cant <= 0) {
-      setError('Completá producto, origen, destino y cantidad.');
+      toast.error('Completá producto, origen, destino y cantidad.');
       return;
     }
     if (tFrom === tTo) {
-      setError('El origen y el destino deben ser distintos.');
+      toast.error('El origen y el destino deben ser distintos.');
       return;
     }
     setTransfering(true);
-    setError(null);
     try {
       const r = await transferStock({ productId: tProd, fromSucursalId: tFrom, toSucursalId: tTo, cantidad: cant });
-      flash(`Transferido: ${r.from.nombre} → ${r.to.nombre}. Ahora ${r.to.nombre} tiene ${money(r.to.cantidad)}.`);
+      toast.success(`Transferido: ${r.from.nombre} → ${r.to.nombre}. Ahora ${r.to.nombre} tiene ${money(r.to.cantidad)}.`);
       setTCant('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo transferir');
+      toast.error(err instanceof Error ? err.message : 'No se pudo transferir');
     } finally {
       setTransfering(false);
     }
@@ -100,9 +105,6 @@ export function SucursalesPage() {
 
   return (
     <>
-      {error && <div className="banner banner--err">{error}</div>}
-      {okMsg && <div className="banner banner--ok">{okMsg}</div>}
-
       <section className="panel">
         <div className="panel__head"><h2>Sucursales</h2></div>
         <form className="cat-new" onSubmit={crear}>
@@ -112,7 +114,7 @@ export function SucursalesPage() {
         </form>
 
         {loading ? (
-          <p className="muted">Cargando…</p>
+          <SkeletonRows rows={4} cols={5} />
         ) : (
           <div className="table-wrap">
             <table className="table">

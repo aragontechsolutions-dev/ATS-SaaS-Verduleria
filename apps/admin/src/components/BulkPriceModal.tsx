@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { bulkPrices } from '../lib/api';
 import type { Categoria } from '../lib/api';
+import { useToast } from '../lib/toast';
 
 interface Props {
   categorias: Categoria[];
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function BulkPriceModal({ categorias, onClose, onDone }: Props) {
+  const toast = useToast();
   const [operacion, setOperacion] = useState<'PORCENTAJE' | 'FIJO'>('PORCENTAJE');
   const [valor, setValor] = useState('');
   const [categoriaId, setCategoriaId] = useState('');
@@ -29,14 +31,16 @@ export function BulkPriceModal({ categorias, onClose, onDone }: Props) {
       });
       onDone(r.actualizados);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo aplicar');
+      const m = err instanceof Error ? err.message : 'No se pudo aplicar';
+      setError(m);
+      toast.error(m);
       setSaving(false);
     }
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+    <div className="modal-backdrop">
+      <form className="modal" onSubmit={submit}>
         <h3>Actualizar precios en masa</h3>
         <p className="modal__sub">Ajustá los precios de mostrador de un saque.</p>
 

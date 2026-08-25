@@ -3,30 +3,30 @@ import { getCategorias, getProducts, updateProduct } from '../lib/api';
 import type { Categoria, Product } from '../lib/api';
 import { ProductModal } from './ProductModal';
 import { BulkPriceModal } from './BulkPriceModal';
+import { SkeletonRows } from './Skeleton';
+import { useToast } from '../lib/toast';
 
 export function ProductsPage() {
+  const toast = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [q, setQ] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
   const [bulk, setBulk] = useState(false);
-  const [okMsg, setOkMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setError(null);
     try {
       const [p, c] = await Promise.all([getProducts(), getCategorias()]);
       setProducts(p);
       setCategorias(c);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error cargando');
+      toast.error(e instanceof Error ? e.message : 'Error cargando');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     void load();
@@ -40,22 +40,27 @@ export function ProductsPage() {
   async function savePrice(p: Product, nuevo: number) {
     if (nuevo === p.precio || Number.isNaN(nuevo)) return;
     setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, precio: nuevo } : x)));
-    await updateProduct(p.id, { precio: nuevo }).catch((e) => {
-      setError(String(e));
+    try {
+      await updateProduct(p.id, { precio: nuevo });
+      toast.success(`Precio de ${p.nombre} actualizado`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo actualizar el precio');
       void load();
-    });
+    }
   }
 
   async function toggleActivo(p: Product) {
-    await updateProduct(p.id, { activo: !p.activo }).catch((e) => setError(String(e)));
+    try {
+      await updateProduct(p.id, { activo: !p.activo });
+      toast.success(`${p.nombre} ${p.activo ? 'desactivado' : 'activado'}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo cambiar el estado');
+    }
     void load();
   }
 
   return (
     <>
-      {error && <div className="banner banner--err">{error}</div>}
-      {okMsg && <div className="banner banner--ok">{okMsg}</div>}
-
         <section className="panel">
           <div className="panel__head">
             <h2>Productos</h2>
@@ -67,7 +72,7 @@ export function ProductsPage() {
           </div>
 
           {loading ? (
-            <p className="muted">Cargando…</p>
+            <SkeletonRows rows={6} cols={5} />
           ) : (
             <div className="table-wrap">
               <table className="table">
@@ -132,7 +137,7 @@ export function ProductsPage() {
         <BulkPriceModal
           categorias={categorias}
           onClose={() => setBulk(false)}
-          onDone={(n) => { setBulk(false); setOkMsg(`Precios actualizados: ${n} productos.`); void load(); window.setTimeout(() => setOkMsg(null), 3000); }}
+          onDone={(n) => { setBulk(false); toast.success(`Precios actualizados: ${n} producto${n === 1 ? '' : 's'}`); void load(); }}
         />
       )}
     </>

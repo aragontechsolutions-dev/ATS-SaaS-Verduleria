@@ -9,6 +9,8 @@ import {
   updateSupplier,
 } from '../lib/api';
 import type { Product, PurchaseRow, Sucursal, Supplier } from '../lib/api';
+import { SkeletonRows } from './Skeleton';
+import { useToast } from '../lib/toast';
 
 interface Line {
   productId: string;
@@ -24,13 +26,12 @@ function money(n: number): string {
 }
 
 export function ComprasPage() {
+  const toast = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [sucursalId, setSucursalId] = useState('');
   const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [okMsg, setOkMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [supplierId, setSupplierId] = useState('');
@@ -41,7 +42,6 @@ export function ComprasPage() {
   const [newSup, setNewSup] = useState({ nombre: '', telefono: '', esUam: false });
 
   const load = useCallback(async () => {
-    setError(null);
     try {
       const [p, s, c, su] = await Promise.all([getProducts(), getSuppliers(), getPurchases(), getSucursales()]);
       setProducts(p.filter((x) => x.activo));
@@ -49,11 +49,11 @@ export function ComprasPage() {
       setPurchases(c);
       setSucursales(su.filter((x) => x.activo));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error cargando');
+      toast.error(e instanceof Error ? e.message : 'Error cargando compras');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     void load();
@@ -63,11 +63,6 @@ export function ComprasPage() {
     () => lines.reduce((s, l) => s + (parseFloat(l.cantidadCompra) || 0) * (parseFloat(l.costoUnitCompra) || 0), 0),
     [lines],
   );
-
-  function flash(m: string) {
-    setOkMsg(m);
-    window.setTimeout(() => setOkMsg(null), 3500);
-  }
 
   function setLine(i: number, patch: Partial<Line>) {
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
@@ -90,19 +85,18 @@ export function ComprasPage() {
         rindeVenta: l.rindeVenta ? parseFloat(l.rindeVenta) : undefined,
       }));
     if (items.length === 0) {
-      setError('Agregá al menos una línea con producto y cantidad.');
+      toast.error('Agregá al menos una línea con producto y cantidad.');
       return;
     }
     setSaving(true);
-    setError(null);
     try {
       const r = await createPurchase({ supplierId: supplierId || undefined, sucursalId: sucursalId || undefined, notas: notas || undefined, items });
-      flash(`Compra registrada por $${money(r.total)}. Stock actualizado.`);
+      toast.success(`Compra registrada por $${money(r.total)} — stock actualizado`);
       setLines([{ ...emptyLine }]);
       setNotas('');
       void load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo registrar la compra');
+      toast.error(err instanceof Error ? err.message : 'No se pudo registrar la compra');
     } finally {
       setSaving(false);
     }
@@ -111,17 +105,24 @@ export function ComprasPage() {
   async function addSupplier(e: React.FormEvent) {
     e.preventDefault();
     if (!newSup.nombre.trim()) return;
+    const n = newSup.nombre.trim();
     try {
-      await createSupplier({ nombre: newSup.nombre.trim(), telefono: newSup.telefono || undefined, esUam: newSup.esUam });
+      await createSupplier({ nombre: n, telefono: newSup.telefono || undefined, esUam: newSup.esUam });
       setNewSup({ nombre: '', telefono: '', esUam: false });
+      toast.success(`Proveedor “${n}” agregado correctamente`);
       void load();
     } catch (err) {
-      setError(String(err));
+      toast.error(err instanceof Error ? err.message : 'No se pudo agregar el proveedor');
     }
   }
 
   async function toggleSupplier(s: Supplier) {
-    await updateSupplier(s.id, { activo: !s.activo }).catch((e) => setError(String(e)));
+    try {
+      await updateSupplier(s.id, { activo: !s.activo });
+      toast.success(`Proveedor ${s.nombre} ${s.activo ? 'desactivado' : 'activado'}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo cambiar el estado');
+    }
     void load();
   }
 
@@ -129,14 +130,11 @@ export function ComprasPage() {
 
   return (
     <>
-      {error && <div className="banner banner--err">{error}</div>}
-      {okMsg && <div className="banner banner--ok">{okMsg}</div>}
-
       <section className="panel">
         <div className="panel__head"><h2>Nueva compra</h2></div>
 
         {loading ? (
-          <p className="muted">Cargando…</p>
+          <SkeletonRows rows={4} cols={4} />
         ) : (
           <form onSubmit={submit}>
             <div className="row2">

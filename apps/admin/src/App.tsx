@@ -16,7 +16,7 @@ export default function App() {
   if (session === undefined) {
     return (
       <div className="auth">
-        <p style={{ color: '#fff' }}>Cargando…</p>
+        <span className="spinner spinner--lg" />
       </div>
     );
   }
