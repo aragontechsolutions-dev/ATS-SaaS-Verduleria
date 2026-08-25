@@ -224,3 +224,38 @@ contra el TODGI vigente. Las tasas y listas se actualizan por ley.
 4. Para mayoreo B2B → lógica de suspenso/22% (módulo v1, no MVP).
 5. En el onboarding, **aviso**: "confirmá la configuración fiscal con tu contador".
 6. ⚠️ Verificar con Surtec el indicador de IVA en suspenso para líneas B2B.
+
+---
+
+## 9. Motor de IVA (implementado)
+
+El sistema asigna el IVA **automáticamente** por el nombre del producto, para que
+el tenant no tenga que saber la clasificación. La configuración es de **Aragon**
+(Consola de plataforma), no del tenant.
+
+### Piezas
+- **Reglas globales** (`IvaRule`, tabla): `término → { ivaIndicador, esEstadoNatural,
+  esImportado, prioridad }`. Administradas en **Consola → Motor de IVA**. Se siembran
+  desde la nómina DGI de la sección 2/4 (`prisma/iva-rules.ts`).
+- **Clasificador puro** (`@ats/cfe` → `clasificarProducto`): normaliza el nombre
+  (minúsculas, sin tildes, plural) y matchea contra las reglas. Ante varios
+  matches gana la de **mayor prioridad** y luego el término más largo (más
+  específico). Fallback: **mínima 10% + estado natural**.
+- **Aplicación**: al crear/editar un producto, el backend clasifica y asigna
+  `ivaIndicador/esEstadoNatural/esImportado` (`products.service`).
+- **Override del contador**: `Product.ivaOverride`. Si el contador ajusta el IVA
+  a mano (panel del tenant → alta de producto → "Ajustar a mano"), el motor **no
+  lo reclasifica**. Cumple la exigencia legal de editabilidad por producto.
+- **Reclasificar catálogo**: botón en la Consola → reaplica el motor a todos los
+  productos **sin override**.
+
+### Deploy (al liberar)
+1. Migrar el esquema: `IvaRule` + `Product.ivaOverride/ivaRegla`
+   (`npm run push -w @ats/database` en dev; `migrate:deploy` en prod).
+2. Sembrar las reglas base: `npm run seed:iva -w @ats/database` (idempotente).
+3. (Opcional) En la Consola, "Reclasificar catálogo" para aplicar a productos ya
+   cargados que no tengan override.
+
+Las prioridades: 0 = fruta/verdura/flor natural · 5 = almacén 1ª necesidad ·
+10 = elaborados/limpieza (ganan cuando el nombre mezcla términos, ej. "salsa de
+tomate" → básica por "salsa").

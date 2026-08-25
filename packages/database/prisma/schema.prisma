@@ -59,6 +59,27 @@ enum IvaIndicador {
   SUSPENSO // 12 ← IVA en suspenso (cadena, compras a productores)
 }
 
+/// Regla GLOBAL del motor de IVA (administrada por Aragon en la Consola, no por
+/// el tenant). Clasifica un producto por su nombre en su tratamiento fiscal.
+/// Se siembra con la nómina oficial DGI (ver docs/CFE-IVA.md).
+model IvaRule {
+  id       String @id @default(uuid()) @db.Uuid
+  /// Término a buscar en el nombre del producto (se normaliza; tolera plural).
+  termino  String @unique
+  ivaIndicador    IvaIndicador
+  esEstadoNatural Boolean @default(false)
+  esImportado     Boolean @default(false)
+  /// Ante varios matches gana la de mayor prioridad (luego término más largo).
+  prioridad Int     @default(0)
+  activo    Boolean @default(true)
+  /// Nota interna / fuente (ej. "nómina DGF frutas").
+  nota      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([activo])
+}
+
 /// Unidades de medida. Una unidad de compra + varias de venta por producto.
 enum UnidadMedida {
   KG // por peso
@@ -490,6 +511,12 @@ model Product {
   esEstadoNatural Boolean @default(true)
   /// Producto importado (en B2B a empresa va a tasa básica 22%).
   esImportado Boolean @default(false)
+
+  /// El IVA lo fijó el contador a mano (override): el motor NO lo reclasifica.
+  /// Si es false, el motor de IVA (reglas globales) asigna y mantiene la tasa.
+  ivaOverride Boolean @default(false)
+  /// Término de la regla del motor que asignó el IVA (trazabilidad). null si override o sin regla.
+  ivaRegla String?
 
   /// % de merma estimada para calcular costo real = costo / (1 - merma).
   mermaPct Decimal @default(0) @db.Decimal(5, 4)

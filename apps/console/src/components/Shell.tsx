@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Dashboard } from './Dashboard';
 import { BillingPage } from './BillingPage';
+import { IvaRulesPage } from './IvaRulesPage';
 
-type Tab = 'clientes' | 'facturacion';
+type Tab = 'clientes' | 'facturacion' | 'iva';
 
 const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'clientes', label: 'Clientes', icon: '🏪' },
   { id: 'facturacion', label: 'Facturación', icon: '💳' },
+  { id: 'iva', label: 'Motor de IVA', icon: '🧾' },
 ];
 
 export function Shell({ email, onLogout }: { email: string; onLogout: () => void }) {
@@ -58,7 +60,9 @@ export function Shell({ email, onLogout }: { email: string; onLogout: () => void
         {drawer && <div className="sidebar__scrim" onClick={() => setDrawer(false)} />}
 
         <main className="content">
-          {tab === 'clientes' ? <Dashboard /> : <BillingPage />}
+          {tab === 'clientes' && <Dashboard />}
+          {tab === 'facturacion' && <BillingPage />}
+          {tab === 'iva' && <IvaRulesPage />}
         </main>
       </div>
     </div>

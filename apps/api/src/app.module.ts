@@ -15,6 +15,7 @@ import { LandingModule } from './landing/landing.module';
 import { SalesModule } from './sales/sales.module';
 import { CashModule } from './cash/cash.module';
 import { PlatformModule } from './platform/platform.module';
+import { IvaModule } from './iva/iva.module';
 import { ProductsModule } from './products/products.module';
 import { PurchasesModule } from './purchases/purchases.module';
 import { SucursalesModule } from './sucursales/sucursales.module';
@@ -39,6 +40,7 @@ import { HealthController } from './health/health.controller';
     SalesModule,
     CashModule,
     PlatformModule,
+    IvaModule,
     ProductsModule,
     PurchasesModule,
     SucursalesModule,

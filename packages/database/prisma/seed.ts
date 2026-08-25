@@ -13,6 +13,7 @@ import {
   ModuleKey,
   SubscriptionStatus,
 } from '../client';
+import { seedIvaRules } from './iva-rules';
 
 const prisma = new PrismaClient();
 
@@ -263,8 +264,10 @@ async function main() {
     });
   }
 
+  const nReglas = await seedIvaRules(prisma);
+
   console.log(
-    `✓ Seed OK. Tenant=${tenant.slug}  productos=${CATALOGO.length}  planes=${PLANES.length}  (sub demo=FULL)`,
+    `✓ Seed OK. Tenant=${tenant.slug}  productos=${CATALOGO.length}  planes=${PLANES.length}  reglasIVA=${nReglas}  (sub demo=FULL)`,
   );
   console.log('  Usuario app (tenant admin): admin@demo.uy');
   console.log('  Super-admin plataforma:     owner@aragontech.uy');

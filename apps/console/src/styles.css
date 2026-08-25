@@ -141,3 +141,14 @@ code { font-family: ui-monospace, monospace; }
 .badge--pagada { background: #e6f4ea; color: #1b7a3e; }
 .badge--vencida { background: #fdecea; color: var(--warn); }
 .badge--anulada { background: #eee; color: #777; }
+
+/* Motor de IVA — controles (reutiliza estilos del panel) */
+:root { --border-strong: #b7bcb6; }
+.search { padding: 8px 12px; border: 1.5px solid var(--border-strong); border-radius: 10px; font-size: 14px; background: #fff; }
+.search:focus, .table select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(18,140,126,.15); }
+.cat-new { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+.cat-new .search { flex: 1; min-width: 180px; }
+.cat-new select { padding: 8px 12px; border: 1.5px solid var(--border-strong); border-radius: 10px; background: #fff; }
+.table select { padding: 6px 8px; border: 1.5px solid var(--border-strong); border-radius: 8px; background: #fff; }
+.num, th.num, td.num { text-align: right; white-space: nowrap; }
+.chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); white-space: nowrap; }
