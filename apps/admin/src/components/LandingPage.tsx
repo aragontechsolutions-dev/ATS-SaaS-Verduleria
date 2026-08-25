@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getLanding, getProducts, getStock, publishLanding, saveLanding, unpublishLanding } from '../lib/api';
 import type { LandingConfig, LandingProducto, Product, StockRow } from '../lib/api';
-import { formatUyPhone, osmEmbedUrl, tieneUbicacion } from '../lib/mapPhone';
+import { formatUyPhone, tieneUbicacion } from '../lib/mapPhone';
 import { ImageUpload } from './ImageUpload';
 import { LandingPreview } from './LandingPreview';
+import { MapPicker } from './MapPicker';
 
 const UNIDAD_CORTA: Record<string, string> = {
   KG: 'kg', GRAMO: 'g', UNIDAD: 'un', ATADO: 'atado', DOCENA: 'docena', BANDEJA: 'bandeja',
@@ -347,21 +348,22 @@ export function LandingPage() {
             <div className="miweb-ubic">
               <div className="miweb-ubic__head">
                 <span>Ubicación en el mapa</span>
-                <button className="btn btn--sm btn--ghost" type="button" onClick={usarMiUbicacion} disabled={geoLoading}>
-                  {geoLoading ? 'Ubicando…' : '📍 Usar mi ubicación'}
-                </button>
+                <div className="miweb-ubic__actions">
+                  <button className="btn btn--sm btn--ghost" type="button" onClick={usarMiUbicacion} disabled={geoLoading}>
+                    {geoLoading ? 'Ubicando…' : '📍 Usar mi ubicación'}
+                  </button>
+                  {tieneUbicacion(config.horarios.lat, config.horarios.lng) && (
+                    <button className="btn btn--sm btn--ghost" type="button" onClick={() => update('horarios', { lat: 0, lng: 0 })}>Quitar</button>
+                  )}
+                </div>
               </div>
-              <div className="row2">
-                <label className="field">Latitud<input type="number" step="0.000001" value={config.horarios.lat || ''} onChange={(e) => update('horarios', { lat: parseFloat(e.target.value) || 0 })} placeholder="-34.9011" /></label>
-                <label className="field">Longitud<input type="number" step="0.000001" value={config.horarios.lng || ''} onChange={(e) => update('horarios', { lng: parseFloat(e.target.value) || 0 })} placeholder="-56.1645" /></label>
-              </div>
-              {tieneUbicacion(config.horarios.lat, config.horarios.lng) ? (
-                <>
-                  <iframe className="miweb-map" title="Mapa" src={osmEmbedUrl(config.horarios.lat, config.horarios.lng)} loading="lazy" />
-                  <button className="btn btn--sm btn--ghost" type="button" onClick={() => update('horarios', { lat: 0, lng: 0 })}>Quitar ubicación</button>
-                </>
-              ) : (
-                <p className="hint">Tocá “Usar mi ubicación” estando en el local, o pegá las coordenadas. Se muestra un mapa en tu web.</p>
+              <MapPicker
+                lat={config.horarios.lat}
+                lng={config.horarios.lng}
+                onPick={(lat, lng) => update('horarios', { lat, lng })}
+              />
+              {tieneUbicacion(config.horarios.lat, config.horarios.lng) && (
+                <p className="hint">📍 {config.horarios.lat.toFixed(5)}, {config.horarios.lng.toFixed(5)} — se muestra un mapa en tu web.</p>
               )}
             </div>
           </section>

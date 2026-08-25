@@ -43,7 +43,7 @@ function coord(v: unknown, limit: number): number {
 /**
  * Normaliza un teléfono uruguayo a formato internacional legible:
  * `099 123 456` → `+598 99 123 456`. Devuelve '' si no hay dígitos.
- * (Pura y testeada.)
+ * Pura y testeada; reutilizada por proveedores (compras).
  */
 export function normalizeUyPhone(raw: string): string {
   let d = (raw ?? '').replace(/\D/g, '');
