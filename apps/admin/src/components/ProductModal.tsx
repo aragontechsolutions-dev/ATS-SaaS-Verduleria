@@ -7,6 +7,8 @@ import { useToast } from '../lib/toast';
 interface Props {
   product?: Product;
   categorias: Categoria[];
+  /** Solo ADMIN/CONTADOR pueden fijar el IVA a mano. */
+  canOverrideIva?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -17,7 +19,7 @@ const TASA_LABEL: Record<IvaIndicador, string> = {
   MINIMA: 'Mínima 10%', BASICA: 'Básica 22%', EXENTO: 'Exento', SUSPENSO: 'En suspenso',
 };
 
-export function ProductModal({ product, categorias, onClose, onSaved }: Props) {
+export function ProductModal({ product, categorias, canOverrideIva = false, onClose, onSaved }: Props) {
   const toast = useToast();
   const editing = !!product;
   const [nombre, setNombre] = useState(product?.nombre ?? '');
@@ -60,9 +62,10 @@ export function ProductModal({ product, categorias, onClose, onSaved }: Props) {
       categoriaId: categoriaId || undefined,
       plu: plu ? parseInt(plu, 10) : undefined,
       imagenUrl: imagenUrl || undefined,
-      // IVA: override manual del contador, o dejar que lo asigne el motor.
-      ivaOverride: override,
-      ...(override ? { ivaIndicador, esEstadoNatural, esImportado } : {}),
+      // IVA: solo ADMIN/CONTADOR mandan override; si no, lo asigna el motor.
+      ...(canOverrideIva
+        ? { ivaOverride: override, ...(override ? { ivaIndicador, esEstadoNatural, esImportado } : {}) }
+        : {}),
     };
     try {
       if (editing) await updateProduct(product!.id, payload);
@@ -117,16 +120,22 @@ export function ProductModal({ product, categorias, onClose, onSaved }: Props) {
           Se vende por peso (balanza)
         </label>
 
-        {/* IVA — lo asigna el motor automáticamente; el contador puede corregir. */}
+        {/* IVA — lo asigna el motor automáticamente; ADMIN/CONTADOR pueden corregir. */}
         <div className="iva-box">
           <div className="iva-box__head">
             <span>IVA</span>
-            <label className="chk">
-              <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} />
-              Ajustar a mano (contador)
-            </label>
+            {canOverrideIva && (
+              <label className="chk">
+                <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} />
+                Ajustar a mano (contador)
+              </label>
+            )}
           </div>
-          {!override ? (
+          {override && !canOverrideIva ? (
+            <p className="iva-box__auto">
+              Fijado por el contador: <strong>{TASA_LABEL[product?.ivaIndicador ?? ivaIndicador]}</strong>
+            </p>
+          ) : !override ? (
             <p className="iva-box__auto">
               {preview ? (
                 <>

@@ -258,4 +258,49 @@ el tenant no tenga que saber la clasificación. La configuración es de **Aragon
 
 Las prioridades: 0 = fruta/verdura/flor natural · 5 = almacén 1ª necesidad ·
 10 = elaborados/limpieza (ganan cuando el nombre mezcla términos, ej. "salsa de
-tomate" → básica por "salsa").
+tomate" → básica por "salsa") · 20 = específicos "común/de campaña" que ganan al
+genérico (ej. "jabón común" 10% vence a "jabón" 22%).
+
+### Base normativa (confirmada, TODGI 2023 vigente 2026)
+- **Art. 34** Título 10 — tasas: **básica 22%**, **mínima 10%**.
+- **Art. 36** Título 10 — canasta a tasa mínima 10%: pan blanco común y galleta de
+  campaña, pescado, carne y menudencias (frescos/congelados/enfriados), aceites
+  comestibles, arroz, harina de cereales, pastas y fideos, sal doméstica, azúcar,
+  yerba, café, **té**, **jabón común**, **grasas comestibles**, transporte de leche.
+- **Art. 28** Título 10 — IVA en suspenso de productos agropecuarios en estado
+  natural; **cesa** al vender a consumidor final (→ 10%) o al importar (→ 22% a
+  contribuyente de IRAE, 10% a consumidor final). "Estado natural" = bien primario
+  sin proceso industrial (salvo el necesario para conservación) → un producto
+  **transformado** (triturado, enlatado, deshidratado, salsa…) sale del régimen.
+- **Ley 19.407 (2016)** — frutas, flores y hortalizas en estado natural a
+  consumidor final quedan a tasa mínima (10%).
+
+Fuentes: DGI "Tratamiento del IVA en Frutas, Flores y Hortalizas" (dic 2023);
+IMPO — TODGI 2023, Título 10 (Arts. 28/34/36), impo.com.uy/bases/todgi-2023.
+
+---
+
+## 10. Decisiones del catálogo del motor (v2)
+
+Confirmadas contra DGI/IMPO (ver §9) e implementadas en `prisma/iva-rules.ts`:
+
+- **Exentos**: leche, **huevos** y **miel** (además de libros/diarios). Fuente:
+  material DGI/DGEIP de discriminación de IVA.
+- **Frutos secos** (maní, nuez, almendra, castaña, avellana, pistacho, pasas):
+  por defecto **10% a granel/estado natural** (producto agropecuario natural). Si
+  se venden **envasados/procesados** van a 22% → el contador lo ajusta por
+  producto (override). Se pueden vender de ambas formas.
+- **Congelado/enfriado NO es procesamiento**: es conservación → mantiene el estado
+  natural. Carne, pescado y verdura simplemente congelados siguen a **10%**
+  (Art. 36 lo dice expresamente para carne/pescado). Solo lo transformado
+  (triturado, salsa, deshidratado, milanesa, prefrito…) va a 22%.
+- **Derivados procesados de leche** (dulce de leche, leche condensada, leche en
+  polvo): 22% (prioridad alta para ganarle al exento "leche").
+- **Jabón común / galleta de campaña**: 10% (Art. 36), por encima del genérico
+  jabón/galleta 22%.
+
+### Override del IVA — permisos
+El ajuste manual del IVA por producto (override del motor) está permitido **solo a
+los roles ADMIN y CONTADOR**, tanto en el backend (`products.service`) como en el
+Panel (se oculta el control a los demás roles). El resto puede crear/editar
+productos, pero el IVA lo asigna el motor.

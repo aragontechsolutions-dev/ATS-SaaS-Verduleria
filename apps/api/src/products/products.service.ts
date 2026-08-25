@@ -2,6 +2,10 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { IvaIndicador, Prisma, TipoListaPrecio } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { IvaService } from '../iva/iva.service';
+import { getTenantContext } from '../tenant/tenant-context';
+
+/** Solo estos roles pueden fijar el IVA a mano (override del motor). */
+const ROLES_OVERRIDE_IVA = new Set(['ADMIN', 'CONTADOR']);
 import type {
   BulkPriceDto,
   CreateCategoriaDto,
@@ -62,13 +66,20 @@ export class ProductsService {
     return this.iva.clasificar(nombre);
   }
 
+  /** ¿El usuario del request puede fijar el IVA a mano? (ADMIN/CONTADOR). */
+  private puedeOverrideIva(): boolean {
+    const role = getTenantContext()?.role ?? '';
+    return ROLES_OVERRIDE_IVA.has(role);
+  }
+
   async create(tenantId: string, dto: CreateProductDto) {
     const listId = await this.mostradorListId(tenantId);
     if (dto.categoriaId) await this.assertCategoria(tenantId, dto.categoriaId);
 
-    // IVA: por override manual del contador, o asignado por el motor según el nombre.
+    // IVA: por override manual del contador (solo ADMIN/CONTADOR), o asignado por
+    // el motor según el nombre.
     let iva: { ivaIndicador: IvaIndicador; esEstadoNatural: boolean; esImportado: boolean; ivaOverride: boolean; ivaRegla: string | null };
-    if (dto.ivaOverride && dto.ivaIndicador) {
+    if (dto.ivaOverride && dto.ivaIndicador && this.puedeOverrideIva()) {
       iva = {
         ivaIndicador: dto.ivaIndicador,
         esEstadoNatural: dto.esEstadoNatural ?? false,
@@ -148,13 +159,16 @@ export class ProductsService {
     product: { nombre: string; ivaIndicador: IvaIndicador; esEstadoNatural: boolean; esImportado: boolean; ivaOverride: boolean; ivaRegla: string | null },
     dto: UpdateProductDto,
   ): Promise<Prisma.ProductUncheckedUpdateInput> {
-    const overrideNext = dto.ivaOverride ?? product.ivaOverride;
+    // Los cambios de override solo los aplica un rol habilitado (ADMIN/CONTADOR).
+    const puede = this.puedeOverrideIva();
+    const overrideReq = puede ? dto.ivaOverride : undefined;
+    const overrideNext = overrideReq ?? product.ivaOverride;
 
     if (overrideNext) {
       return {
-        ivaIndicador: dto.ivaIndicador ?? product.ivaIndicador,
-        esEstadoNatural: dto.esEstadoNatural ?? product.esEstadoNatural,
-        esImportado: dto.esImportado ?? product.esImportado,
+        ivaIndicador: (puede ? dto.ivaIndicador : undefined) ?? product.ivaIndicador,
+        esEstadoNatural: (puede ? dto.esEstadoNatural : undefined) ?? product.esEstadoNatural,
+        esImportado: (puede ? dto.esImportado : undefined) ?? product.esImportado,
         ivaOverride: true,
         ivaRegla: null,
       };

@@ -42,6 +42,16 @@ test('regla más específica y prioritaria gana (tomate seco → básica)', () =
   assert.equal(c.regla, 'tomate seco');
 });
 
+test('término específico de mayor prioridad gana entre tasas distintas', () => {
+  // Espeja el seed: "jabon" 22% (prio 10) vs "jabon comun" 10% (prio 20).
+  const reglas: IvaRule[] = [
+    { termino: 'jabon', ivaIndicador: 'BASICA', esEstadoNatural: false, esImportado: false, prioridad: 10 },
+    { termino: 'jabon comun', ivaIndicador: 'MINIMA', esEstadoNatural: false, esImportado: false, prioridad: 20 },
+  ];
+  assert.equal(clasificarProducto('Jabón común blanco', reglas).ivaIndicador, 'MINIMA');
+  assert.equal(clasificarProducto('Jabón de tocador', reglas).ivaIndicador, 'BASICA');
+});
+
 test('sin match → fallback (mínima, estado natural, no automática)', () => {
   const c = clasificarProducto('Carambola exótica', REGLAS);
   assert.deepEqual(c, IVA_FALLBACK);
