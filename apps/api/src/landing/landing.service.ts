@@ -1,11 +1,22 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@ats/database';
+import type { AppConfig } from '../config/configuration';
 import { PrismaService } from '../prisma/prisma.service';
 import { defaultLanding, normalizeLanding, type LandingConfig } from './landing.types';
 
 @Injectable()
 export class LandingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService<AppConfig, true>,
+  ) {}
+
+  /** URL pública del landing del tenant (para copiar/compartir). '' si no hay WEB_URL. */
+  private publicUrl(slug: string): string {
+    const base = this.config.get('webUrl', { infer: true });
+    return base ? `${base}/v/${slug}` : '';
+  }
 
   /** Config de edición del tenant (crea el borrador por defecto si no existe). */
   async getForAdmin(tenantId: string) {
@@ -25,6 +36,7 @@ export class LandingService {
 
     return {
       slug: tenant.slug,
+      publicUrl: this.publicUrl(tenant.slug),
       estaPublicado: landing.estaPublicado,
       draft: normalizeLanding(landing.draft, tenant.nombre),
     };

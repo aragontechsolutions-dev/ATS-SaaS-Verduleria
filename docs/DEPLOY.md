@@ -78,6 +78,7 @@ repo**. Detecta el servicio `ats-verduleria-api`. Sino, **New → Web Service**:
 | `DATABASE_URL` | pooler 6543 con `?pgbouncer=true` |
 | `DIRECT_URL` | directa 5432 |
 | `CORS_ORIGIN` | dominio del front (ej. `https://ats-pos.vercel.app`) — se completa tras el paso 3 |
+| `WEB_URL` | dominio del sitio público de landings (ej. `https://ats-web.vercel.app`); el Panel arma con esto la URL del landing para copiar/compartir |
 | `FEU_AMBIENTE` | `test` |
 | `FEU_USERNAME` | usuario partner de Surtec |
 | `FEU_PASSWORD` | contraseña de Surtec |
