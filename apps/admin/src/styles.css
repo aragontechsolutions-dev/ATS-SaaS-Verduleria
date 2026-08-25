@@ -8,6 +8,7 @@
   --surface: #F4F4F4;
   --panel: #ffffff;
   --border: #dfe1df;
+  --border-strong: #b7bcb6;
   --text: #333333;
   --muted: #6b726b;
   --warn: #c62828;
@@ -39,8 +40,18 @@ code { font-family: ui-monospace, monospace; }
 .auth__sub { text-align: center; color: var(--muted); margin: 0 0 6px; }
 .auth__foot { color: rgba(255,255,255,.85); font-size: 12px; }
 
-.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
-.field input, .field select { padding: 10px 12px; font-size: 15px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text); font-weight: 600; }
+.field input, .field select {
+  padding: 10px 12px; font-size: 15px; font-weight: 400; color: var(--text);
+  border: 1.5px solid var(--border-strong); border-radius: 10px; background: #fff;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.field input:hover, .field select:hover { border-color: #9aa199; }
+.field input:focus, .field select:focus, .search:focus, .price-input:focus {
+  outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(18,140,126,.15);
+}
+.field input::placeholder { color: #a3a9a2; }
+.field__hint { font-size: 12px; font-weight: 400; color: var(--muted); line-height: 1.35; }
 .err { color: var(--warn); font-size: 14px; margin: 4px 0 0; }
 .warn { color: var(--warn); font-size: 14px; }
 .muted { color: var(--muted); }
@@ -70,7 +81,7 @@ code { font-family: ui-monospace, monospace; }
 .table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .table th { text-align: left; color: var(--muted); font-weight: 600; padding: 8px 10px; border-bottom: 2px solid var(--border); }
 .table td { padding: 10px; border-bottom: 1px solid var(--border); }
-.table select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; }
+.table select { padding: 6px 8px; border: 1.5px solid var(--border-strong); border-radius: 8px; }
 .row--off { opacity: .55; }
 .badge { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--surface); }
 .badge--activa { background: #e6f4ea; color: #1b7a3e; }
@@ -90,8 +101,8 @@ code { font-family: ui-monospace, monospace; }
 .creds code { font-weight: 700; }
 
 /* Admin: productos */
-.search { padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; }
-.price-input { width: 100px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; text-align: right; font-weight: 700; }
+.search { padding: 8px 12px; border: 1.5px solid var(--border-strong); border-radius: 10px; font-size: 14px; }
+.price-input { width: 100px; padding: 6px 8px; border: 1.5px solid var(--border-strong); border-radius: 8px; text-align: right; font-weight: 700; }
 .price-input:focus { border-color: var(--primary); outline: none; }
 .hint { color: var(--muted); font-size: 13px; margin-top: 12px; }
 .tag { margin-left: 6px; font-size: 12px; color: var(--muted); }
@@ -124,7 +135,7 @@ code { font-family: ui-monospace, monospace; }
 /* Categorías / masiva */
 .cat-new { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
 .cat-new .search { flex: 1; min-width: 180px; }
-.cat-new select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; }
+.cat-new select { padding: 8px 12px; border: 1.5px solid var(--border-strong); border-radius: 10px; }
 .segmented { display: inline-flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 3px; margin-bottom: 4px; }
 .seg { padding: 8px 14px; border: none; background: transparent; border-radius: 8px; font-weight: 600; color: var(--muted); font-size: 13px; }
 .seg--on { background: var(--primary); color: #fff; }
@@ -249,9 +260,21 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 
 /* Mi web — ubicación / mapa */
 .miweb-ubic { border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-.miweb-ubic__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.miweb-ubic__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--text); font-weight: 700; }
+.miweb-ubic__actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .miweb-map, .lp-map { width: 100%; height: 200px; border: 1px solid var(--border); border-radius: 10px; }
 .lp-map { height: 240px; margin-top: 6px; }
+
+/* Mapa interactivo para marcar el local (Leaflet) */
+.map-picker { display: flex; flex-direction: column; gap: 6px; }
+.map-picker__canvas { width: 100%; height: 260px; border: 1.5px solid var(--border-strong); border-radius: 12px; overflow: hidden; z-index: 0; }
+.map-picker__canvas .leaflet-container { height: 100%; width: 100%; font: inherit; }
+.map-pin { background: none; border: none; }
+.map-pin__dot {
+  display: block; width: 20px; height: 20px; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg); margin: 3px;
+  background: var(--primary); border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,.35);
+}
 
 /* Subida de imágenes */
 .imgup { display: flex; flex-direction: column; gap: 8px; }
@@ -260,4 +283,4 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 .imgup__row { display: flex; gap: 8px; }
 .imgup__row label.btn { cursor: pointer; }
 .imgup__row label.is-busy { opacity: .6; pointer-events: none; }
-.imgup__url { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+.imgup__url { padding: 8px 10px; border: 1.5px solid var(--border-strong); border-radius: 8px; font-size: 13px; }

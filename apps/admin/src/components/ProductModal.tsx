@@ -75,8 +75,9 @@ export function ProductModal({ product, categorias, onClose, onSaved }: Props) {
         </div>
         <div className="row2">
           <label className="field">
-            Precio (con IVA)
+            Precio de venta (con IVA)
             <input type="number" step="0.01" value={precio} onChange={(e) => setPrecio(e.target.value)} required />
+            <small className="field__hint">Es el precio que cobra la caja/balanza y el que se muestra en tu web. El costo de compra se carga en Compras.</small>
           </label>
           <label className="field">
             IVA

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Prisma, StockMovementType, TipoListaPrecio } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { costoUnitConMerma, margenPct, promedioPonderado } from '../common/money';
+import { normalizeUyPhone } from '../landing/landing.types';
 import type {
   CreatePurchaseDto,
   CreateSupplierDto,
@@ -31,7 +32,7 @@ export class PurchasesService {
         tenantId,
         nombre: dto.nombre,
         rut: dto.rut,
-        telefono: dto.telefono,
+        telefono: dto.telefono ? normalizeUyPhone(dto.telefono) : dto.telefono,
         esUam: dto.esUam ?? false,
       },
     });
@@ -45,7 +46,7 @@ export class PurchasesService {
       data: {
         nombre: dto.nombre,
         rut: dto.rut,
-        telefono: dto.telefono,
+        telefono: dto.telefono !== undefined ? normalizeUyPhone(dto.telefono) : undefined,
         esUam: dto.esUam,
         activo: dto.activo,
       },
