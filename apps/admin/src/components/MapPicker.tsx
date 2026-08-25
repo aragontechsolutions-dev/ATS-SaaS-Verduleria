@@ -8,8 +8,9 @@ interface Props {
   onPick: (lat: number, lng: number) => void;
 }
 
-// Uruguay (Montevideo) como centro por defecto cuando no hay ubicación marcada.
-const DEFAULT_CENTER: [number, number] = [-34.9011, -56.1645];
+// Maldonado (plaza San Fernando) como centro por defecto cuando no hay
+// ubicación marcada — es la zona de la mayoría de las verdulerías del cliente.
+const DEFAULT_CENTER: [number, number] = [-34.9087, -54.9506];
 
 // Marcador propio (divIcon) para no depender de las imágenes de Leaflet, que
 // en Vite quedan con rutas rotas. Es un pin simple con el color de la marca.

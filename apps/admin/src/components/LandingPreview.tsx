@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { LandingConfig } from '../lib/api';
-import { osmEmbedUrl, tieneUbicacion } from '../lib/mapPhone';
+import { tieneUbicacion } from '../lib/mapPhone';
+import { LandingMapView } from './LandingMapView';
 
 /** Render de la landing a partir de la config. Es el mismo contenido que verá
  *  el público; acá se usa como preview en vivo del editor. */
@@ -52,7 +53,7 @@ export function LandingPreview({ config }: { config: LandingConfig }) {
           {config.horarios.texto && <p className="lp-line">🕐 {config.horarios.texto}</p>}
           {config.horarios.direccion && <p className="lp-line">📍 {config.horarios.direccion}</p>}
           {tieneUbicacion(config.horarios.lat, config.horarios.lng) && (
-            <iframe className="lp-map" title="Mapa" src={osmEmbedUrl(config.horarios.lat, config.horarios.lng)} loading="lazy" />
+            <LandingMapView lat={config.horarios.lat} lng={config.horarios.lng} />
           )}
           {config.horarios.mapaUrl && (
             <a className="lp-link" href={config.horarios.mapaUrl} target="_blank" rel="noreferrer">Cómo llegar</a>

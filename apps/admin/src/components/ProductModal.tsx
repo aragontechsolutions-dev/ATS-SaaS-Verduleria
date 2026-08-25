@@ -51,8 +51,8 @@ export function ProductModal({ product, categorias, onClose, onSaved }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+    <div className="modal-backdrop">
+      <form className="modal" onSubmit={submit}>
         <h3>{editing ? 'Editar producto' : 'Nuevo producto'}</h3>
         <label className="field">
           Nombre
