@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { createProduct, updateProduct } from '../lib/api';
-import type { Categoria, IvaIndicador, Product } from '../lib/api';
+import { useEffect, useState } from 'react';
+import { classifyIva, createProduct, updateProduct } from '../lib/api';
+import type { Categoria, Clasificacion, IvaIndicador, Product } from '../lib/api';
 import { ImageUpload } from './ImageUpload';
 import { useToast } from '../lib/toast';
 
@@ -13,6 +13,9 @@ interface Props {
 
 const UNIDADES = ['KG', 'GRAMO', 'UNIDAD', 'ATADO', 'DOCENA', 'BANDEJA'];
 const IVAS: IvaIndicador[] = ['MINIMA', 'BASICA', 'EXENTO', 'SUSPENSO'];
+const TASA_LABEL: Record<IvaIndicador, string> = {
+  MINIMA: 'Mínima 10%', BASICA: 'Básica 22%', EXENTO: 'Exento', SUSPENSO: 'En suspenso',
+};
 
 export function ProductModal({ product, categorias, onClose, onSaved }: Props) {
   const toast = useToast();
@@ -20,13 +23,30 @@ export function ProductModal({ product, categorias, onClose, onSaved }: Props) {
   const [nombre, setNombre] = useState(product?.nombre ?? '');
   const [unidadVenta, setUnidadVenta] = useState(product?.unidadVenta ?? 'KG');
   const [esPesable, setEsPesable] = useState(product?.esPesable ?? true);
-  const [ivaIndicador, setIva] = useState<IvaIndicador>(product?.ivaIndicador ?? 'MINIMA');
   const [precio, setPrecio] = useState(String(product?.precio ?? ''));
   const [categoriaId, setCategoriaId] = useState(product?.categoriaId ?? '');
   const [plu, setPlu] = useState(product?.plu != null ? String(product.plu) : '');
   const [imagenUrl, setImagenUrl] = useState(product?.imagenUrl ?? '');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Motor de IVA: por defecto lo asigna solo; el contador puede hacer override.
+  const [override, setOverride] = useState(product?.ivaOverride ?? false);
+  const [ivaIndicador, setIva] = useState<IvaIndicador>(product?.ivaIndicador ?? 'MINIMA');
+  const [esEstadoNatural, setEstadoNatural] = useState(product?.esEstadoNatural ?? true);
+  const [esImportado, setImportado] = useState(product?.esImportado ?? false);
+  const [preview, setPreview] = useState<Clasificacion | null>(null);
+
+  // Vista previa en vivo del IVA que asignaría el motor (debounced), sin override.
+  useEffect(() => {
+    if (override) return;
+    const n = nombre.trim();
+    if (n.length < 2) { setPreview(null); return; }
+    const t = window.setTimeout(() => {
+      classifyIva(n).then(setPreview).catch(() => setPreview(null));
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [nombre, override]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -36,11 +56,13 @@ export function ProductModal({ product, categorias, onClose, onSaved }: Props) {
       nombre: nombre.trim(),
       unidadVenta,
       esPesable,
-      ivaIndicador,
       precio: parseFloat(precio) || 0,
       categoriaId: categoriaId || undefined,
       plu: plu ? parseInt(plu, 10) : undefined,
       imagenUrl: imagenUrl || undefined,
+      // IVA: override manual del contador, o dejar que lo asigne el motor.
+      ivaOverride: override,
+      ...(override ? { ivaIndicador, esEstadoNatural, esImportado } : {}),
     };
     try {
       if (editing) await updateProduct(product!.id, payload);
@@ -82,24 +104,55 @@ export function ProductModal({ product, categorias, onClose, onSaved }: Props) {
           <label className="field">
             Precio de venta (con IVA)
             <input type="number" step="0.01" value={precio} onChange={(e) => setPrecio(e.target.value)} required />
-            <small className="field__hint">Es el precio que cobra la caja/balanza y el que se muestra en tu web. El costo de compra se carga en Compras.</small>
+            <small className="field__hint">Lo cobra la caja/balanza y se muestra en tu web. El costo de compra se carga en Compras.</small>
           </label>
-          <label className="field">
-            IVA
-            <select value={ivaIndicador} onChange={(e) => setIva(e.target.value as IvaIndicador)}>
-              {IVAS.map((i) => <option key={i} value={i}>{i}</option>)}
-            </select>
-          </label>
-        </div>
-        <div className="row2">
           <label className="field">
             PLU (opcional)
             <input type="number" value={plu} onChange={(e) => setPlu(e.target.value)} />
           </label>
-          <label className="field field--check">
-            <input type="checkbox" checked={esPesable} onChange={(e) => setEsPesable(e.target.checked)} />
-            Se vende por peso (balanza)
-          </label>
+        </div>
+
+        <label className="field field--check">
+          <input type="checkbox" checked={esPesable} onChange={(e) => setEsPesable(e.target.checked)} />
+          Se vende por peso (balanza)
+        </label>
+
+        {/* IVA — lo asigna el motor automáticamente; el contador puede corregir. */}
+        <div className="iva-box">
+          <div className="iva-box__head">
+            <span>IVA</span>
+            <label className="chk">
+              <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} />
+              Ajustar a mano (contador)
+            </label>
+          </div>
+          {!override ? (
+            <p className="iva-box__auto">
+              {preview ? (
+                <>
+                  Asignado por el motor: <strong>{TASA_LABEL[preview.ivaIndicador]}</strong>
+                  {preview.regla ? <span className="muted"> · regla “{preview.regla}”</span> : <span className="muted"> · sin regla, se usa el default</span>}
+                </>
+              ) : editing && product ? (
+                <>Asignado por el motor: <strong>{TASA_LABEL[product.ivaIndicador]}</strong>{product.ivaRegla ? <span className="muted"> · regla “{product.ivaRegla}”</span> : null}</>
+              ) : (
+                <span className="muted">Escribí el nombre y el motor asigna el IVA solo.</span>
+              )}
+            </p>
+          ) : (
+            <div className="row2">
+              <label className="field">
+                Tasa
+                <select value={ivaIndicador} onChange={(e) => setIva(e.target.value as IvaIndicador)}>
+                  {IVAS.map((i) => <option key={i} value={i}>{TASA_LABEL[i]}</option>)}
+                </select>
+              </label>
+              <div className="iva-box__flags">
+                <label className="chk"><input type="checkbox" checked={esEstadoNatural} onChange={(e) => setEstadoNatural(e.target.checked)} /> Estado natural</label>
+                <label className="chk"><input type="checkbox" checked={esImportado} onChange={(e) => setImportado(e.target.checked)} /> Importado</label>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="field">

@@ -399,3 +399,9 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 .psearch__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .psearch__plu { flex: none; font-size: 11px; color: var(--muted); }
 .psearch__empty { padding: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+
+/* Caja de IVA en el alta de producto (motor + override del contador) */
+.iva-box { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
+.iva-box__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 700; font-size: 13px; color: var(--text); }
+.iva-box__auto { margin: 0; font-size: 14px; line-height: 1.4; }
+.iva-box__flags { display: flex; flex-direction: column; gap: 8px; justify-content: center; }

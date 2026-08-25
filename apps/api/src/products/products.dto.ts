@@ -22,8 +22,26 @@ export class CreateProductDto {
   @IsBoolean()
   esPesable!: boolean;
 
+  /**
+   * IVA. Normalmente lo asigna solo el motor de IVA por el nombre; solo se
+   * envía si el contador hace override manual (junto con ivaOverride=true).
+   */
+  @IsOptional()
   @IsEnum(IvaIndicador)
-  ivaIndicador!: IvaIndicador;
+  ivaIndicador?: IvaIndicador;
+
+  /** true = el contador fijó el IVA a mano; el motor no lo reclasifica. */
+  @IsOptional()
+  @IsBoolean()
+  ivaOverride?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  esEstadoNatural?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  esImportado?: boolean;
 
   /** Precio de mostrador (con IVA incluido). */
   @IsNumber()
@@ -64,6 +82,19 @@ export class UpdateProductDto {
   @IsOptional()
   @IsEnum(IvaIndicador)
   ivaIndicador?: IvaIndicador;
+
+  /** true = override del contador; false = volver a que lo asigne el motor. */
+  @IsOptional()
+  @IsBoolean()
+  ivaOverride?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  esEstadoNatural?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  esImportado?: boolean;
 
   @IsOptional()
   @IsNumber()

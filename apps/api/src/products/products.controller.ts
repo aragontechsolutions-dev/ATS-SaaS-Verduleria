@@ -14,6 +14,7 @@ import {
   UpdateCategoriaDto,
   UpdateProductDto,
 } from './products.dto';
+import { ClasificarDto } from '../iva/iva.dto';
 
 @Controller('products')
 @UseGuards(TenantGuard, EntitlementsGuard, RolesGuard)
@@ -39,6 +40,12 @@ export class ProductsController {
     @Body() dto: UpdateProductDto,
   ) {
     return this.products.update(tenantId, id, dto);
+  }
+
+  /** Vista previa: qué IVA le asignaría el motor a un nombre (para el alta). */
+  @Post('clasificar-iva')
+  clasificarIva(@Body() dto: ClasificarDto) {
+    return this.products.clasificarIva(dto.nombre);
   }
 
   /** Actualización masiva de precios (por % o fijo, opcional por categoría). */

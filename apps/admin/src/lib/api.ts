@@ -47,9 +47,23 @@ export interface Product {
   unidadVenta: string;
   esPesable: boolean;
   ivaIndicador: IvaIndicador;
+  /** true = el contador fijó el IVA a mano; false = lo asignó el motor. */
+  ivaOverride: boolean;
+  /** Término de la regla del motor que asignó el IVA (o null). */
+  ivaRegla: string | null;
+  esEstadoNatural: boolean;
+  esImportado: boolean;
   imagenUrl: string | null;
   activo: boolean;
   precio: number;
+}
+
+export interface Clasificacion {
+  ivaIndicador: IvaIndicador;
+  esEstadoNatural: boolean;
+  esImportado: boolean;
+  regla: string | null;
+  automatica: boolean;
 }
 
 export interface Categoria {
@@ -62,7 +76,11 @@ export interface ProductInput {
   nombre: string;
   unidadVenta: string;
   esPesable: boolean;
-  ivaIndicador: IvaIndicador;
+  /** Solo se envía en override manual del contador (con ivaOverride=true). */
+  ivaIndicador?: IvaIndicador;
+  ivaOverride?: boolean;
+  esEstadoNatural?: boolean;
+  esImportado?: boolean;
   precio: number;
   categoriaId?: string;
   plu?: number;
@@ -71,6 +89,13 @@ export interface ProductInput {
 }
 
 export const getMe = async () => ok<Me>(await fetch(`${API_BASE}/auth/me`, { headers: headers() }), 'me');
+
+/** Vista previa del motor de IVA: qué tasa le asignaría a un nombre. */
+export const classifyIva = async (nombre: string) =>
+  ok<Clasificacion>(
+    await fetch(`${API_BASE}/products/clasificar-iva`, { method: 'POST', headers: headers(), body: JSON.stringify({ nombre }) }),
+    'classify-iva',
+  );
 
 export const getProducts = async () =>
   ok<Product[]>(await fetch(`${API_BASE}/products`, { headers: headers() }), 'products');

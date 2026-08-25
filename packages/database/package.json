@@ -25,6 +25,7 @@
     "migrate:deploy": "prisma migrate deploy",
     "studio": "prisma studio",
     "seed": "ts-node prisma/seed.ts",
+    "seed:iva": "ts-node prisma/seed-iva.ts",
     "build": "prisma generate",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

@@ -149,3 +149,69 @@ export const processOverdue = async () =>
     await fetch(`${API_BASE}/platform/billing/process-overdue`, { method: 'POST', headers: headers() }),
     'overdue',
   );
+
+// --- Motor de IVA (reglas globales) -----------------------------------------
+
+export type IvaIndicador = 'EXENTO' | 'MINIMA' | 'BASICA' | 'SUSPENSO';
+
+export interface IvaRule {
+  id: string;
+  termino: string;
+  ivaIndicador: IvaIndicador;
+  esEstadoNatural: boolean;
+  esImportado: boolean;
+  prioridad: number;
+  activo: boolean;
+  nota: string | null;
+}
+
+export interface IvaRuleInput {
+  termino: string;
+  ivaIndicador: IvaIndicador;
+  esEstadoNatural?: boolean;
+  esImportado?: boolean;
+  prioridad?: number;
+  activo?: boolean;
+  nota?: string;
+}
+
+export interface Clasificacion {
+  ivaIndicador: IvaIndicador;
+  esEstadoNatural: boolean;
+  esImportado: boolean;
+  regla: string | null;
+  automatica: boolean;
+}
+
+export const getIvaRules = async () =>
+  ok<IvaRule[]>(await fetch(`${API_BASE}/platform/iva/rules`, { headers: headers() }), 'iva-rules');
+
+export const createIvaRule = async (input: IvaRuleInput) =>
+  ok<IvaRule>(
+    await fetch(`${API_BASE}/platform/iva/rules`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
+    'iva-rule-create',
+  );
+
+export const updateIvaRule = async (id: string, patch: Partial<IvaRuleInput>) =>
+  ok<IvaRule>(
+    await fetch(`${API_BASE}/platform/iva/rules/${id}`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) }),
+    'iva-rule-update',
+  );
+
+export const deleteIvaRule = async (id: string) =>
+  ok<{ ok: boolean }>(
+    await fetch(`${API_BASE}/platform/iva/rules/${id}`, { method: 'DELETE', headers: headers() }),
+    'iva-rule-delete',
+  );
+
+export const classifyIva = async (nombre: string) =>
+  ok<Clasificacion>(
+    await fetch(`${API_BASE}/platform/iva/clasificar`, { method: 'POST', headers: headers(), body: JSON.stringify({ nombre }) }),
+    'iva-classify',
+  );
+
+export const reclassifyIva = async () =>
+  ok<{ actualizados: number; total: number }>(
+    await fetch(`${API_BASE}/platform/iva/reclasificar`, { method: 'POST', headers: headers() }),
+    'iva-reclassify',
+  );
