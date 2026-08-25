@@ -154,7 +154,10 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 
 /* ===== Mi web (editor de landing del tenant) ===== */
 .miweb__bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-.miweb__url { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; }
+.miweb__link { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.miweb__url { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
+.miweb__url:hover { color: var(--lp-accent, #0F8A7C); border-color: var(--lp-accent, #0F8A7C); }
+.miweb__copy { white-space: nowrap; }
 .miweb__bar-right { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
 .miweb__navtoggle, .miweb__previewtoggle { display: none; }
 

@@ -181,6 +181,31 @@ export function LandingPage() {
   }
 
   const publicPath = useMemo(() => `/v/${slug}`, [slug]);
+  // URL pública completa: usa VITE_WEB_URL si está; si no, el mismo origen.
+  const publicUrl = useMemo(() => {
+    const base = (import.meta.env.VITE_WEB_URL ?? window.location.origin).replace(/\/+$/, '');
+    return slug ? `${base}${publicPath}` : '';
+  }, [slug, publicPath]);
+  const [copiado, setCopiado] = useState(false);
+
+  async function copiarUrl() {
+    if (!publicUrl) return;
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+    } catch {
+      // Fallback para navegadores viejos / sin permiso de portapapeles.
+      const ta = document.createElement('textarea');
+      ta.value = publicUrl;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch { /* noop */ }
+      document.body.removeChild(ta);
+    }
+    setCopiado(true);
+    window.setTimeout(() => setCopiado(false), 1800);
+  }
 
   // Productos elegidos (por id) → items resueltos con foto/precio actuales.
   // La web solo publica los que tienen stock; acá mostramos igual para avisar.
@@ -225,7 +250,12 @@ export function LandingPage() {
           ☰
         </button>
         <span className={`pill ${publicado ? 'mrg mrg--ok' : ''}`}>{publicado ? 'Publicada' : 'Borrador'}</span>
-        <code className="miweb__url">{publicPath}</code>
+        <div className="miweb__link" title={publicUrl || publicPath}>
+          <a className="miweb__url" href={publicUrl || publicPath} target="_blank" rel="noreferrer">{publicUrl || publicPath}</a>
+          <button className="btn btn--ghost btn--sm miweb__copy" onClick={copiarUrl} disabled={!publicUrl} title="Copiar enlace">
+            {copiado ? '✓ Copiado' : '📋 Copiar'}
+          </button>
+        </div>
         <div className="miweb__bar-right">
           <button className="btn btn--ghost btn--sm miweb__previewtoggle" onClick={() => setShowPreview((p) => !p)}>
             {showPreview ? 'Editar' : 'Vista previa'}

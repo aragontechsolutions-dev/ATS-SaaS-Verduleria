@@ -148,7 +148,9 @@ productos, precios y usuarios — se despliega como **otro proyecto** de Vercel:
 - **Add New → Project** → mismo repo → **Root Directory = `apps/admin`** →
   Framework **Vite**.
 - Env vars: `VITE_API_URL` (misma URL de Render + `/api`), `VITE_SUPABASE_URL`,
-  `VITE_SUPABASE_ANON_KEY`.
+  `VITE_SUPABASE_ANON_KEY`, y `VITE_WEB_URL` (dominio del sitio público, ej.
+  `https://ats-web.vercel.app`) para que *Mi web* muestre el enlace correcto a
+  copiar/compartir. Si no se define, el Panel arma el enlace con su propio origen.
 - Sumá su dominio a `CORS_ORIGIN` en Render (lista separada por comas junto al
   POS y la consola).
 
