@@ -10,6 +10,7 @@ import {
 } from '../lib/api';
 import type { Product, PurchaseRow, Sucursal, Supplier } from '../lib/api';
 import { SkeletonRows } from './Skeleton';
+import { ProductSearchSelect } from './ProductSearchSelect';
 import { useToast } from '../lib/toast';
 
 interface Line {
@@ -180,10 +181,11 @@ export function ComprasPage() {
                     return (
                       <tr key={i}>
                         <td>
-                          <select value={l.productId} onChange={(e) => setLine(i, { productId: e.target.value })}>
-                            <option value="">Elegí…</option>
-                            {products.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                          </select>
+                          <ProductSearchSelect
+                            products={products}
+                            value={l.productId}
+                            onChange={(id) => setLine(i, { productId: id })}
+                          />
                         </td>
                         <td className="num"><input className="price-input" type="number" step="0.001" value={l.cantidadCompra} onChange={(e) => setLine(i, { cantidadCompra: e.target.value })} /></td>
                         <td className="num"><input className="price-input" type="number" step="0.01" value={l.costoUnitCompra} onChange={(e) => setLine(i, { costoUnitCompra: e.target.value })} /></td>
