@@ -14,6 +14,7 @@ interface Props {
   onOpenCash: () => void;
   onCloseCash: () => void;
   onOpenScale: () => void;
+  onOpenOps: () => void;
   onLogout: () => void;
 }
 
@@ -30,6 +31,7 @@ export function StatusBar({
   onOpenCash,
   onCloseCash,
   onOpenScale,
+  onOpenOps,
   onLogout,
 }: Props) {
   return (
@@ -46,24 +48,21 @@ export function StatusBar({
         {sucursalNombre && <span className="pill pill--info">🏪 {sucursalNombre}</span>}
         {fromCache && <span className="pill pill--muted">catálogo local</span>}
         {listaPrecio && <span className="pill pill--muted">{listaPrecio}</span>}
-        {cash ? (
-          <button className="pill pill--cash" onClick={onCloseCash}>
-            🔓 Caja abierta · Cerrar
-          </button>
-        ) : (
-          <button className="pill pill--cash" onClick={onOpenCash}>
-            🔒 Abrir caja
-          </button>
-        )}
-        <button className={`pill ${scaleLive ? 'pill--ok' : 'pill--muted'}`} onClick={onOpenScale} title="Balanza">
-          ⚖ Balanza{scaleLive ? ' ●' : ''}
-        </button>
       </div>
       <div className="statusbar__total">Total: {formatMoney(total)}</div>
-      {userEmail && <span className="statusbar__tenant">{userEmail}</span>}
-      <button className="pill pill--cash" onClick={onLogout} title="Cerrar sesión">
-        Salir
-      </button>
+      <div className="statusbar__actions">
+        {cash ? (
+          <button className="sbtn sbtn--cash" onClick={onCloseCash}>🔓 Cerrar caja</button>
+        ) : (
+          <button className="sbtn sbtn--accent" onClick={onOpenCash}>🔒 Abrir caja</button>
+        )}
+        <button className="sbtn" onClick={onOpenOps} title="Operaciones realizadas">🧾 Operaciones</button>
+        <button className={`sbtn ${scaleLive ? 'sbtn--on' : ''}`} onClick={onOpenScale} title="Balanza">
+          ⚖ Balanza{scaleLive ? ' ●' : ''}
+        </button>
+        {userEmail && <span className="statusbar__tenant" title={userEmail}>{userEmail}</span>}
+        <button className="sbtn sbtn--ghost" onClick={onLogout} title="Cerrar sesión">Salir</button>
+      </div>
     </header>
   );
 }

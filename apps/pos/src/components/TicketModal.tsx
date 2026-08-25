@@ -1,5 +1,6 @@
 import { getCfePdf } from '../lib/api';
 import { formatMoney } from '../lib/format';
+import { printBoleta } from '../lib/boleta';
 import type { OutboxSale } from '../lib/types';
 
 interface Props {
@@ -34,8 +35,8 @@ export function TicketModal({ sale, onClose }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop">
+      <div className="modal">
         <h3>✓ Venta registrada</h3>
         <div className="ticket__total">{formatMoney(sale.total)}</div>
 
@@ -68,10 +69,13 @@ export function TicketModal({ sale, onClose }: Props) {
           )}
         </div>
 
-        <div className="modal__actions">
+        <div className="modal__actions modal__actions--wrap">
+          <button className="btn btn--ghost" onClick={() => printBoleta(sale)}>
+            🖨 Imprimir boleta
+          </button>
           {cfe?.serie && (
             <button className="btn btn--ghost" onClick={verPdf}>
-              Ver PDF
+              Ver PDF fiscal
             </button>
           )}
           <button className="btn btn--primary" onClick={onClose}>

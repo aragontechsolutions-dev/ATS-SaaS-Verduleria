@@ -75,6 +75,12 @@ export async function getSale(id: string): Promise<OutboxSale | undefined> {
   return db.outbox.get(id);
 }
 
+/** Todas las operaciones (ventas) guardadas, de la más nueva a la más vieja. */
+export async function getAllSales(limit = 200): Promise<OutboxSale[]> {
+  const all = await db.outbox.orderBy('createdAt').reverse().toArray();
+  return all.slice(0, limit);
+}
+
 export async function countPending(): Promise<number> {
   return db.outbox.where('status').anyOf('pending', 'error', 'syncing').count();
 }
