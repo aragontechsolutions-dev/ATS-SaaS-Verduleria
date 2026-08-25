@@ -13,6 +13,9 @@ export interface CatalogProduct {
   esPesable: boolean;
   ivaIndicador: string;
   precio: number; // precio de mostrador (con IVA)
+  imagenUrl: string | null; // foto del producto (para las cards del POS)
+  /** Stock disponible (suma de sucursales). null = producto sin stock controlado. */
+  stock: number | null;
 }
 
 export interface CatalogResponse {
@@ -40,22 +43,32 @@ export class CatalogService {
       include: {
         categoria: true,
         priceItems: lista ? { where: { priceListId: lista.id } } : false,
+        stockItems: true,
       },
       orderBy: { nombre: 'asc' },
     });
 
-    const products: CatalogProduct[] = productos.map((p) => ({
-      id: p.id,
-      nombre: p.nombre,
-      plu: p.plu,
-      codigoBarras: p.codigoBarras,
-      categoriaId: p.categoriaId,
-      categoriaNombre: p.categoria?.nombre ?? null,
-      unidadVenta: p.unidadVenta,
-      esPesable: p.esPesable,
-      ivaIndicador: p.ivaIndicador,
-      precio: Number((p as { priceItems?: Array<{ precio: unknown }> }).priceItems?.[0]?.precio ?? 0),
-    }));
+    const products: CatalogProduct[] = productos.map((p) => {
+      const stockItems = (p as { stockItems?: Array<{ cantidad: unknown }> }).stockItems ?? [];
+      // Sin filas de stock → producto no controlado (stock null = se vende sin límite).
+      const stock = stockItems.length
+        ? stockItems.reduce((s, x) => s + Number(x.cantidad), 0)
+        : null;
+      return {
+        id: p.id,
+        nombre: p.nombre,
+        plu: p.plu,
+        codigoBarras: p.codigoBarras,
+        categoriaId: p.categoriaId,
+        categoriaNombre: p.categoria?.nombre ?? null,
+        unidadVenta: p.unidadVenta,
+        esPesable: p.esPesable,
+        ivaIndicador: p.ivaIndicador,
+        precio: Number((p as { priceItems?: Array<{ precio: unknown }> }).priceItems?.[0]?.precio ?? 0),
+        imagenUrl: p.imagenUrl,
+        stock: stock == null ? null : Number(stock.toFixed(3)),
+      };
+    });
 
     return {
       updatedAt: new Date().toISOString(),

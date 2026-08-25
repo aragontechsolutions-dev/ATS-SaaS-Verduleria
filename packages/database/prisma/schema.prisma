@@ -711,8 +711,10 @@ model CashSession {
   cierreAt   DateTime?
   montoApertura Decimal        @default(0) @db.Decimal(14, 2)
   montoCierre   Decimal?       @db.Decimal(14, 2)
-  /// Diferencia de arqueo (contado - esperado).
+  /// Diferencia de arqueo del EFECTIVO (contado - esperado).
   diferencia Decimal?          @db.Decimal(14, 2)
+  /// Conciliación por medio de pago: { MEDIO: { esperado, contado, diferencia } }.
+  arqueoDetalle Json?
   notas      String?
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
