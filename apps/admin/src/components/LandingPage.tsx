@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getLanding, getProducts, getStock, publishLanding, saveLanding, unpublishLanding } from '../lib/api';
 import type { LandingConfig, LandingProducto, Product, StockRow } from '../lib/api';
 import { formatUyPhone, tieneUbicacion } from '../lib/mapPhone';
 import { ImageUpload } from './ImageUpload';
 import { LandingPreview } from './LandingPreview';
 import { MapPicker } from './MapPicker';
+import { Spinner } from './Skeleton';
+import { useToast } from '../lib/toast';
 
 const UNIDAD_CORTA: Record<string, string> = {
   KG: 'kg', GRAMO: 'g', UNIDAD: 'un', ATADO: 'atado', DOCENA: 'docena', BANDEJA: 'bandeja',
@@ -37,14 +39,14 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: string }> = [
 ];
 
 export function LandingPage() {
+  const toast = useToast();
   const [config, setConfig] = useState<LandingConfig | null>(null);
   const [slug, setSlug] = useState('');
   const [apiPublicUrl, setApiPublicUrl] = useState('');
   const [publicado, setPublicado] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [okMsg, setOkMsg] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
   const [active, setActive] = useState<SectionId>('portada');
@@ -60,10 +62,12 @@ export function LandingPage() {
         setApiPublicUrl(l.publicUrl ?? '');
         setPublicado(l.estaPublicado);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'No se pudo cargar');
+        const m = e instanceof Error ? e.message : 'No se pudo cargar';
+        setLoadError(m);
+        toast.error(m);
       }
     })();
-  }, []);
+  }, [toast]);
 
   // Catálogo con stock/precio para elegir qué productos mostrar en la web.
   useEffect(() => {
@@ -92,11 +96,6 @@ export function LandingPage() {
     })();
   }, []);
 
-  const flash = useCallback((m: string) => {
-    setOkMsg(m);
-    window.setTimeout(() => setOkMsg(null), 2500);
-  }, []);
-
   // Scrollspy: marca la sección visible en el menú.
   useEffect(() => {
     const root = scrollRef.current;
@@ -121,7 +120,7 @@ export function LandingPage() {
 
   function usarMiUbicacion() {
     if (!navigator.geolocation) {
-      setError('Tu navegador no permite ubicación. Ingresá las coordenadas a mano.');
+      toast.error('Tu navegador no permite ubicación. Marcala en el mapa.');
       return;
     }
     setGeoLoading(true);
@@ -134,7 +133,7 @@ export function LandingPage() {
         setGeoLoading(false);
       },
       () => {
-        setError('No pudimos obtener tu ubicación. Revisá los permisos o ingresá las coordenadas a mano.');
+        toast.error('No pudimos obtener tu ubicación. Marcala en el mapa.');
         setGeoLoading(false);
       },
       { enableHighAccuracy: true, timeout: 10000 },
@@ -148,14 +147,13 @@ export function LandingPage() {
   async function guardar() {
     if (!config) return;
     setSaving(true);
-    setError(null);
     try {
       const r = await saveLanding(config);
       setConfig(r.draft);
       setDirty(false);
-      flash('Borrador guardado');
+      toast.success('Borrador guardado correctamente');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo guardar');
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar');
     } finally {
       setSaving(false);
     }
@@ -169,18 +167,22 @@ export function LandingPage() {
       await publishLanding();
       setPublicado(true);
       setDirty(false);
-      flash('¡Tu web está publicada!');
+      toast.success('¡Tu web está publicada!');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo publicar');
+      toast.error(e instanceof Error ? e.message : 'No se pudo publicar');
     } finally {
       setSaving(false);
     }
   }
 
   async function despublicar() {
-    await unpublishLanding().catch((e) => setError(String(e)));
-    setPublicado(false);
-    flash('Web despublicada');
+    try {
+      await unpublishLanding();
+      setPublicado(false);
+      toast.info('Tu web dejó de mostrarse (despublicada)');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo despublicar');
+    }
   }
 
   const publicPath = useMemo(() => `/v/${slug}`, [slug]);
@@ -209,6 +211,7 @@ export function LandingPage() {
       document.body.removeChild(ta);
     }
     setCopiado(true);
+    toast.success('Enlace copiado al portapapeles');
     window.setTimeout(() => setCopiado(false), 1800);
   }
 
@@ -239,17 +242,17 @@ export function LandingPage() {
   if (!config) {
     return (
       <>
-        {error && <div className="banner banner--err">{error}</div>}
-        {!error && <p className="muted">Cargando…</p>}
+        {loadError ? (
+          <div className="banner banner--err">{loadError}</div>
+        ) : (
+          <p className="loading-row"><Spinner /> Cargando tu web…</p>
+        )}
       </>
     );
   }
 
   return (
     <>
-      {error && <div className="banner banner--err">{error}</div>}
-      {okMsg && <div className="banner banner--ok">{okMsg}</div>}
-
       <div className="miweb__bar">
         <button className="btn btn--ghost btn--sm miweb__navtoggle" onClick={() => setNavOpen((o) => !o)} title="Secciones">
           ☰

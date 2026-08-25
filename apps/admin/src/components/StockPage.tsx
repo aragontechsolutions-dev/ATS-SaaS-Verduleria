@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { adjustStock, createWaste, getStock, getSucursales, getWaste } from '../lib/api';
 import type { StockRow, Sucursal, WasteRow } from '../lib/api';
+import { SkeletonRows } from './Skeleton';
+import { useToast } from '../lib/toast';
 
 type ModalKind = 'merma' | 'ajuste';
 
@@ -16,29 +18,27 @@ function margenClass(m: number | null): string {
 }
 
 export function StockPage() {
+  const toast = useToast();
   const [rows, setRows] = useState<StockRow[]>([]);
   const [waste, setWaste] = useState<WasteRow[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [sucFilter, setSucFilter] = useState('');
   const [q, setQ] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [okMsg, setOkMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<{ kind: ModalKind; row: StockRow } | null>(null);
 
   const load = useCallback(async () => {
-    setError(null);
     try {
       const [s, w, su] = await Promise.all([getStock(sucFilter || undefined), getWaste(), getSucursales()]);
       setRows(s);
       setWaste(w);
       setSucursales(su.filter((x) => x.activo));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error cargando');
+      toast.error(e instanceof Error ? e.message : 'Error cargando el stock');
     } finally {
       setLoading(false);
     }
-  }, [sucFilter]);
+  }, [sucFilter, toast]);
 
   useEffect(() => {
     void load();
@@ -54,16 +54,8 @@ export function StockPage() {
     [rows],
   );
 
-  function flash(m: string) {
-    setOkMsg(m);
-    window.setTimeout(() => setOkMsg(null), 3000);
-  }
-
   return (
     <>
-      {error && <div className="banner banner--err">{error}</div>}
-      {okMsg && <div className="banner banner--ok">{okMsg}</div>}
-
       <section className="panel">
         <div className="panel__head">
           <h2>Stock y márgenes</h2>
@@ -80,7 +72,7 @@ export function StockPage() {
         </div>
 
         {loading ? (
-          <p className="muted">Cargando…</p>
+          <SkeletonRows rows={6} cols={5} />
         ) : (
           <div className="table-wrap">
             <table className="table">
@@ -153,8 +145,8 @@ export function StockPage() {
           sucursalId={sucFilter || undefined}
           sucursalNombre={sucursales.find((s) => s.id === sucFilter)?.nombre ?? null}
           onClose={() => setModal(null)}
-          onDone={(msg) => { setModal(null); flash(msg); void load(); }}
-          onError={(m) => setError(m)}
+          onDone={(msg) => { setModal(null); toast.success(msg); void load(); }}
+          onError={(m) => toast.error(m)}
         />
       )}
     </>
@@ -203,8 +195,8 @@ function StockActionModal({
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+    <div className="modal-backdrop">
+      <form className="modal" onSubmit={submit}>
         <h3>{esMerma ? 'Registrar merma' : 'Ajustar stock'} — {row.nombre}</h3>
         <p className="modal__sub">
           {sucursalNombre ? `Sucursal: ${sucursalNombre}. ` : ''}

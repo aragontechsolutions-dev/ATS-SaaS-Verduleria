@@ -1,26 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createCategoria, getCategorias, updateCategoria } from '../lib/api';
 import type { Categoria, IvaIndicador } from '../lib/api';
+import { SkeletonRows } from './Skeleton';
+import { useToast } from '../lib/toast';
 
 const IVAS: IvaIndicador[] = ['MINIMA', 'BASICA', 'EXENTO', 'SUSPENSO'];
 
 export function CategoriasPage() {
+  const toast = useToast();
   const [cats, setCats] = useState<Categoria[]>([]);
   const [nombre, setNombre] = useState('');
   const [iva, setIva] = useState<IvaIndicador>('MINIMA');
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    setError(null);
     try {
       setCats(await getCategorias());
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error');
+      toast.error(e instanceof Error ? e.message : 'Error cargando categorías');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     void load();
@@ -29,30 +30,41 @@ export function CategoriasPage() {
   async function crear(e: React.FormEvent) {
     e.preventDefault();
     if (!nombre.trim()) return;
+    const n = nombre.trim();
     try {
-      await createCategoria({ nombre: nombre.trim(), ivaIndicadorDefault: iva });
+      await createCategoria({ nombre: n, ivaIndicadorDefault: iva });
       setNombre('');
+      toast.success(`Categoría “${n}” agregada correctamente`);
       void load();
     } catch (err) {
-      setError(String(err));
+      toast.error(err instanceof Error ? err.message : 'No se pudo crear la categoría');
     }
   }
 
   async function renombrar(c: Categoria) {
     const nuevo = window.prompt('Nuevo nombre', c.nombre);
     if (!nuevo || nuevo === c.nombre) return;
-    await updateCategoria(c.id, { nombre: nuevo.trim() }).catch((e) => setError(String(e)));
+    try {
+      await updateCategoria(c.id, { nombre: nuevo.trim() });
+      toast.success('Categoría renombrada correctamente');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo renombrar');
+    }
     void load();
   }
 
   async function cambiarIva(c: Categoria, v: IvaIndicador) {
-    await updateCategoria(c.id, { ivaIndicadorDefault: v }).catch((e) => setError(String(e)));
+    try {
+      await updateCategoria(c.id, { ivaIndicadorDefault: v });
+      toast.success(`IVA de “${c.nombre}” actualizado`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo actualizar el IVA');
+    }
     void load();
   }
 
   return (
     <>
-      {error && <div className="banner banner--err">{error}</div>}
       <section className="panel">
         <div className="panel__head"><h2>Categorías</h2></div>
 
@@ -65,7 +77,7 @@ export function CategoriasPage() {
         </form>
 
         {loading ? (
-          <p className="muted">Cargando…</p>
+          <SkeletonRows rows={4} cols={3} />
         ) : (
           <div className="table-wrap">
             <table className="table">

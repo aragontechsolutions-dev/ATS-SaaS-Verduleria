@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { createProduct, updateProduct } from '../lib/api';
 import type { Categoria, IvaIndicador, Product } from '../lib/api';
 import { ImageUpload } from './ImageUpload';
+import { useToast } from '../lib/toast';
 
 interface Props {
   product?: Product;
@@ -14,6 +15,7 @@ const UNIDADES = ['KG', 'GRAMO', 'UNIDAD', 'ATADO', 'DOCENA', 'BANDEJA'];
 const IVAS: IvaIndicador[] = ['MINIMA', 'BASICA', 'EXENTO', 'SUSPENSO'];
 
 export function ProductModal({ product, categorias, onClose, onSaved }: Props) {
+  const toast = useToast();
   const editing = !!product;
   const [nombre, setNombre] = useState(product?.nombre ?? '');
   const [unidadVenta, setUnidadVenta] = useState(product?.unidadVenta ?? 'KG');
@@ -43,9 +45,12 @@ export function ProductModal({ product, categorias, onClose, onSaved }: Props) {
     try {
       if (editing) await updateProduct(product!.id, payload);
       else await createProduct(payload);
+      toast.success(editing ? `Producto “${payload.nombre}” editado correctamente` : `Producto “${payload.nombre}” agregado correctamente`);
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar');
+      const msg = err instanceof Error ? err.message : 'No se pudo guardar';
+      setError(msg);
+      toast.error(msg);
       setSaving(false);
     }
   }
