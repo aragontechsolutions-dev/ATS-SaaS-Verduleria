@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { StatusBar } from './components/StatusBar';
 import { Login } from './components/Login';
-import { ProductGrid } from './components/ProductGrid';
+import { ProductGrid, hayStock } from './components/ProductGrid';
 import { Cart } from './components/Cart';
 import { WeighModal } from './components/WeighModal';
 import { PaymentModal } from './components/PaymentModal';
@@ -82,17 +82,40 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     };
   }, []);
 
+  // Agrega respetando el stock: bloquea sin stock y no deja superar lo disponible.
   const addProduct = useCallback(
-    (p: CatalogProduct, cantidad: number) => cart.add(cartItemFromProduct(p, cantidad)),
-    [cart],
+    (p: CatalogProduct, cantidad: number) => {
+      if (!hayStock(p)) {
+        showToast(`${p.nombre}: sin stock`);
+        return;
+      }
+      if (p.stock != null) {
+        const enCarrito = cart.items
+          .filter((it) => it.productId === p.id)
+          .reduce((s, it) => s + it.cantidad, 0);
+        const disponible = p.stock - enCarrito;
+        if (disponible <= 0) {
+          showToast(`${p.nombre}: no hay más stock (${p.stock} ${p.unidadVenta.toLowerCase()})`);
+          return;
+        }
+        if (cantidad > disponible) {
+          cart.add(cartItemFromProduct(p, disponible));
+          showToast(`Ajustado a ${disponible} ${p.unidadVenta.toLowerCase()} (stock disponible)`);
+          return;
+        }
+      }
+      cart.add(cartItemFromProduct(p, cantidad));
+    },
+    [cart, showToast],
   );
 
   const onPick = useCallback(
     (p: CatalogProduct) => {
+      if (!hayStock(p)) return showToast(`${p.nombre}: sin stock`);
       if (p.esPesable) setWeighing(p);
       else addProduct(p, 1);
     },
-    [addProduct],
+    [addProduct, showToast],
   );
 
   const onScan = useCallback(
@@ -159,7 +182,18 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     [cart, cash.session],
   );
 
-  const cobrarDisabled = cart.items.length === 0;
+  const sinCaja = !cash.session;
+  const cobrarDisabled = cart.items.length === 0 || sinCaja;
+
+  // No se puede cobrar sin caja abierta: si intentan, se abre el modal de apertura.
+  const onCheckout = useCallback(() => {
+    if (sinCaja) {
+      setOpeningCash(true);
+      showToast('Primero abrí la caja');
+      return;
+    }
+    setPaying(true);
+  }, [sinCaja, showToast]);
 
   // Nombre de la sucursal del turno (solo si hay más de una, para diferenciar).
   const sucursalNombre =
@@ -193,10 +227,12 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         <Cart
           items={cart.items}
           total={cart.total}
+          sinCaja={sinCaja}
           onSetQty={cart.setQty}
           onRemove={cart.remove}
           onClear={cart.clear}
-          onCheckout={() => setPaying(true)}
+          onCheckout={onCheckout}
+          onAbrirCaja={() => setOpeningCash(true)}
         />
       </main>
 

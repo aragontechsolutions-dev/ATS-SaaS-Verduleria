@@ -7,6 +7,11 @@ interface Props {
   onPick: (p: CatalogProduct) => void;
 }
 
+/** ¿Hay stock para vender? null = producto sin stock controlado → se vende libre. */
+export function hayStock(p: CatalogProduct): boolean {
+  return p.stock == null || p.stock > 0;
+}
+
 export function ProductGrid({ products, onPick }: Props) {
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<string | null>(null);
@@ -46,16 +51,37 @@ export function ProductGrid({ products, onPick }: Props) {
         ))}
       </div>
       <div className="grid">
-        {filtered.map((p) => (
-          <button key={p.id} className="tile" onClick={() => onPick(p)}>
-            <span className="tile__name">{p.nombre}</span>
-            <span className="tile__price">
-              {formatMoney(p.precio)}
-              <small>/{p.unidadVenta.toLowerCase()}</small>
-            </span>
-            {p.esPesable && <span className="tile__badge">⚖ pesable</span>}
-          </button>
-        ))}
+        {filtered.map((p) => {
+          const disponible = hayStock(p);
+          const unidad = p.unidadVenta.toLowerCase();
+          return (
+            <button
+              key={p.id}
+              className={`pcard ${disponible ? '' : 'pcard--off'}`}
+              onClick={() => disponible && onPick(p)}
+              disabled={!disponible}
+              title={disponible ? p.nombre : `${p.nombre} — sin stock`}
+            >
+              <span
+                className="pcard__img"
+                style={p.imagenUrl ? { backgroundImage: `url(${p.imagenUrl})` } : undefined}
+              >
+                {!p.imagenUrl && <span className="pcard__ph">🥬</span>}
+                {p.esPesable && <span className="pcard__badge">⚖</span>}
+                {!disponible && <span className="pcard__out">Sin stock</span>}
+              </span>
+              <span className="pcard__body">
+                <span className="pcard__name">{p.nombre}</span>
+                <span className="pcard__price">
+                  {formatMoney(p.precio)}<small>/{unidad}</small>
+                </span>
+                {p.stock != null && disponible && (
+                  <span className="pcard__stock">{p.stock} {unidad}</span>
+                )}
+              </span>
+            </button>
+          );
+        })}
         {filtered.length === 0 && <p className="empty">Sin productos.</p>}
       </div>
     </section>

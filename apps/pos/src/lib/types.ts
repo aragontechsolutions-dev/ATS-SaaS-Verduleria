@@ -13,6 +13,9 @@ export interface CatalogProduct {
   esPesable: boolean;
   ivaIndicador: IvaIndicador;
   precio: number;
+  imagenUrl?: string | null;
+  /** Stock disponible; null = producto sin stock controlado (se vende libre). */
+  stock?: number | null;
 }
 
 export type MedioPago =
@@ -87,4 +90,11 @@ export interface CashSummary {
   totalVendido: number;
   porMedio: Record<string, number>;
   efectivoEsperado: number;
+  montoApertura: number;
+}
+
+export interface ArqueoMedio {
+  esperado: number;
+  contado: number;
+  diferencia: number;
 }

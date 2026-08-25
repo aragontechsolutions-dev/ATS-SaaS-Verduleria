@@ -135,14 +135,20 @@ export async function cashSummary(sessionId: string): Promise<CashSummary> {
 export interface CloseCashResult {
   resumen: CashSummary;
   diferencia: number;
+  arqueoDetalle: Record<string, import('./types').ArqueoMedio>;
 }
 
-export async function closeCash(sessionId: string, montoCierre: number, notas?: string): Promise<CloseCashResult> {
+export async function closeCash(
+  sessionId: string,
+  montoCierre: number,
+  conteos?: Record<string, number>,
+  notas?: string,
+): Promise<CloseCashResult> {
   return ok(
     await fetch(`${API_BASE}/cash-sessions/${sessionId}/close`, {
       method: 'POST',
       headers: headers(),
-      body: JSON.stringify({ montoCierre, notas }),
+      body: JSON.stringify({ montoCierre, conteos, notas }),
     }),
     'cash-close',
   );

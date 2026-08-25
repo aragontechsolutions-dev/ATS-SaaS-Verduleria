@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsNumber, IsObject, IsOptional, IsString, Min } from 'class-validator';
 
 export class OpenCashDto {
   @IsOptional()
@@ -15,6 +15,15 @@ export class CloseCashDto {
   @IsNumber()
   @Min(0)
   montoCierre!: number;
+
+  /**
+   * Conteo/liquidación por medio de pago electrónico para la conciliación
+   * (ej. { DEBITO: 3200, TRANSFERENCIA: 1500 }). El EFECTIVO se toma de
+   * montoCierre. Los medios no incluidos se concilian contra el sistema.
+   */
+  @IsOptional()
+  @IsObject()
+  conteos?: Record<string, number>;
 
   @IsOptional()
   @IsString()

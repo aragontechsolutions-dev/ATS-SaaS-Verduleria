@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { cashSummary, closeCash } from '../lib/api';
 import { formatMoney } from '../lib/format';
 import type { CashSummary } from '../lib/types';
@@ -9,10 +9,29 @@ interface Props {
   onCancel: () => void;
 }
 
-/** Arqueo y cierre de caja: muestra el esperado y calcula la diferencia. */
+const MEDIO_LABEL: Record<string, string> = {
+  EFECTIVO: '💵 Efectivo',
+  DEBITO: '💳 Débito',
+  CREDITO: '💳 Crédito',
+  MERCADO_PAGO: '📱 QR / MP',
+  TRANSFERENCIA: '🏦 Transferencia',
+  DINERO_ELECTRONICO: '💠 Dinero electrónico',
+  CUENTA_CORRIENTE: '📒 Cuenta corriente',
+};
+const label = (m: string) => MEDIO_LABEL[m] ?? m.toLowerCase().replace(/_/g, ' ');
+
+const parse = (v: string) => parseFloat(v.replace(',', '.')) || 0;
+
+/**
+ * Arqueo y cierre de caja: además del efectivo físico, concilia cada medio de
+ * pago electrónico (lo que liquida la terminal/banco) contra lo del sistema.
+ */
 export function CloseCashModal({ sessionId, onClosed, onCancel }: Props) {
   const [resumen, setResumen] = useState<CashSummary | null>(null);
-  const [valor, setValor] = useState('');
+  const [efectivo, setEfectivo] = useState('');
+  // Conteo/liquidación por medio electrónico (texto por input).
+  const [conteos, setConteos] = useState<Record<string, string>>({});
+  const [notas, setNotas] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [cerrando, setCerrando] = useState(false);
 
@@ -20,15 +39,23 @@ export function CloseCashModal({ sessionId, onClosed, onCancel }: Props) {
     cashSummary(sessionId).then(setResumen).catch((e) => setError(String(e)));
   }, [sessionId]);
 
-  const contado = parseFloat(valor.replace(',', '.')) || 0;
-  const esperado = resumen?.efectivoEsperado ?? 0;
-  const diferencia = contado - esperado;
+  // Medios electrónicos usados (todos menos efectivo), para conciliar uno a uno.
+  const electronicos = useMemo(
+    () => Object.keys(resumen?.porMedio ?? {}).filter((m) => m !== 'EFECTIVO').sort(),
+    [resumen],
+  );
+
+  const efectivoContado = parse(efectivo);
+  const efectivoEsperado = resumen?.efectivoEsperado ?? 0;
+  const difEfectivo = efectivoContado - efectivoEsperado;
 
   async function confirmar() {
     setCerrando(true);
     setError(null);
     try {
-      await closeCash(sessionId, contado);
+      const conteosNum: Record<string, number> = {};
+      for (const m of electronicos) if (conteos[m] != null && conteos[m] !== '') conteosNum[m] = parse(conteos[m]);
+      await closeCash(sessionId, efectivoContado, conteosNum, notas || undefined);
       onClosed();
     } catch (e) {
       setError(String(e));
@@ -46,46 +73,72 @@ export function CloseCashModal({ sessionId, onClosed, onCancel }: Props) {
           <>
             <div className="arqueo">
               <div className="arqueo__row">
-                <span>Ventas</span>
-                <span>{resumen.ventas}</span>
+                <span>Ventas</span><span>{resumen.ventas}</span>
               </div>
               <div className="arqueo__row">
-                <span>Total vendido</span>
-                <span>{formatMoney(resumen.totalVendido)}</span>
+                <span>Total vendido</span><span>{formatMoney(resumen.totalVendido)}</span>
               </div>
-              {Object.entries(resumen.porMedio).map(([medio, monto]) => (
-                <div className="arqueo__row arqueo__row--sub" key={medio}>
-                  <span>{medio.toLowerCase().replace('_', ' ')}</span>
-                  <span>{formatMoney(monto)}</span>
-                </div>
-              ))}
-              <div className="arqueo__row arqueo__row--strong">
-                <span>Efectivo esperado en caja</span>
-                <span>{formatMoney(esperado)}</span>
+              <div className="arqueo__row arqueo__row--sub">
+                <span>Fondo de apertura</span><span>{formatMoney(resumen.montoApertura)}</span>
               </div>
             </div>
 
-            <label className="field">
-              Efectivo contado ($)
+            {/* Efectivo: conteo físico */}
+            <div className="concil">
+              <div className="concil__head">
+                <span>{label('EFECTIVO')}</span>
+                <span className="muted">esperado {formatMoney(efectivoEsperado)}</span>
+              </div>
               <input
+                className="concil__input"
                 type="number"
                 inputMode="decimal"
-                value={valor}
-                onChange={(e) => setValor(e.target.value)}
+                placeholder="Contado en caja"
+                value={efectivo}
+                onChange={(e) => setEfectivo(e.target.value)}
                 autoFocus
               />
-            </label>
-            <div className={`modal__total ${diferencia === 0 ? '' : diferencia > 0 ? 'ok' : 'warn'}`}>
-              Diferencia: {formatMoney(diferencia)}
-              {diferencia !== 0 && <small> ({diferencia > 0 ? 'sobra' : 'falta'})</small>}
+              <span className={`concil__dif ${difEfectivo === 0 ? '' : difEfectivo > 0 ? 'ok' : 'warn'}`}>
+                {difEfectivo === 0 ? 'OK' : `${difEfectivo > 0 ? 'sobra' : 'falta'} ${formatMoney(Math.abs(difEfectivo))}`}
+              </span>
             </div>
+
+            {/* Medios electrónicos: liquidación de terminal/banco */}
+            {electronicos.map((m) => {
+              const esperado = resumen.porMedio[m] ?? 0;
+              const contado = conteos[m] != null && conteos[m] !== '' ? parse(conteos[m]) : esperado;
+              const dif = contado - esperado;
+              return (
+                <div className="concil" key={m}>
+                  <div className="concil__head">
+                    <span>{label(m)}</span>
+                    <span className="muted">sistema {formatMoney(esperado)}</span>
+                  </div>
+                  <input
+                    className="concil__input"
+                    type="number"
+                    inputMode="decimal"
+                    placeholder={`Liquidado (${formatMoney(esperado)})`}
+                    value={conteos[m] ?? ''}
+                    onChange={(e) => setConteos((c) => ({ ...c, [m]: e.target.value }))}
+                  />
+                  <span className={`concil__dif ${dif === 0 ? '' : dif > 0 ? 'ok' : 'warn'}`}>
+                    {dif === 0 ? 'OK' : `${dif > 0 ? '+' : '−'}${formatMoney(Math.abs(dif))}`}
+                  </span>
+                </div>
+              );
+            })}
+
+            <label className="field">
+              Notas (opcional)
+              <input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="observaciones del turno" />
+            </label>
+
             {error && <p className="modal__err">{error}</p>}
           </>
         )}
         <div className="modal__actions">
-          <button className="btn btn--ghost" onClick={onCancel} disabled={cerrando}>
-            Cancelar
-          </button>
+          <button className="btn btn--ghost" onClick={onCancel} disabled={cerrando}>Cancelar</button>
           <button className="btn btn--primary" onClick={confirmar} disabled={!resumen || cerrando}>
             {cerrando ? 'Cerrando…' : 'Cerrar caja'}
           </button>

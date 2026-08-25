@@ -8,6 +8,14 @@ export interface CashSummary {
   totalVendido: number;
   porMedio: Record<string, number>;
   efectivoEsperado: number; // apertura + ventas en efectivo
+  montoApertura: number;
+}
+
+/** Conciliación de un medio de pago: lo esperado vs lo contado/liquidado. */
+export interface ArqueoMedio {
+  esperado: number;
+  contado: number;
+  diferencia: number;
 }
 
 @Injectable()
@@ -68,6 +76,7 @@ export class CashService {
       totalVendido,
       porMedio,
       efectivoEsperado: Number(session.montoApertura) + efectivoVentas,
+      montoApertura: Number(session.montoApertura),
     };
   }
 
@@ -80,6 +89,26 @@ export class CashService {
     const resumen = await this.summary(tenantId, sessionId);
     const diferencia = (dto.montoCierre ?? 0) - resumen.efectivoEsperado;
 
+    // Conciliación por medio: efectivo (físico) + electrónicos (liquidación).
+    const conteos = dto.conteos ?? {};
+    const medios = new Set<string>([...Object.keys(resumen.porMedio), ...Object.keys(conteos)]);
+    const arqueoDetalle: Record<string, ArqueoMedio> = {};
+    for (const medio of medios) {
+      const esEfectivo = medio === MedioPago.EFECTIVO;
+      const esperado = esEfectivo ? resumen.efectivoEsperado : resumen.porMedio[medio] ?? 0;
+      // Si no se ingresó conteo de un medio electrónico, se asume conciliado (=esperado).
+      const contado = esEfectivo
+        ? dto.montoCierre ?? 0
+        : conteos[medio] != null
+          ? Number(conteos[medio])
+          : esperado;
+      arqueoDetalle[medio] = {
+        esperado: Number(esperado.toFixed(2)),
+        contado: Number(contado.toFixed(2)),
+        diferencia: Number((contado - esperado).toFixed(2)),
+      };
+    }
+
     const cerrada = await this.prisma.cashSession.update({
       where: { id: sessionId },
       data: {
@@ -87,10 +116,11 @@ export class CashService {
         cierreAt: new Date(),
         montoCierre: new Prisma.Decimal(dto.montoCierre ?? 0),
         diferencia: new Prisma.Decimal(diferencia),
+        arqueoDetalle: arqueoDetalle as unknown as Prisma.InputJsonValue,
         notas: dto.notas,
       },
     });
-    return { session: cerrada, resumen, diferencia };
+    return { session: cerrada, resumen, diferencia, arqueoDetalle };
   }
 
   async get(tenantId: string, sessionId: string) {

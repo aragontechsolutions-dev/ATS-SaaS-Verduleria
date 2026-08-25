@@ -5,13 +5,15 @@ import { formatMoney, formatQty } from '../lib/format';
 interface Props {
   items: CartItem[];
   total: number;
+  sinCaja?: boolean;
   onSetQty: (index: number, cantidad: number) => void;
   onRemove: (index: number) => void;
   onClear: () => void;
   onCheckout: () => void;
+  onAbrirCaja?: () => void;
 }
 
-export function Cart({ items, total, onSetQty, onRemove, onClear, onCheckout }: Props) {
+export function Cart({ items, total, sinCaja, onSetQty, onRemove, onClear, onCheckout, onAbrirCaja }: Props) {
   return (
     <aside className="cart">
       <div className="cart__list">
@@ -41,6 +43,12 @@ export function Cart({ items, total, onSetQty, onRemove, onClear, onCheckout }: 
         ))}
       </div>
       <div className="cart__footer">
+        {sinCaja && (
+          <div className="cart__cajahint">
+            🔒 Abrí la caja para poder cobrar.
+            {onAbrirCaja && <button className="btn btn--sm btn--accent" onClick={onAbrirCaja}>Abrir caja</button>}
+          </div>
+        )}
         <div className="cart__grandtotal">
           <span>Total</span>
           <strong>{formatMoney(total)}</strong>
@@ -49,7 +57,7 @@ export function Cart({ items, total, onSetQty, onRemove, onClear, onCheckout }: 
           <button className="btn btn--ghost" onClick={onClear} disabled={items.length === 0}>
             Vaciar
           </button>
-          <button className="btn btn--accent" onClick={onCheckout} disabled={items.length === 0}>
+          <button className="btn btn--accent" onClick={onCheckout} disabled={items.length === 0 || sinCaja}>
             Cobrar
           </button>
         </div>
