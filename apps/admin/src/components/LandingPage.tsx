@@ -1,9 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getLanding, publishLanding, saveLanding, unpublishLanding } from '../lib/api';
-import type { LandingConfig } from '../lib/api';
+import { getLanding, getProducts, getStock, publishLanding, saveLanding, unpublishLanding } from '../lib/api';
+import type { LandingConfig, LandingProducto, Product, StockRow } from '../lib/api';
 import { formatUyPhone, osmEmbedUrl, tieneUbicacion } from '../lib/mapPhone';
 import { ImageUpload } from './ImageUpload';
 import { LandingPreview } from './LandingPreview';
+
+const UNIDAD_CORTA: Record<string, string> = {
+  KG: 'kg', GRAMO: 'g', UNIDAD: 'un', ATADO: 'atado', DOCENA: 'docena', BANDEJA: 'bandeja',
+  CAJON: 'cajón', BOLSA: 'bolsa', BIN: 'bin', BULTO: 'bulto',
+};
+
+/** Precio de mostrador con la unidad corta: `$120 /kg`. '' si no hay precio. */
+function formatPrecio(precio: number, unidad: string): string {
+  if (!precio || precio <= 0) return '';
+  const monto = precio.toLocaleString('es-UY', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return `$${monto} /${UNIDAD_CORTA[unidad] ?? unidad.toLowerCase()}`;
+}
+
+/** Producto del catálogo con su stock/precio actual, para el selector de la web. */
+interface CatalogoItem {
+  id: string;
+  nombre: string;
+  unidadVenta: string;
+  imagenUrl: string;
+  cantidad: number;
+  precio: number;
+}
 
 type SectionId = 'portada' | 'productos' | 'horarios' | 'contacto';
 const SECTIONS: Array<{ id: SectionId; label: string; icon: string }> = [
@@ -24,6 +46,7 @@ export function LandingPage() {
   const [navOpen, setNavOpen] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
   const [active, setActive] = useState<SectionId>('portada');
+  const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,6 +58,33 @@ export function LandingPage() {
         setPublicado(l.estaPublicado);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'No se pudo cargar');
+      }
+    })();
+  }, []);
+
+  // Catálogo con stock/precio para elegir qué productos mostrar en la web.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [products, stock] = await Promise.all([getProducts(), getStock()]);
+        const stockBy = new Map<string, StockRow>(stock.map((s) => [s.productId, s]));
+        const items: CatalogoItem[] = products
+          .filter((p: Product) => p.activo)
+          .map((p: Product) => {
+            const s = stockBy.get(p.id);
+            return {
+              id: p.id,
+              nombre: p.nombre,
+              unidadVenta: p.unidadVenta,
+              imagenUrl: p.imagenUrl ?? '',
+              cantidad: s ? s.cantidad : 0,
+              precio: s ? s.precio : p.precio,
+            };
+          })
+          .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+        setCatalogo(items);
+      } catch {
+        /* si falla, el selector queda vacío con su aviso */
       }
     })();
   }, []);
@@ -132,6 +182,30 @@ export function LandingPage() {
 
   const publicPath = useMemo(() => `/v/${slug}`, [slug]);
 
+  // Productos elegidos (por id) → items resueltos con foto/precio actuales.
+  // La web solo publica los que tienen stock; acá mostramos igual para avisar.
+  const catById = useMemo(() => new Map(catalogo.map((c) => [c.id, c])), [catalogo]);
+  const seleccion = config?.productos.productIds ?? [];
+  const previewItems: LandingProducto[] = useMemo(
+    () =>
+      seleccion
+        .map((id) => catById.get(id))
+        .filter((c): c is CatalogoItem => !!c && c.cantidad > 0)
+        .map((c) => ({ nombre: c.nombre, precio: formatPrecio(c.precio, c.unidadVenta), imagenUrl: c.imagenUrl })),
+    [seleccion, catById],
+  );
+  const previewConfig: LandingConfig | null = useMemo(
+    () => (config ? { ...config, productos: { ...config.productos, items: previewItems } } : null),
+    [config, previewItems],
+  );
+
+  function toggleProducto(id: string) {
+    if (!config) return;
+    const cur = config.productos.productIds;
+    const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
+    update('productos', { productIds: next });
+  }
+
   if (!config) {
     return (
       <>
@@ -195,24 +269,43 @@ export function LandingPage() {
             </label>
           </section>
 
-          {/* Productos */}
+          {/* Productos — elegidos del catálogo, con su stock y foto */}
           <section className="miweb-sec" data-id="productos">
             <SectionHead label="Productos / ofertas" on={config.productos.mostrar} onToggle={(v) => update('productos', { mostrar: v })} />
             <label className="field">Título de la sección<input value={config.productos.titulo} onChange={(e) => update('productos', { titulo: e.target.value })} /></label>
-            <div className="miweb-items">
-              {config.productos.items.map((it, i) => (
-                <div className="miweb-item" key={i}>
-                  <input placeholder="Producto" value={it.nombre} onChange={(e) => {
-                    const items = config.productos.items.slice(); items[i] = { ...items[i], nombre: e.target.value }; update('productos', { items });
-                  }} />
-                  <input placeholder="$/kg" value={it.precio} onChange={(e) => {
-                    const items = config.productos.items.slice(); items[i] = { ...items[i], precio: e.target.value }; update('productos', { items });
-                  }} />
-                  <button className="btn btn--sm btn--ghost" onClick={() => update('productos', { items: config.productos.items.filter((_, x) => x !== i) })}>✕</button>
-                </div>
-              ))}
-            </div>
-            <button className="btn btn--ghost btn--sm" onClick={() => update('productos', { items: [...config.productos.items, { nombre: '', precio: '', imagenUrl: '' }] })}>+ Agregar producto</button>
+            <p className="hint">Elegí de tu catálogo qué mostrar en la web. Se usa la foto y el precio que cargaste en cada producto. <strong>Sin stock no se publican.</strong></p>
+            {catalogo.length === 0 ? (
+              <p className="lp-empty">No hay productos todavía. Cargalos en <strong>Productos</strong> y volvé acá.</p>
+            ) : (
+              <div className="miweb-pick">
+                {catalogo.map((c) => {
+                  const sel = config.productos.productIds.includes(c.id);
+                  const sinStock = c.cantidad <= 0;
+                  return (
+                    <button
+                      type="button"
+                      key={c.id}
+                      className={`miweb-pick__card ${sel ? 'is-sel' : ''} ${sinStock ? 'is-off' : ''}`}
+                      onClick={() => toggleProducto(c.id)}
+                      title={sinStock ? 'Sin stock: no se va a publicar hasta que cargues stock' : undefined}
+                    >
+                      <span className="miweb-pick__img" style={c.imagenUrl ? { backgroundImage: `url(${c.imagenUrl})` } : undefined}>
+                        {!c.imagenUrl && <span className="miweb-pick__ph">🥬</span>}
+                        {sel && <span className="miweb-pick__check">✓</span>}
+                      </span>
+                      <span className="miweb-pick__name">{c.nombre}</span>
+                      <span className="miweb-pick__meta">
+                        {formatPrecio(c.precio, c.unidadVenta) || 'sin precio'}
+                        {sinStock ? <em className="miweb-pick__off"> · sin stock</em> : <span className="miweb-pick__stk"> · {c.cantidad} {UNIDAD_CORTA[c.unidadVenta] ?? ''}</span>}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {seleccion.length > 0 && previewItems.length === 0 && (
+              <p className="hint hint--warn">Los productos elegidos no tienen stock: no se mostrarán hasta que cargues stock.</p>
+            )}
           </section>
 
           {/* Horarios y ubicación */}
@@ -255,7 +348,7 @@ export function LandingPage() {
         </div>
 
         <div className="miweb__preview">
-          <LandingPreview config={config} />
+          <LandingPreview config={previewConfig ?? config} />
         </div>
       </div>
     </>
