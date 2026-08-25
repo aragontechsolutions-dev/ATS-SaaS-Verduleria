@@ -12,66 +12,82 @@ import { SettingsPage } from './SettingsPage';
 
 type Tab = 'reportes' | 'productos' | 'categorias' | 'compras' | 'stock' | 'sucursales' | 'mayoristas' | 'miweb' | 'usuarios' | 'config';
 
+const NAV: Array<{ id: Tab; label: string; icon: string }> = [
+  { id: 'reportes', label: 'Reportes', icon: '📊' },
+  { id: 'productos', label: 'Productos', icon: '🥬' },
+  { id: 'categorias', label: 'Categorías', icon: '🏷️' },
+  { id: 'compras', label: 'Compras', icon: '🛒' },
+  { id: 'stock', label: 'Stock', icon: '📦' },
+  { id: 'sucursales', label: 'Sucursales', icon: '🏬' },
+  { id: 'mayoristas', label: 'Mayoristas', icon: '🤝' },
+  { id: 'miweb', label: 'Mi web', icon: '🌐' },
+  { id: 'usuarios', label: 'Usuarios', icon: '👥' },
+  { id: 'config', label: 'Configuración', icon: '⚙️' },
+];
+
+const PAGES: Record<Tab, JSX.Element> = {
+  reportes: <ReportsPage />,
+  productos: <ProductsPage />,
+  categorias: <CategoriasPage />,
+  compras: <ComprasPage />,
+  stock: <StockPage />,
+  sucursales: <SucursalesPage />,
+  mayoristas: <MayoristasPage />,
+  miweb: <LandingPage />,
+  usuarios: <UsersPage />,
+  config: <SettingsPage />,
+};
+
 export function Shell({ email, onLogout }: { email: string; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>('reportes');
+  const [drawer, setDrawer] = useState(false);
+
+  const actual = NAV.find((n) => n.id === tab)!;
+
+  function go(id: Tab) {
+    setTab(id);
+    setDrawer(false);
+  }
 
   return (
     <div className="app">
       <header className="topbar">
+        <button className="topbar__menu" onClick={() => setDrawer(true)} aria-label="Abrir menú">☰</button>
         <div className="topbar__brand">
           <img src="/icon.svg" alt="Aragon" />
-          Administración
+          <span className="topbar__brandtext">Administración</span>
         </div>
-        <nav className="tabs">
-          <button className={`tab ${tab === 'reportes' ? 'tab--on' : ''}`} onClick={() => setTab('reportes')}>
-            Reportes
-          </button>
-          <button className={`tab ${tab === 'productos' ? 'tab--on' : ''}`} onClick={() => setTab('productos')}>
-            Productos
-          </button>
-          <button className={`tab ${tab === 'categorias' ? 'tab--on' : ''}`} onClick={() => setTab('categorias')}>
-            Categorías
-          </button>
-          <button className={`tab ${tab === 'compras' ? 'tab--on' : ''}`} onClick={() => setTab('compras')}>
-            Compras
-          </button>
-          <button className={`tab ${tab === 'stock' ? 'tab--on' : ''}`} onClick={() => setTab('stock')}>
-            Stock
-          </button>
-          <button className={`tab ${tab === 'sucursales' ? 'tab--on' : ''}`} onClick={() => setTab('sucursales')}>
-            Sucursales
-          </button>
-          <button className={`tab ${tab === 'mayoristas' ? 'tab--on' : ''}`} onClick={() => setTab('mayoristas')}>
-            Mayoristas
-          </button>
-          <button className={`tab ${tab === 'miweb' ? 'tab--on' : ''}`} onClick={() => setTab('miweb')}>
-            Mi web
-          </button>
-          <button className={`tab ${tab === 'usuarios' ? 'tab--on' : ''}`} onClick={() => setTab('usuarios')}>
-            Usuarios
-          </button>
-          <button className={`tab ${tab === 'config' ? 'tab--on' : ''}`} onClick={() => setTab('config')}>
-            Configuración
-          </button>
-        </nav>
+        <span className="topbar__section">{actual.icon} {actual.label}</span>
+        <div className="topbar__spacer" />
         <div className="topbar__right">
           <span className="topbar__user">{email}</span>
           <button className="btn btn--ghost btn--sm" onClick={onLogout}>Salir</button>
         </div>
       </header>
 
-      <main className="content">
-        {tab === 'reportes' && <ReportsPage />}
-        {tab === 'productos' && <ProductsPage />}
-        {tab === 'categorias' && <CategoriasPage />}
-        {tab === 'compras' && <ComprasPage />}
-        {tab === 'stock' && <StockPage />}
-        {tab === 'sucursales' && <SucursalesPage />}
-        {tab === 'mayoristas' && <MayoristasPage />}
-        {tab === 'miweb' && <LandingPage />}
-        {tab === 'usuarios' && <UsersPage />}
-        {tab === 'config' && <SettingsPage />}
-      </main>
+      <div className="shell">
+        <aside className={`sidebar ${drawer ? 'is-open' : ''}`}>
+          <div className="sidebar__head">
+            <span className="sidebar__title">Menú</span>
+            <button className="sidebar__close" onClick={() => setDrawer(false)} aria-label="Cerrar menú">×</button>
+          </div>
+          <nav className="sidebar__nav">
+            {NAV.map((n) => (
+              <button
+                key={n.id}
+                className={`navlink ${tab === n.id ? 'is-active' : ''}`}
+                onClick={() => go(n.id)}
+              >
+                <span className="navlink__icon" aria-hidden>{n.icon}</span>
+                <span>{n.label}</span>
+              </button>
+            ))}
+          </nav>
+        </aside>
+        {drawer && <div className="sidebar__scrim" onClick={() => setDrawer(false)} />}
+
+        <main className="content">{PAGES[tab]}</main>
+      </div>
     </div>
   );
 }
