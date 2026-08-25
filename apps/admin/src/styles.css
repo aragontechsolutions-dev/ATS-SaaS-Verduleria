@@ -262,8 +262,9 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 .miweb-ubic { border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .miweb-ubic__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--text); font-weight: 700; }
 .miweb-ubic__actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.miweb-map, .lp-map { width: 100%; height: 200px; border: 1px solid var(--border); border-radius: 10px; }
+.miweb-map, .lp-map { width: 100%; height: 200px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; z-index: 0; }
 .lp-map { height: 240px; margin-top: 6px; }
+.lp-map .leaflet-container { height: 100%; width: 100%; font: inherit; }
 
 /* Mapa interactivo para marcar el local (Leaflet) */
 .map-picker { display: flex; flex-direction: column; gap: 6px; }

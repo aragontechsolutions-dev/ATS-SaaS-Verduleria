@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { getPublicLanding, NotFoundError, osmEmbedUrl, tieneUbicacion } from '../lib/api';
+import { getPublicLanding, NotFoundError, tieneUbicacion } from '../lib/api';
 import type { PublicLanding } from '../lib/api';
 import { ADMIN_URL, secretLogin } from '../lib/secretLogin';
+import { LandingMap } from './LandingMap';
 
 type State = { estado: 'load' } | { estado: 'ok'; data: PublicLanding } | { estado: '404' } | { estado: 'error' };
 
@@ -97,7 +98,7 @@ function LandingView({
           {config.horarios.texto && <p className="lp-line">🕐 {config.horarios.texto}</p>}
           {config.horarios.direccion && <p className="lp-line">📍 {config.horarios.direccion}</p>}
           {tieneUbicacion(config.horarios.lat, config.horarios.lng) && (
-            <iframe className="lp-map" title="Ubicación" src={osmEmbedUrl(config.horarios.lat, config.horarios.lng)} loading="lazy" />
+            <LandingMap lat={config.horarios.lat} lng={config.horarios.lng} nombre={config.horarios.direccion || undefined} />
           )}
           {config.horarios.mapaUrl && (
             <a className="lp-link" href={config.horarios.mapaUrl} target="_blank" rel="noreferrer">Cómo llegar</a>

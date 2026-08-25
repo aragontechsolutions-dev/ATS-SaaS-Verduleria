@@ -200,4 +200,11 @@ section { padding: 60px 0; }
 .pub-404 h1 { font-size: 26px; color: var(--ink); }
 .pub-404 a { color: var(--teal); font-weight: 600; }
 
-.lp-map { width: 100%; max-width: 640px; height: 300px; border: 1px solid var(--border); border-radius: 14px; margin: 8px auto 0; display: block; }
+.lp-map { width: 100%; max-width: 640px; height: 300px; border: 1px solid var(--border); border-radius: 14px; margin: 8px auto 0; display: block; overflow: hidden; z-index: 0; }
+.lp-map .leaflet-container { height: 100%; width: 100%; font: inherit; border-radius: 14px; }
+.lp-pin { background: none; border: none; }
+.lp-pin__dot {
+  display: block; width: 20px; height: 20px; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg); margin: 3px;
+  background: var(--lp-accent, #0F8A7C); border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,.35);
+}
