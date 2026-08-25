@@ -12,7 +12,12 @@ export interface LandingProducto {
 export interface LandingConfig {
   tema: { color: string };
   hero: { mostrar: boolean; titulo: string; lema: string; imagenUrl: string };
-  productos: { mostrar: boolean; titulo: string; items: LandingProducto[] };
+  /**
+   * Productos elegidos del catálogo (por id). La web muestra solo los que
+   * tienen stock, con su foto y precio actuales. `items` queda por
+   * compatibilidad con landings viejas de carga manual.
+   */
+  productos: { mostrar: boolean; titulo: string; productIds: string[]; items: LandingProducto[] };
   /** lat/lng en 0 = sin ubicación marcada. */
   horarios: { mostrar: boolean; texto: string; direccion: string; mapaUrl: string; lat: number; lng: number };
   contacto: { mostrar: boolean; whatsapp: string; telefono: string; instagram: string; facebook: string };
@@ -56,7 +61,7 @@ export function defaultLanding(nombre: string, direccion?: string | null): Landi
   return {
     tema: { color: '#0F8A7C' },
     hero: { mostrar: true, titulo: nombre, lema: 'Fruta y verdura fresca todos los días.', imagenUrl: '' },
-    productos: { mostrar: true, titulo: 'Ofertas de la semana', items: [] },
+    productos: { mostrar: true, titulo: 'Ofertas de la semana', productIds: [], items: [] },
     horarios: { mostrar: true, texto: 'Lun a Sáb 8:00–20:00', direccion: direccion ?? '', mapaUrl: '', lat: 0, lng: 0 },
     contacto: { mostrar: true, whatsapp: '', telefono: '', instagram: '', facebook: '' },
   };
@@ -85,6 +90,9 @@ export function normalizeLanding(raw: unknown, fallbackNombre = 'Mi verdulería'
     productos: {
       mostrar: bool(productos.mostrar, true),
       titulo: str(productos.titulo, 120) || 'Ofertas de la semana',
+      productIds: (Array.isArray(productos.productIds) ? productos.productIds : [])
+        .filter((x): x is string => typeof x === 'string' && x.length > 0)
+        .slice(0, MAX_ITEMS),
       items: items.slice(0, MAX_ITEMS).map((it) => {
         const p = obj(it);
         return { nombre: str(p.nombre, 80), precio: str(p.precio, 40), imagenUrl: str(p.imagenUrl, 500) };

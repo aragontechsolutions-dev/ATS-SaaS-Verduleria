@@ -34,6 +34,19 @@ test('normalizeLanding limita la cantidad de productos a 24', () => {
   assert.equal(c.productos.items[0].precio, '');
 });
 
+test('normalizeLanding: productIds solo strings, sin vacíos y hasta 24', () => {
+  const ids = Array.from({ length: 30 }, (_, i) => `id-${i}`);
+  const c = normalizeLanding({ productos: { productIds: [...ids, '', 123, null] } });
+  assert.equal(c.productos.productIds.length, 24);
+  assert.equal(c.productos.productIds[0], 'id-0');
+  assert.ok(!c.productos.productIds.includes(''));
+});
+
+test('normalizeLanding: productIds ausente → []', () => {
+  const c = normalizeLanding({ productos: {} });
+  assert.deepEqual(c.productos.productIds, []);
+});
+
 test('normalizeUyPhone: 099… → +598 con bloques', () => {
   assert.equal(normalizeUyPhone('099123456'), '+598 99 123 456');
   assert.equal(normalizeUyPhone('099 123 456'), '+598 99 123 456');

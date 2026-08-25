@@ -69,14 +69,65 @@ export class LandingService {
   async getPublic(slug: string) {
     const tenant = await this.prisma.tenant.findFirst({
       where: { slug, activo: true },
-      select: { nombre: true, telefono: true, landing: true },
+      select: { id: true, nombre: true, telefono: true, landing: true },
     });
     if (!tenant || !tenant.landing || !tenant.landing.estaPublicado || !tenant.landing.publicado) {
       throw new NotFoundException('Página no encontrada');
     }
-    return {
-      nombre: tenant.nombre,
-      config: normalizeLanding(tenant.landing.publicado, tenant.nombre),
-    };
+    const config = normalizeLanding(tenant.landing.publicado, tenant.nombre);
+
+    // Productos elegidos del catálogo → resuelve foto/precio y filtra por stock.
+    if (config.productos.productIds.length) {
+      const items = await this.resolveProductos(tenant.id, config.productos.productIds);
+      config.productos = { ...config.productos, items };
+    }
+
+    return { nombre: tenant.nombre, config };
   }
+
+  /**
+   * Resuelve una lista de productos del catálogo a items para la web: nombre,
+   * precio de mostrador formateado y foto actuales. Solo devuelve los que
+   * tienen stock (> 0), preservando el orden elegido.
+   */
+  private async resolveProductos(tenantId: string, ids: string[]) {
+    const listId = await this.mostradorListId(tenantId);
+    const products = await this.prisma.product.findMany({
+      where: { tenantId, id: { in: ids }, activo: true },
+      include: { priceItems: { where: { priceListId: listId } }, stockItems: true },
+    });
+    const byId = new Map(products.map((p) => [p.id, p]));
+
+    const out: Array<{ nombre: string; precio: string; imagenUrl: string }> = [];
+    for (const id of ids) {
+      const p = byId.get(id);
+      if (!p) continue;
+      const stock = p.stockItems.reduce((s, x) => s + Number(x.cantidad), 0);
+      if (stock <= 0) continue; // sin stock → no se publica
+      const precio = Number(p.priceItems[0]?.precio ?? 0);
+      out.push({ nombre: p.nombre, precio: formatPrecio(precio, p.unidadVenta), imagenUrl: p.imagenUrl ?? '' });
+    }
+    return out;
+  }
+
+  private async mostradorListId(tenantId: string): Promise<string> {
+    const list = await this.prisma.priceList.findFirst({
+      where: { tenantId, tipo: 'MOSTRADOR' },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    return list?.id ?? '';
+  }
+}
+
+const UNIDAD_CORTA: Record<string, string> = {
+  KG: 'kg', GRAMO: 'g', UNIDAD: 'un', ATADO: 'atado', DOCENA: 'docena', BANDEJA: 'bandeja',
+  CAJON: 'cajón', BOLSA: 'bolsa', BIN: 'bin', BULTO: 'bulto',
+};
+
+function formatPrecio(precio: number, unidad: string): string {
+  if (precio <= 0) return '';
+  const monto = precio.toLocaleString('es-UY', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  const u = UNIDAD_CORTA[unidad] ?? unidad.toLowerCase();
+  return `$${monto} /${u}`;
 }
