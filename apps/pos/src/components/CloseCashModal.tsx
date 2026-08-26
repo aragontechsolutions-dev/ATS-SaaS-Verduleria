@@ -66,6 +66,17 @@ export function CloseCashModal({ sessionId, onClosed, onCancel }: Props) {
   async function confirmar() {
     if (!efectivoIngresado) { setError('Ingresá el efectivo contado en la caja antes de cerrar.'); return; }
     if (!justificacionOk) { setError('Hay una diferencia (faltante/sobrante). Justificala para poder cerrar.'); return; }
+    // Candado extra: confirmación explícita mostrando el faltante/sobrante exacto,
+    // para que un error de tipeo no cierre la caja sin que el cajero lo vea.
+    if (hayDiferencia) {
+      const tipo = difEfectivo < 0 ? 'un FALTANTE' : difEfectivo > 0 ? 'un SOBRANTE' : 'una diferencia';
+      const ok = window.confirm(
+        `⚠ El efectivo tiene ${tipo} de ${formatMoney(Math.abs(difEfectivo))}.\n` +
+          `Esperado: ${formatMoney(efectivoEsperado)}  ·  Contado: ${formatMoney(efectivoContado)}\n\n` +
+          `¿Confirmás el cierre con esta diferencia?`,
+      );
+      if (!ok) return;
+    }
     setCerrando(true);
     setError(null);
     try {
