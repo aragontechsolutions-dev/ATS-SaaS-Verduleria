@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { CartItem } from '../lib/types';
 import { lineTotal } from '../state/cart';
 import { formatMoney, formatQty, ivaIncluido, TASA_LABEL } from '../lib/format';
@@ -14,8 +15,17 @@ interface Props {
 }
 
 export function Cart({ items, total, sinCaja, onSetQty, onRemove, onClear, onCheckout, onAbrirCaja }: Props) {
+  // En móvil el carrito es una hoja inferior colapsable; en escritorio, panel fijo.
+  const [expanded, setExpanded] = useState(false);
+  const count = items.reduce((n, it) => n + (it.esPesable ? 1 : it.cantidad), 0);
+
   return (
-    <aside className="cart">
+    <aside className={`cart ${expanded ? 'cart--expanded' : ''}`}>
+      <button className="cart__handle" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
+        <span className="cart__handle-info">🛒 {items.length} {items.length === 1 ? 'ítem' : 'ítems'}{count !== items.length ? ` · ${count} u.` : ''}</span>
+        <span className="cart__handle-total">{formatMoney(total)}</span>
+        <span className="cart__handle-chevron">{expanded ? '▾' : '▴'}</span>
+      </button>
       <div className="cart__list">
         {items.length === 0 && <p className="empty">Carrito vacío. Escaneá o tocá un producto.</p>}
         {items.map((it, i) => {
