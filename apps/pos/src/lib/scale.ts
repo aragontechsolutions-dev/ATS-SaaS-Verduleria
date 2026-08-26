@@ -17,6 +17,8 @@
 // está cubierta por tests (scale.test.ts).
 // ============================================================================
 
+import { DEFAULT_WEIGHT_CONFIG, type WeightBarcodeConfig } from './barcode';
+
 export type ScaleMode = 'manual' | 'barcode' | 'serial' | 'network';
 
 /** Protocolo de la trama de texto que emite la balanza en vivo. */
@@ -29,6 +31,8 @@ export interface ScaleConfig {
   baudRate: number;
   /** URL del puente WebSocket (modo network), ej. ws://localhost:8787. */
   networkUrl: string;
+  /** Formato del EAN de peso variable (modo barcode). Configurable por balanza. */
+  barcode: WeightBarcodeConfig;
 }
 
 export interface ScaleReading {
@@ -44,6 +48,7 @@ export const DEFAULT_SCALE_CONFIG: ScaleConfig = {
   protocol: 'generic',
   baudRate: 9600,
   networkUrl: '',
+  barcode: { ...DEFAULT_WEIGHT_CONFIG },
 };
 
 const STORE_KEY = 'ats.pos.scale';
@@ -51,10 +56,16 @@ const STORE_KEY = 'ats.pos.scale';
 export function loadScaleConfig(): ScaleConfig {
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return { ...DEFAULT_SCALE_CONFIG };
-    return { ...DEFAULT_SCALE_CONFIG, ...(JSON.parse(raw) as Partial<ScaleConfig>) };
+    if (!raw) return { ...DEFAULT_SCALE_CONFIG, barcode: { ...DEFAULT_WEIGHT_CONFIG } };
+    const parsed = JSON.parse(raw) as Partial<ScaleConfig>;
+    return {
+      ...DEFAULT_SCALE_CONFIG,
+      ...parsed,
+      // merge profundo del formato del código (compat con configs viejas sin `barcode`)
+      barcode: { ...DEFAULT_WEIGHT_CONFIG, ...(parsed.barcode ?? {}) },
+    };
   } catch {
-    return { ...DEFAULT_SCALE_CONFIG };
+    return { ...DEFAULT_SCALE_CONFIG, barcode: { ...DEFAULT_WEIGHT_CONFIG } };
   }
 }
 
