@@ -91,7 +91,11 @@ export interface CashSummary {
   porMedio: Record<string, number>;
   efectivoEsperado: number;
   montoApertura: number;
+  ingresos: number;
+  egresos: number;
 }
+
+export type CashMovementTipo = 'INGRESO' | 'EGRESO';
 
 export interface ArqueoMedio {
   esperado: number;

@@ -303,3 +303,7 @@ button { font: inherit; cursor: pointer; }
 .ops .pill--ok { background: #e6f4ea; color: #1b7a3e; border-color: #b7e0c2; }
 .ops .pill--warn { background: #fdecea; color: var(--warn); border-color: #f3c2bd; }
 .ops .pill--info { background: #eef3ff; color: #2d5bd0; border-color: #c7d6ff; }
+
+/* Previsualización de boleta */
+.boleta-prev { background: #f4f4f4; border: 1px solid var(--border); border-radius: 10px; padding: 10px; overflow-y: auto; max-height: 60vh; display: flex; justify-content: center; }
+.boleta-prev__frame { width: 300px; height: 460px; border: none; background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.15); }

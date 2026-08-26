@@ -549,3 +549,38 @@ export const updateSettings = async (input: SettingsInput) =>
     await fetch(`${API_BASE}/settings`, { method: 'PATCH', headers: headers(), body: JSON.stringify(input) }),
     'updateSettings',
   );
+
+// --- Caja: operaciones (histórico + en vivo) --------------------------------
+
+export interface CashOperation {
+  id: string;
+  fecha: string;
+  tipo: 'APERTURA' | 'CIERRE' | 'VENTA' | 'INGRESO' | 'EGRESO';
+  descripcion: string;
+  monto: number;
+  medio?: string | null;
+  userId?: string | null;
+  userNombre?: string | null;
+  sessionId?: string | null;
+  comprobante?: string | null;
+}
+
+export interface CashOpsFilters {
+  from?: string;
+  to?: string;
+  userId?: string;
+  sucursalId?: string;
+}
+
+export const getCashOperations = async (f: CashOpsFilters = {}) => {
+  const q = new URLSearchParams();
+  if (f.from) q.set('from', f.from);
+  if (f.to) q.set('to', f.to);
+  if (f.userId) q.set('userId', f.userId);
+  if (f.sucursalId) q.set('sucursalId', f.sucursalId);
+  const qs = q.toString();
+  return ok<CashOperation[]>(
+    await fetch(`${API_BASE}/cash-sessions/operations${qs ? `?${qs}` : ''}`, { headers: headers() }),
+    'cash-operations',
+  );
+};

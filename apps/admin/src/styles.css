@@ -405,3 +405,11 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 .iva-box__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 700; font-size: 13px; color: var(--text); }
 .iva-box__auto { margin: 0; font-size: 14px; line-height: 1.4; }
 .iva-box__flags { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+
+/* ===== Caja: badges de tipo de operación ===== */
+.op { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.op--venta { background: #e6f4ea; color: #1b7a3e; }
+.op--ingreso { background: #eef7ff; color: #1d69c4; }
+.op--egreso { background: #fdecea; color: var(--warn); }
+.op--apertura { background: #f0eefe; color: #5b3dbd; }
+.op--cierre { background: #eee; color: #555; }

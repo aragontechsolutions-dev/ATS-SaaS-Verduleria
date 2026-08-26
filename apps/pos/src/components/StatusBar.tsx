@@ -15,6 +15,7 @@ interface Props {
   onCloseCash: () => void;
   onOpenScale: () => void;
   onOpenOps: () => void;
+  onMovimiento?: () => void;
   onLogout: () => void;
 }
 
@@ -32,6 +33,7 @@ export function StatusBar({
   onCloseCash,
   onOpenScale,
   onOpenOps,
+  onMovimiento,
   onLogout,
 }: Props) {
   return (
@@ -56,7 +58,10 @@ export function StatusBar({
         ) : (
           <button className="sbtn sbtn--accent" onClick={onOpenCash}>🔒 Abrir caja</button>
         )}
-        <button className="sbtn" onClick={onOpenOps} title="Operaciones realizadas">🧾 Operaciones</button>
+        {cash && onMovimiento && (
+          <button className="sbtn" onClick={onMovimiento} title="Ingreso / egreso de efectivo">➕➖ Movimiento</button>
+        )}
+        <button className="sbtn" onClick={onOpenOps} title="Operaciones del turno">🧾 Operaciones</button>
         <button className={`sbtn ${scaleLive ? 'sbtn--on' : ''}`} onClick={onOpenScale} title="Balanza">
           ⚖ Balanza{scaleLive ? ' ●' : ''}
         </button>

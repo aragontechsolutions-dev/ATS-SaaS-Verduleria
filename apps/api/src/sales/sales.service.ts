@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { IvaIndicador, MedioPago, Prisma, SaleStatus, StockMovementType } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
+import { getTenantContext } from '../tenant/tenant-context';
 import type { CreateSaleDto } from './sales.dto';
 
 /** Tasa efectiva por indicador (para desglosar el IVA incluido en el precio). */
@@ -97,6 +98,7 @@ export class SalesService {
           tenantId,
           sucursalId: dto.sucursalId,
           cashSessionId: dto.cashSessionId,
+          cajeroId: getTenantContext()?.userId,
           customerId: dto.customerId,
           status: SaleStatus.COMPLETADA,
           idempotencyKey: dto.idempotencyKey,
