@@ -358,3 +358,7 @@ button { font: inherit; cursor: pointer; }
   .modal { padding: 18px; }
   .medios { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Cierre de caja: aviso de diferencia + campo de justificación obligatorio */
+.cierre-alerta { background: #fff4e5; color: #8a5a00; border: 1px solid #ffd591; border-radius: 10px; padding: 10px 12px; font-size: 13px; font-weight: 600; margin: 10px 0 6px; line-height: 1.4; }
+.field input.is-required { border-color: var(--warn); box-shadow: 0 0 0 3px rgba(198,40,40,.12); }
