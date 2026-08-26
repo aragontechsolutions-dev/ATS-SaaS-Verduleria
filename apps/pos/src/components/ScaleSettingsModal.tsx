@@ -20,8 +20,8 @@ export function ScaleSettingsModal({ scale, onClose }: Props) {
   const modeInfo = MODES.find((m) => m.value === config.mode);
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop">
+      <div className="modal">
         <h3>Balanza</h3>
         <p className="modal__sub">Se configura por dispositivo. Elegí lo que tenés en esta caja.</p>
 

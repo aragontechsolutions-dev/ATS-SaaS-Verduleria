@@ -58,8 +58,8 @@ export function OpenCashModal({ onConfirm, onCancel, loading }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop">
+      <div className="modal">
         <h3>Abrir caja</h3>
         <p className="modal__sub">Ingresá el fondo inicial de efectivo.</p>
 

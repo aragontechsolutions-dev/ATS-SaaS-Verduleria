@@ -26,8 +26,8 @@ export function WeighModal({ product, liveReading, onConfirm, onCancel }: Props)
   const live = esPeso && liveReading && liveReading.weightKg > 0 ? liveReading : null;
 
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop">
+      <div className="modal">
         <h3>{product.nombre}</h3>
         <p className="modal__sub">
           {formatMoney(product.precio)} / {unidadLabel}

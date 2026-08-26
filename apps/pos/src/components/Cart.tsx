@@ -1,6 +1,6 @@
 import type { CartItem } from '../lib/types';
 import { lineTotal } from '../state/cart';
-import { formatMoney, formatQty } from '../lib/format';
+import { formatMoney, formatQty, ivaIncluido, TASA_LABEL } from '../lib/format';
 
 interface Props {
   items: CartItem[];
@@ -18,29 +18,45 @@ export function Cart({ items, total, sinCaja, onSetQty, onRemove, onClear, onChe
     <aside className="cart">
       <div className="cart__list">
         {items.length === 0 && <p className="empty">Carrito vacío. Escaneá o tocá un producto.</p>}
-        {items.map((it, i) => (
-          <div key={i} className="cart__item">
-            <div className="cart__info">
-              <span className="cart__name">{it.concepto}</span>
-              <span className="cart__sub">
-                {formatQty(it.cantidad, it.unidad)} × {formatMoney(it.precioUnit)}
-              </span>
+        {items.map((it, i) => {
+          const iva = ivaIncluido(lineTotal(it), it.ivaIndicador);
+          return (
+            <div key={i} className="cart__item">
+              <div className="cart__info">
+                <span className="cart__name">{it.concepto}</span>
+                <span className="cart__sub">
+                  {formatQty(it.cantidad, it.unidad)} × {formatMoney(it.precioUnit)}
+                </span>
+                <span className="cart__iva">
+                  {TASA_LABEL[it.ivaIndicador] ?? it.ivaIndicador}
+                  {iva > 0 && ` · ${formatMoney(iva)}`}
+                </span>
+              </div>
+              <div className="cart__qty">
+                {!it.esPesable && (
+                  <>
+                    <button onClick={() => onSetQty(i, it.cantidad - 1)} aria-label="Menos">−</button>
+                    <input
+                      className="cart__qtyinput"
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      value={it.cantidad}
+                      onChange={(e) => onSetQty(i, Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      onFocus={(e) => e.currentTarget.select()}
+                      aria-label="Cantidad"
+                    />
+                    <button onClick={() => onSetQty(i, it.cantidad + 1)} aria-label="Más">+</button>
+                  </>
+                )}
+              </div>
+              <span className="cart__total">{formatMoney(lineTotal(it))}</span>
+              <button className="cart__del" onClick={() => onRemove(i)} aria-label="Quitar">
+                ✕
+              </button>
             </div>
-            <div className="cart__qty">
-              {!it.esPesable && (
-                <>
-                  <button onClick={() => onSetQty(i, it.cantidad - 1)}>−</button>
-                  <span>{it.cantidad}</span>
-                  <button onClick={() => onSetQty(i, it.cantidad + 1)}>+</button>
-                </>
-              )}
-            </div>
-            <span className="cart__total">{formatMoney(lineTotal(it))}</span>
-            <button className="cart__del" onClick={() => onRemove(i)} aria-label="Quitar">
-              ✕
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className="cart__footer">
         {sinCaja && (

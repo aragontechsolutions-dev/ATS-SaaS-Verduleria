@@ -10,6 +10,9 @@ import { OpenCashModal } from './components/OpenCashModal';
 import { CloseCashModal } from './components/CloseCashModal';
 import { TicketModal } from './components/TicketModal';
 import { ScaleSettingsModal } from './components/ScaleSettingsModal';
+import { OperationsModal } from './components/OperationsModal';
+import { useToast } from './lib/toast';
+import { formatMoney } from './lib/format';
 import { useCatalog } from './hooks/useCatalog';
 import { useOnline } from './hooks/useOnline';
 import { useScanner } from './hooks/useScanner';
@@ -47,6 +50,7 @@ export default function App() {
 }
 
 function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void }) {
+  const toast = useToast();
   const online = useOnline();
   const { products, listaPrecio, loading, fromCache } = useCatalog();
   const cash = useCash();
@@ -57,6 +61,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const [openingCash, setOpeningCash] = useState(false);
   const [closingCash, setClosingCash] = useState(false);
   const [scaleOpen, setScaleOpen] = useState(false);
+  const [opsOpen, setOpsOpen] = useState(false);
   const scale = useScale();
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
 
@@ -64,12 +69,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     void getSucursales().then(setSucursales).catch(() => setSucursales([]));
   }, []);
   const [ticket, setTicket] = useState<OutboxSale | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    window.setTimeout(() => setToast(null), 2200);
-  }, []);
+  const showToast = useCallback((msg: string) => toast.info(msg), [toast]);
 
   useEffect(() => {
     const stop = startAutoSync();
@@ -177,9 +178,12 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         createdAt: Date.now(),
       };
       setTicket(registro);
+      const medios = [...new Set(payments.map((p) => p.medio.toLowerCase().replace(/_/g, ' ')))].join(', ');
+      const comp = registro.cfe?.serie ? `Comprobante ${registro.cfe.serie}-${registro.cfe.numero}` : 'Ticket interno';
+      toast.success(`Venta cobrada · ${formatMoney(total)}`, `${medios} — ${comp}`);
       void countPending().then(setPendientes);
     },
-    [cart, cash.session],
+    [cart, cash.session, toast],
   );
 
   const sinCaja = !cash.session;
@@ -216,6 +220,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         onOpenCash={() => setOpeningCash(true)}
         onCloseCash={() => setClosingCash(true)}
         onOpenScale={() => setScaleOpen(true)}
+        onOpenOps={() => setOpsOpen(true)}
         onLogout={onLogout}
       />
       <main className="main">
@@ -260,7 +265,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
           onConfirm={async (monto, sucursalId) => {
             await cash.open(monto, sucursalId);
             setOpeningCash(false);
-            showToast('Caja abierta');
+            toast.success('Caja abierta', `Fondo inicial: ${formatMoney(monto)}`);
           }}
           onCancel={() => setOpeningCash(false)}
         />
@@ -272,7 +277,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
           onClosed={() => {
             cash.clear();
             setClosingCash(false);
-            showToast('Caja cerrada');
+            toast.success('Caja cerrada', 'Arqueo registrado');
           }}
           onCancel={() => setClosingCash(false)}
         />
@@ -280,7 +285,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
 
       {ticket && <TicketModal sale={ticket} onClose={() => setTicket(null)} />}
 
-      {toast && <div className="toast">{toast}</div>}
+      {opsOpen && <OperationsModal onClose={() => setOpsOpen(false)} />}
     </div>
   );
 }
