@@ -52,8 +52,20 @@ export function CloseCashModal({ sessionId, onClosed, onCancel }: Props) {
   // Obliga a contar el efectivo antes de cerrar (no permite cerrar en blanco).
   const efectivoIngresado = efectivo.trim() !== '';
 
+  // ¿Hay diferencia en efectivo o en algún medio? (a nivel de centavos).
+  const cent = (n: number) => Math.round(n * 100);
+  const difMediosCent = electronicos.reduce((acc, m) => {
+    const esperado = resumen?.porMedio[m] ?? 0;
+    const contado = conteos[m] != null && conteos[m] !== '' ? parse(conteos[m]) : esperado;
+    return acc + Math.abs(cent(contado - esperado));
+  }, 0);
+  const hayDiferencia = !!resumen && (Math.abs(cent(difEfectivo)) > 0 || difMediosCent > 0);
+  // Si hay faltante/sobrante, exige justificación para poder cerrar.
+  const justificacionOk = !hayDiferencia || notas.trim() !== '';
+
   async function confirmar() {
     if (!efectivoIngresado) { setError('Ingresá el efectivo contado en la caja antes de cerrar.'); return; }
+    if (!justificacionOk) { setError('Hay una diferencia (faltante/sobrante). Justificala para poder cerrar.'); return; }
     setCerrando(true);
     setError(null);
     try {
@@ -143,9 +155,19 @@ export function CloseCashModal({ sessionId, onClosed, onCancel }: Props) {
               );
             })}
 
+            {hayDiferencia && (
+              <p className="cierre-alerta">
+                ⚠ Hay {difEfectivo < 0 ? 'un faltante' : 'diferencia'} en el arqueo. Justificá la diferencia para poder cerrar.
+              </p>
+            )}
             <label className="field">
-              Notas (opcional)
-              <input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="observaciones del turno" />
+              {hayDiferencia ? 'Justificación de la diferencia (obligatoria)' : 'Notas (opcional)'}
+              <input
+                value={notas}
+                onChange={(e) => setNotas(e.target.value)}
+                placeholder={hayDiferencia ? 'ej. error de vuelto, retiro sin registrar…' : 'observaciones del turno'}
+                className={hayDiferencia && notas.trim() === '' ? 'is-required' : ''}
+              />
             </label>
 
             {error && <p className="modal__err">{error}</p>}
@@ -153,8 +175,8 @@ export function CloseCashModal({ sessionId, onClosed, onCancel }: Props) {
         )}
         <div className="modal__actions">
           <button className="btn btn--ghost" onClick={onCancel} disabled={cerrando}>Cancelar</button>
-          <button className="btn btn--primary" onClick={confirmar} disabled={!resumen || cerrando || !efectivoIngresado}>
-            {cerrando ? 'Cerrando…' : 'Cerrar caja'}
+          <button className="btn btn--primary" onClick={confirmar} disabled={!resumen || cerrando || !efectivoIngresado || !justificacionOk}>
+            {cerrando ? 'Cerrando…' : hayDiferencia ? 'Cerrar con diferencia' : 'Cerrar caja'}
           </button>
         </div>
       </div>
