@@ -123,7 +123,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
 
   const onScan = useCallback(
     (code: string) => {
-      const r = parseScan(code);
+      // El formato del EAN de peso variable es configurable por balanza (modo etiqueta).
+      const r = parseScan(code, scale.config.barcode);
       if (r.type === 'weight') {
         const prod = products.find((p) => p.plu === r.plu);
         if (!prod) return showToast(`PLU ${r.plu} no encontrado`);
@@ -144,7 +145,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
       }
       showToast('Código no reconocido');
     },
-    [products, addProduct, onPick, showToast],
+    [products, addProduct, onPick, showToast, scale.config.barcode],
   );
 
   useScanner(onScan);

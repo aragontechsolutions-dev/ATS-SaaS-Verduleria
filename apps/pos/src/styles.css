@@ -115,7 +115,7 @@ button { font: inherit; cursor: pointer; }
   position: fixed; inset: 0; background: rgba(0,0,0,.4);
   display: flex; align-items: center; justify-content: center; z-index: 50;
 }
-.modal { background: var(--panel); border-radius: 16px; padding: 22px; width: 360px; max-width: 92vw; }
+.modal { background: var(--panel); border-radius: 16px; padding: 22px; width: 360px; max-width: 92vw; max-height: 92vh; overflow-y: auto; }
 .modal--wide { width: 440px; }
 .modal h3 { margin: 0 0 4px; }
 .modal__sub { color: var(--muted); margin: 0 0 14px; }
@@ -362,3 +362,12 @@ button { font: inherit; cursor: pointer; }
 /* Cierre de caja: aviso de diferencia + campo de justificación obligatorio */
 .cierre-alerta { background: #fff4e5; color: #8a5a00; border: 1px solid #ffd591; border-radius: 10px; padding: 10px 12px; font-size: 13px; font-weight: 600; margin: 10px 0 6px; line-height: 1.4; }
 .field input.is-required { border-color: var(--warn); box-shadow: 0 0 0 3px rgba(198,40,40,.12); }
+
+/* ===== Config de balanza etiquetadora (formato del código) ===== */
+.bc { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.bc .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.chk-row { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); }
+.chk-row input { width: 18px; height: 18px; }
+.bc__res { margin: 2px 0 0; font-size: 14px; font-weight: 600; padding: 8px 10px; border-radius: 8px; }
+.bc__res.ok { background: #e6f4ea; color: #1b7a3e; }
+.bc__res.warn { background: #fdecea; color: var(--warn); }
