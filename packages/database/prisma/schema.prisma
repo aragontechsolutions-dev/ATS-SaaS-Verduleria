@@ -248,6 +248,7 @@ model Tenant {
   purchases     Purchase[]
   sales         Sale[]
   cashSessions  CashSession[]
+  cashMovements CashMovement[]
   cfeDocuments  CfeDocument[]
   stockItems    Stock[]
   stockMoves    StockMovement[]
@@ -421,6 +422,7 @@ model User {
   memberships Membership[]
   cashSessions CashSession[]
   salesAsCajero Sale[] @relation("SaleCajero")
+  cashMovements CashMovement[]
 }
 
 /// Relación usuario ↔ tenant con rol. Un usuario puede pertenecer a varios tenants.
@@ -721,9 +723,35 @@ model CashSession {
   sucursal Sucursal? @relation(fields: [sucursalId], references: [id])
   user     User      @relation(fields: [userId], references: [id])
   sales    Sale[]
+  movements CashMovement[]
 
   @@index([tenantId])
   @@index([tenantId, status])
+}
+
+/// Movimiento de caja que NO es una venta: ingreso (aporte de efectivo) o egreso
+/// (retiro/pago desde la caja). Afecta el efectivo esperado del arqueo.
+enum CashMovementTipo {
+  INGRESO
+  EGRESO
+}
+
+model CashMovement {
+  id            String           @id @default(uuid()) @db.Uuid
+  tenantId      String           @db.Uuid
+  cashSessionId String           @db.Uuid
+  userId        String?          @db.Uuid
+  tipo          CashMovementTipo
+  monto         Decimal          @db.Decimal(14, 2)
+  motivo        String?
+  createdAt     DateTime         @default(now())
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cashSession CashSession @relation(fields: [cashSessionId], references: [id], onDelete: Cascade)
+  user        User?       @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([cashSessionId])
 }
 
 model Sale {

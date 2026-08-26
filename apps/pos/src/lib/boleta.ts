@@ -39,7 +39,7 @@ export function boletaHtml(sale: OutboxSale): string {
     ? `<div class="cfe"><div>${cfe.serie}-${cfe.numero}</div>${cfe.caeNumero ? `<div>CAE ${cfe.caeNumero}</div>` : ''}</div>`
     : `<div class="cfe">Ticket interno</div>`;
 
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Boleta</title>
+  return `<!doctype html><html><head><meta charset="utf-8"><title>ATS SISGESVER · Boleta</title>
 <style>
   * { font-family: 'Courier New', monospace; }
   body { width: 280px; margin: 0 auto; color: #000; padding: 8px 10px; }
@@ -56,7 +56,7 @@ export function boletaHtml(sale: OutboxSale): string {
   .gracias { text-align: center; font-size: 11px; margin-top: 10px; }
 </style></head><body>
   <h1>BOLETA</h1>
-  <div class="meta">${fecha}</div>
+  <div class="meta">ATS SISGESVER · ${fecha}</div>
   <table>${lineas}</table>
   ${ivaRows ? `<div class="sec">${ivaRows}</div>` : ''}
   <div class="total"><span>TOTAL</span><span>${formatMoney(sale.total)}</span></div>
@@ -72,10 +72,11 @@ function escapeHtml(s: string): string {
 
 /** Abre la boleta en una ventana e imprime (80mm). Devuelve false si fue bloqueada. */
 export function printBoleta(sale: OutboxSale): boolean {
-  const w = window.open('', '_blank', 'width=320,height=600');
+  const w = window.open('', 'ATS_SISGESVER_Boleta', 'width=320,height=600');
   if (!w) return false;
   w.document.write(boletaHtml(sale));
   w.document.close();
+  try { w.document.title = 'ATS SISGESVER · Boleta'; } catch { /* noop */ }
   w.focus();
   setTimeout(() => { w.print(); }, 250);
   return true;

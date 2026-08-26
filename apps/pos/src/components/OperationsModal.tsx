@@ -3,9 +3,11 @@ import { getAllSales } from '../lib/db';
 import { printBoleta } from '../lib/boleta';
 import { formatMoney } from '../lib/format';
 import type { OutboxSale } from '../lib/types';
-import { TicketModal } from './TicketModal';
+import { BoletaPreviewModal } from './BoletaPreviewModal';
 
 interface Props {
+  /** Turno actual: si viene, solo se muestran las operaciones de ese turno. */
+  sessionId?: string;
   onClose: () => void;
 }
 
@@ -19,26 +21,28 @@ const ESTADO: Record<string, { txt: string; cls: string }> = {
 const medios = (s: OutboxSale) => [...new Set(s.payments.map((p) => p.medio.toLowerCase().replace(/_/g, ' ')))].join(', ');
 
 /** Operaciones realizadas: lista de ventas del dispositivo con su boleta. */
-export function OperationsModal({ onClose }: Props) {
+export function OperationsModal({ sessionId, onClose }: Props) {
   const [sales, setSales] = useState<OutboxSale[] | null>(null);
   const [detalle, setDetalle] = useState<OutboxSale | null>(null);
 
   useEffect(() => {
-    getAllSales().then(setSales).catch(() => setSales([]));
-  }, []);
+    getAllSales()
+      .then((all) => setSales(sessionId ? all.filter((s) => s.cashSessionId === sessionId) : all))
+      .catch(() => setSales([]));
+  }, [sessionId]);
 
   return (
     <div className="modal-backdrop">
       <div className="modal modal--wide modal--tall">
         <div className="modal__head">
-          <h3>Operaciones realizadas</h3>
+          <h3>Operaciones del turno</h3>
           <button className="btn btn--ghost btn--sm" onClick={onClose}>Cerrar</button>
         </div>
 
         {!sales ? (
           <p className="modal__sub">Cargando…</p>
         ) : sales.length === 0 ? (
-          <p className="empty">Todavía no hay operaciones en este dispositivo.</p>
+          <p className="empty">Todavía no hay operaciones en este turno.</p>
         ) : (
           <div className="ops">
             {sales.map((s) => {
@@ -63,7 +67,7 @@ export function OperationsModal({ onClose }: Props) {
         )}
       </div>
 
-      {detalle && <TicketModal sale={detalle} onClose={() => setDetalle(null)} />}
+      {detalle && <BoletaPreviewModal sale={detalle} onClose={() => setDetalle(null)} />}
     </div>
   );
 }

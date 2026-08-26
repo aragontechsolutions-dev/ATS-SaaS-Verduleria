@@ -49,7 +49,11 @@ export function CloseCashModal({ sessionId, onClosed, onCancel }: Props) {
   const efectivoEsperado = resumen?.efectivoEsperado ?? 0;
   const difEfectivo = efectivoContado - efectivoEsperado;
 
+  // Obliga a contar el efectivo antes de cerrar (no permite cerrar en blanco).
+  const efectivoIngresado = efectivo.trim() !== '';
+
   async function confirmar() {
+    if (!efectivoIngresado) { setError('Ingresá el efectivo contado en la caja antes de cerrar.'); return; }
     setCerrando(true);
     setError(null);
     try {
@@ -81,6 +85,16 @@ export function CloseCashModal({ sessionId, onClosed, onCancel }: Props) {
               <div className="arqueo__row arqueo__row--sub">
                 <span>Fondo de apertura</span><span>{formatMoney(resumen.montoApertura)}</span>
               </div>
+              {resumen.ingresos > 0 && (
+                <div className="arqueo__row arqueo__row--sub">
+                  <span>Ingresos de efectivo</span><span>+{formatMoney(resumen.ingresos)}</span>
+                </div>
+              )}
+              {resumen.egresos > 0 && (
+                <div className="arqueo__row arqueo__row--sub">
+                  <span>Egresos de efectivo</span><span>−{formatMoney(resumen.egresos)}</span>
+                </div>
+              )}
             </div>
 
             {/* Efectivo: conteo físico */}
@@ -139,7 +153,7 @@ export function CloseCashModal({ sessionId, onClosed, onCancel }: Props) {
         )}
         <div className="modal__actions">
           <button className="btn btn--ghost" onClick={onCancel} disabled={cerrando}>Cancelar</button>
-          <button className="btn btn--primary" onClick={confirmar} disabled={!resumen || cerrando}>
+          <button className="btn btn--primary" onClick={confirmar} disabled={!resumen || cerrando || !efectivoIngresado}>
             {cerrando ? 'Cerrando…' : 'Cerrar caja'}
           </button>
         </div>

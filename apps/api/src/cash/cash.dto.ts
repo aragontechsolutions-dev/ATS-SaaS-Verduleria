@@ -1,4 +1,17 @@
-import { IsNumber, IsObject, IsOptional, IsString, Min } from 'class-validator';
+import { IsIn, IsNumber, IsObject, IsOptional, IsString, Min } from 'class-validator';
+
+export class CashMovementDto {
+  @IsIn(['INGRESO', 'EGRESO'])
+  tipo!: 'INGRESO' | 'EGRESO';
+
+  @IsNumber()
+  @Min(0.01)
+  monto!: number;
+
+  @IsOptional()
+  @IsString()
+  motivo?: string;
+}
 
 export class OpenCashDto {
   @IsOptional()

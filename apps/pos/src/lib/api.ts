@@ -153,3 +153,19 @@ export async function closeCash(
     'cash-close',
   );
 }
+
+export async function addCashMovement(
+  sessionId: string,
+  tipo: 'INGRESO' | 'EGRESO',
+  monto: number,
+  motivo?: string,
+): Promise<unknown> {
+  return ok(
+    await fetch(`${API_BASE}/cash-sessions/${sessionId}/movements`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ tipo, monto, motivo }),
+    }),
+    'cash-movement',
+  );
+}

@@ -11,6 +11,7 @@ import { CloseCashModal } from './components/CloseCashModal';
 import { TicketModal } from './components/TicketModal';
 import { ScaleSettingsModal } from './components/ScaleSettingsModal';
 import { OperationsModal } from './components/OperationsModal';
+import { CashMovementModal } from './components/CashMovementModal';
 import { useToast } from './lib/toast';
 import { formatMoney } from './lib/format';
 import { useCatalog } from './hooks/useCatalog';
@@ -62,6 +63,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const [closingCash, setClosingCash] = useState(false);
   const [scaleOpen, setScaleOpen] = useState(false);
   const [opsOpen, setOpsOpen] = useState(false);
+  const [movingCash, setMovingCash] = useState(false);
   const scale = useScale();
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
 
@@ -221,6 +223,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         onCloseCash={() => setClosingCash(true)}
         onOpenScale={() => setScaleOpen(true)}
         onOpenOps={() => setOpsOpen(true)}
+        onMovimiento={cash.session ? () => setMovingCash(true) : undefined}
         onLogout={onLogout}
       />
       <main className="main">
@@ -285,7 +288,21 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
 
       {ticket && <TicketModal sale={ticket} onClose={() => setTicket(null)} />}
 
-      {opsOpen && <OperationsModal onClose={() => setOpsOpen(false)} />}
+      {opsOpen && <OperationsModal sessionId={cash.session?.id} onClose={() => setOpsOpen(false)} />}
+
+      {movingCash && cash.session && (
+        <CashMovementModal
+          sessionId={cash.session.id}
+          onDone={(tipo, monto, motivo) => {
+            setMovingCash(false);
+            toast.success(
+              `${tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'} registrado · ${formatMoney(monto)}`,
+              motivo || 'Movimiento de caja',
+            );
+          }}
+          onCancel={() => setMovingCash(false)}
+        />
+      )}
     </div>
   );
 }

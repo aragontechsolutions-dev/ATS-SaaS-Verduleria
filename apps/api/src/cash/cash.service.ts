@@ -7,8 +7,10 @@ export interface CashSummary {
   ventas: number;
   totalVendido: number;
   porMedio: Record<string, number>;
-  efectivoEsperado: number; // apertura + ventas en efectivo
+  efectivoEsperado: number; // apertura + ventas efectivo + ingresos − egresos
   montoApertura: number;
+  ingresos: number;
+  egresos: number;
 }
 
 /** Conciliación de un medio de pago: lo esperado vs lo contado/liquidado. */
@@ -56,10 +58,13 @@ export class CashService {
     const session = await this.prisma.cashSession.findFirst({ where: { id: sessionId, tenantId } });
     if (!session) throw new NotFoundException('Caja no encontrada');
 
-    const sales = await this.prisma.sale.findMany({
-      where: { tenantId, cashSessionId: sessionId, status: { not: 'ANULADA' } },
-      include: { payments: true },
-    });
+    const [sales, movimientos] = await Promise.all([
+      this.prisma.sale.findMany({
+        where: { tenantId, cashSessionId: sessionId, status: { not: 'ANULADA' } },
+        include: { payments: true },
+      }),
+      this.prisma.cashMovement.findMany({ where: { tenantId, cashSessionId: sessionId } }),
+    ]);
 
     const porMedio: Record<string, number> = {};
     let totalVendido = 0;
@@ -71,13 +76,54 @@ export class CashService {
     }
     const efectivoVentas = porMedio[MedioPago.EFECTIVO] ?? 0;
 
+    let ingresos = 0;
+    let egresos = 0;
+    for (const m of movimientos) {
+      if (m.tipo === 'INGRESO') ingresos += Number(m.monto);
+      else egresos += Number(m.monto);
+    }
+
     return {
       ventas: sales.length,
       totalVendido,
       porMedio,
-      efectivoEsperado: Number(session.montoApertura) + efectivoVentas,
+      efectivoEsperado: Number(session.montoApertura) + efectivoVentas + ingresos - egresos,
       montoApertura: Number(session.montoApertura),
+      ingresos,
+      egresos,
     };
+  }
+
+  /** Registra un movimiento de caja (ingreso/egreso de efectivo) del turno. */
+  async addMovement(
+    tenantId: string,
+    userId: string | undefined,
+    sessionId: string,
+    dto: { tipo: 'INGRESO' | 'EGRESO'; monto: number; motivo?: string },
+  ) {
+    const session = await this.prisma.cashSession.findFirst({ where: { id: sessionId, tenantId } });
+    if (!session) throw new NotFoundException('Caja no encontrada');
+    if (session.status === CashSessionStatus.CERRADA) throw new ConflictException('La caja ya está cerrada');
+    if (!(dto.monto > 0)) throw new BadRequestException('El monto debe ser mayor a 0');
+
+    return this.prisma.cashMovement.create({
+      data: {
+        tenantId,
+        cashSessionId: sessionId,
+        userId,
+        tipo: dto.tipo,
+        monto: new Prisma.Decimal(dto.monto),
+        motivo: dto.motivo,
+      },
+    });
+  }
+
+  /** Movimientos (ingresos/egresos) de un turno. */
+  listMovements(tenantId: string, sessionId: string) {
+    return this.prisma.cashMovement.findMany({
+      where: { tenantId, cashSessionId: sessionId },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   /** Cierra la caja: calcula el esperado y la diferencia del arqueo. */
@@ -128,4 +174,128 @@ export class CashService {
     if (!session) throw new NotFoundException('Caja no encontrada');
     return session;
   }
+
+  /**
+   * Feed unificado de operaciones de caja para el Panel: aperturas, cierres,
+   * ventas y movimientos (ingresos/egresos), con el usuario que la realizó.
+   * Filtros: rango de fechas, usuario y sucursal. Ordenado del más nuevo al viejo.
+   */
+  async operations(
+    tenantId: string,
+    filtros: { from?: string; to?: string; userId?: string; sucursalId?: string; limit?: number },
+  ): Promise<OperacionCaja[]> {
+    const desde = filtros.from ? new Date(filtros.from) : undefined;
+    const hasta = filtros.to ? new Date(filtros.to) : undefined;
+    const rango = desde || hasta ? { gte: desde, lte: hasta } : undefined;
+    const limit = Math.min(filtros.limit ?? 500, 2000);
+
+    const [sales, sessions, movimientos] = await Promise.all([
+      this.prisma.sale.findMany({
+        where: {
+          tenantId,
+          status: { not: 'ANULADA' },
+          ...(rango ? { fecha: rango } : {}),
+          ...(filtros.userId ? { cajeroId: filtros.userId } : {}),
+          ...(filtros.sucursalId ? { sucursalId: filtros.sucursalId } : {}),
+        },
+        include: { payments: true, cajero: { select: { nombre: true } }, cfeDocument: { select: { serie: true, numero: true } } },
+        orderBy: { fecha: 'desc' },
+        take: limit,
+      }),
+      this.prisma.cashSession.findMany({
+        where: {
+          tenantId,
+          ...(filtros.userId ? { userId: filtros.userId } : {}),
+          ...(filtros.sucursalId ? { sucursalId: filtros.sucursalId } : {}),
+          ...(rango ? { aperturaAt: rango } : {}),
+        },
+        include: { user: { select: { nombre: true } } },
+        orderBy: { aperturaAt: 'desc' },
+        take: limit,
+      }),
+      this.prisma.cashMovement.findMany({
+        where: {
+          tenantId,
+          ...(filtros.userId ? { userId: filtros.userId } : {}),
+          ...(rango ? { createdAt: rango } : {}),
+        },
+        include: { user: { select: { nombre: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      }),
+    ]);
+
+    const ops: OperacionCaja[] = [];
+
+    for (const s of sales) {
+      const medios = [...new Set(s.payments.map((p) => p.medio))].join(', ');
+      const comp = s.cfeDocument?.serie ? `${s.cfeDocument.serie}-${s.cfeDocument.numero}` : null;
+      ops.push({
+        id: `venta-${s.id}`,
+        fecha: s.fecha.toISOString(),
+        tipo: 'VENTA',
+        descripcion: comp ? `Venta ${comp}` : 'Venta (ticket interno)',
+        monto: Number(s.total),
+        medio: medios || null,
+        userId: s.cajeroId,
+        userNombre: s.cajero?.nombre ?? null,
+        sessionId: s.cashSessionId,
+        comprobante: comp,
+      });
+    }
+
+    for (const c of sessions) {
+      ops.push({
+        id: `apertura-${c.id}`,
+        fecha: c.aperturaAt.toISOString(),
+        tipo: 'APERTURA',
+        descripcion: 'Apertura de caja',
+        monto: Number(c.montoApertura),
+        userId: c.userId,
+        userNombre: c.user?.nombre ?? null,
+        sessionId: c.id,
+      });
+      if (c.status === CashSessionStatus.CERRADA && c.cierreAt) {
+        ops.push({
+          id: `cierre-${c.id}`,
+          fecha: c.cierreAt.toISOString(),
+          tipo: 'CIERRE',
+          descripcion: `Cierre de caja (dif. ${Number(c.diferencia ?? 0).toFixed(2)})`,
+          monto: Number(c.montoCierre ?? 0),
+          userId: c.userId,
+          userNombre: c.user?.nombre ?? null,
+          sessionId: c.id,
+        });
+      }
+    }
+
+    for (const m of movimientos) {
+      ops.push({
+        id: `mov-${m.id}`,
+        fecha: m.createdAt.toISOString(),
+        tipo: m.tipo,
+        descripcion: m.motivo ?? (m.tipo === 'INGRESO' ? 'Ingreso de efectivo' : 'Egreso de efectivo'),
+        monto: Number(m.monto),
+        userId: m.userId,
+        userNombre: m.user?.nombre ?? null,
+        sessionId: m.cashSessionId,
+      });
+    }
+
+    ops.sort((a, b) => b.fecha.localeCompare(a.fecha));
+    return ops.slice(0, limit);
+  }
+}
+
+export interface OperacionCaja {
+  id: string;
+  fecha: string;
+  tipo: 'APERTURA' | 'CIERRE' | 'VENTA' | 'INGRESO' | 'EGRESO';
+  descripcion: string;
+  monto: number;
+  medio?: string | null;
+  userId?: string | null;
+  userNombre?: string | null;
+  sessionId?: string | null;
+  comprobante?: string | null;
 }
