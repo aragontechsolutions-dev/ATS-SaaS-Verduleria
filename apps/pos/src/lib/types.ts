@@ -2,6 +2,22 @@
 
 export type IvaIndicador = 'EXENTO' | 'MINIMA' | 'BASICA' | 'SUSPENSO';
 
+export type TipoDocumentoCliente = 'NIE' | 'RUC' | 'CI' | 'OTROS' | 'PASAPORTE' | 'DNI' | 'NIFE';
+
+/** Comprador identificado en una venta (datos fiscales; sin cuenta corriente). */
+export interface PosCustomer {
+  id: string;
+  nombre: string;
+  tipoDocumento: TipoDocumentoCliente;
+  documento: string | null;
+  razonSocial: string | null;
+}
+
+/** Un comprador con RUC dispara e-Factura; el resto, e-Ticket identificado. */
+export function esEfactura(c: PosCustomer | null | undefined): boolean {
+  return !!c && c.tipoDocumento === 'RUC' && !!c.documento;
+}
+
 export interface CatalogProduct {
   id: string;
   nombre: string;
@@ -69,6 +85,8 @@ export interface OutboxSale {
   total: number;
   /** Vuelto entregado en efectivo (informativo; los payments suman el total). */
   vuelto?: number;
+  /** Comprador identificado (para CFE). Al backend solo se envía el customerId. */
+  customer?: PosCustomer;
   status: OutboxStatus;
   intentos: number;
   ultimoError?: string;

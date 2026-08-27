@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react';
-import type { MedioPago, SalePayment } from '../lib/types';
+import type { MedioPago, PosCustomer, SalePayment } from '../lib/types';
+import { esEfactura } from '../lib/types';
 import { formatMoney } from '../lib/format';
 import { buildPayments, computeSplit, esEfectivo, round2 } from '../lib/payment';
 
 interface Props {
   total: number;
+  customer?: PosCustomer | null;
+  requiereIdent?: boolean;
   onConfirm: (payments: SalePayment[], vuelto: number) => void;
   onCancel: () => void;
 }
@@ -31,7 +34,7 @@ interface LineDraft {
  * Cobro con PAGO MIXTO. El cajero arma una o varias líneas (efectivo + tarjeta +
  * QR…). La lógica de montos/vuelto vive en lib/payment.ts (pura y testeada).
  */
-export function PaymentModal({ total, onConfirm, onCancel }: Props) {
+export function PaymentModal({ total, customer, requiereIdent, onConfirm, onCancel }: Props) {
   // Arranca con una línea de efectivo por el total (caso más común: 1 toque y listo).
   const [lines, setLines] = useState<LineDraft[]>([{ medio: 'EFECTIVO', montoStr: total.toFixed(2) }]);
 
@@ -65,6 +68,12 @@ export function PaymentModal({ total, onConfirm, onCancel }: Props) {
     <div className="modal-backdrop">
       <div className="modal modal--wide">
         <h3>Cobrar {formatMoney(total)}</h3>
+
+        {customer ? (
+          <p className="pay-cust">👤 {customer.nombre}{esEfactura(customer) ? ' · e-Factura' : customer.documento ? ` · ${customer.tipoDocumento} ${customer.documento}` : ''}</p>
+        ) : requiereIdent ? (
+          <p className="pay-cust pay-cust--warn">⚠ Venta &gt; 5.000 UI sin comprador identificado. Cerrá y usá “Identificar comprador”.</p>
+        ) : null}
 
         <p className="modal__sub">Agregá uno o varios medios (pago mixto).</p>
         <div className="medios">

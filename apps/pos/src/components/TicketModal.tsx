@@ -48,6 +48,13 @@ export function TicketModal({ sale, onClose }: Props) {
         <h3>✓ Venta registrada</h3>
         <div className="ticket__total">{formatMoney(sale.total)}</div>
 
+        {sale.customer && (
+          <p className="ticket__cliente">
+            👤 {sale.customer.nombre}
+            {sale.customer.documento ? ` · ${sale.customer.tipoDocumento} ${sale.customer.documento}` : ''}
+          </p>
+        )}
+
         {(mixto || vuelto > 0) && (
           <div className="ticket__pagos">
             {sale.payments.map((p, i) => (

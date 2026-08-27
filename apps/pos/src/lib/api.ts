@@ -1,6 +1,6 @@
 // Cliente HTTP del backend @ats/api. En dev, Vite proxya /api → :3000.
 // El tenant y el usuario se mandan por header (foundations); en prod → JWT.
-import type { CartItem, CashSession, CashSummary, CfeSummary, SalePayment } from './types';
+import type { CartItem, CashSession, CashSummary, CfeSummary, PosCustomer, SalePayment, TipoDocumentoCliente } from './types';
 
 import { supabase } from './supabase';
 
@@ -69,6 +69,7 @@ export interface CreateSalePayload {
   idempotencyKey: string;
   fecha: string;
   cashSessionId?: string;
+  customerId?: string;
   items: Array<Pick<CartItem, 'productId' | 'concepto' | 'unidad' | 'cantidad' | 'precioUnit' | 'ivaIndicador' | 'descuento'>>;
   payments: SalePayment[];
 }
@@ -81,6 +82,28 @@ export interface CreateSaleResponse {
 
 export async function postSale(payload: CreateSalePayload): Promise<CreateSaleResponse> {
   return ok(await fetch(`${API_BASE}/sales`, { method: 'POST', headers: headers(), body: JSON.stringify(payload) }), 'sales');
+}
+
+// --- Clientes (identificación del comprador para CFE) -----------------------
+
+export async function searchCustomers(q: string): Promise<PosCustomer[]> {
+  const qs = q.trim() ? `?q=${encodeURIComponent(q.trim())}` : '';
+  return ok(await fetch(`${API_BASE}/pos/customers/search${qs}`, { headers: headers() }), 'customers-search');
+}
+
+export interface QuickCustomerPayload {
+  nombre: string;
+  tipoDocumento: TipoDocumentoCliente;
+  documento: string;
+  razonSocial?: string;
+  direccion?: string;
+}
+
+export async function quickCreateCustomer(payload: QuickCustomerPayload): Promise<PosCustomer> {
+  return ok(
+    await fetch(`${API_BASE}/pos/customers`, { method: 'POST', headers: headers(), body: JSON.stringify(payload) }),
+    'customers-quick',
+  );
 }
 
 // --- CFE (e-Ticket) ---------------------------------------------------------

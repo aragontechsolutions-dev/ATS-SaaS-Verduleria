@@ -93,6 +93,32 @@ export class UpdateCustomerDto {
   activo?: boolean;
 }
 
+/**
+ * Alta rápida de cliente desde el POS (identificación fiscal del comprador).
+ * No es mayorista ni abre cuenta corriente; sirve para e-Factura / e-Ticket
+ * con comprador identificado (obligatorio > 5.000 UI).
+ */
+export class QuickCustomerDto {
+  @IsString()
+  @MinLength(2)
+  nombre!: string;
+
+  @IsEnum(TipoDocumentoCliente)
+  tipoDocumento!: TipoDocumentoCliente;
+
+  @IsString()
+  @MinLength(3)
+  documento!: string;
+
+  @IsOptional()
+  @IsString()
+  razonSocial?: string;
+
+  @IsOptional()
+  @IsString()
+  direccion?: string;
+}
+
 /** Cobranza: reduce el saldo de la cuenta corriente. */
 export class PaymentDto {
   @IsNumber()
