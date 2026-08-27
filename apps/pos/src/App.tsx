@@ -151,7 +151,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   useScanner(onScan);
 
   const onConfirmPayment = useCallback(
-    async (payments: SalePayment[]) => {
+    async (payments: SalePayment[], vuelto: number) => {
       const items: CartItem[] = cart.items;
       const total = cart.total;
       const id = uuidv4(); // idempotencyKey = id_externo del CFE
@@ -162,6 +162,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         items,
         payments,
         total,
+        vuelto: vuelto > 0 ? vuelto : undefined,
         status: 'pending',
         intentos: 0,
         createdAt: Date.now(),
@@ -176,6 +177,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         items,
         payments,
         total,
+        vuelto: vuelto > 0 ? vuelto : undefined,
         status: 'pending' as const,
         intentos: 0,
         createdAt: Date.now(),
@@ -183,7 +185,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
       setTicket(registro);
       const medios = [...new Set(payments.map((p) => p.medio.toLowerCase().replace(/_/g, ' ')))].join(', ');
       const comp = registro.cfe?.serie ? `Comprobante ${registro.cfe.serie}-${registro.cfe.numero}` : 'Ticket interno';
-      toast.success(`Venta cobrada · ${formatMoney(total)}`, `${medios} — ${comp}`);
+      const detalle = vuelto > 0 ? `${medios} · vuelto ${formatMoney(vuelto)} — ${comp}` : `${medios} — ${comp}`;
+      toast.success(`Venta cobrada · ${formatMoney(total)}`, detalle);
       void countPending().then(setPendientes);
     },
     [cart, cash.session, toast],

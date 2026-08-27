@@ -8,6 +8,11 @@ interface Props {
   onClose: () => void;
 }
 
+const MEDIO_LABEL: Record<string, string> = {
+  EFECTIVO: 'Efectivo', DEBITO: 'Débito', CREDITO: 'Crédito', MERCADO_PAGO: 'QR / MP',
+  TRANSFERENCIA: 'Transferencia', DINERO_ELECTRONICO: 'Dinero electrónico', CUENTA_CORRIENTE: 'Cuenta corriente',
+};
+
 const ESTADO_LABEL: Record<string, string> = {
   LOCAL: 'Ticket interno',
   ENVIANDO: 'Emitiendo…',
@@ -21,6 +26,9 @@ const ESTADO_LABEL: Record<string, string> = {
 /** Confirmación de venta con el estado del comprobante fiscal. */
 export function TicketModal({ sale, onClose }: Props) {
   const cfe = sale.cfe;
+  const vuelto = sale.vuelto ?? 0;
+  // Boleta: para el efectivo mostramos lo recibido (aplicado + vuelto).
+  const mixto = sale.payments.length > 1;
 
   async function verPdf() {
     if (!cfe?.id) return;
@@ -39,6 +47,23 @@ export function TicketModal({ sale, onClose }: Props) {
       <div className="modal">
         <h3>✓ Venta registrada</h3>
         <div className="ticket__total">{formatMoney(sale.total)}</div>
+
+        {(mixto || vuelto > 0) && (
+          <div className="ticket__pagos">
+            {sale.payments.map((p, i) => (
+              <div key={i} className="ticket__row">
+                <span>{MEDIO_LABEL[p.medio] ?? p.medio}</span>
+                <span>{formatMoney(p.medio === 'EFECTIVO' ? p.monto + vuelto : p.monto)}</span>
+              </div>
+            ))}
+            {vuelto > 0 && (
+              <div className="ticket__row ticket__row--vuelto">
+                <span>Vuelto</span>
+                <strong>{formatMoney(vuelto)}</strong>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="ticket__cfe">
           {sale.status !== 'synced' ? (

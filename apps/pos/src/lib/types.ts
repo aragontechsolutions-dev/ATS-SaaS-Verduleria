@@ -67,6 +67,8 @@ export interface OutboxSale {
   items: CartItem[];
   payments: SalePayment[];
   total: number;
+  /** Vuelto entregado en efectivo (informativo; los payments suman el total). */
+  vuelto?: number;
   status: OutboxStatus;
   intentos: number;
   ultimoError?: string;

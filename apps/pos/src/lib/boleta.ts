@@ -29,11 +29,15 @@ export function boletaHtml(sale: OutboxSale): string {
     .map(([ind, monto]) => `<div class="row"><span>${TASA_LABEL[ind] ?? ind}</span><span>${formatMoney(monto)}</span></div>`)
     .join('');
 
+  // Los payments suman el total (montos aplicados). El vuelto se guarda aparte:
+  // en la boleta mostramos el efectivo RECIBIDO (aplicado + vuelto) y el vuelto.
+  const vuelto = sale.vuelto ?? Math.max(0, sale.payments.reduce((s, p) => s + p.monto, 0) - sale.total);
   const pagos = sale.payments
-    .map((p) => `<div class="row"><span>${MEDIO_LABEL[p.medio] ?? p.medio}</span><span>${formatMoney(p.monto)}</span></div>`)
+    .map((p) => {
+      const monto = p.medio === 'EFECTIVO' ? p.monto + vuelto : p.monto;
+      return `<div class="row"><span>${MEDIO_LABEL[p.medio] ?? p.medio}</span><span>${formatMoney(monto)}</span></div>`;
+    })
     .join('');
-  const recibido = sale.payments.reduce((s, p) => s + p.monto, 0);
-  const vuelto = Math.max(0, recibido - sale.total);
 
   const comprobante = cfe?.serie
     ? `<div class="cfe"><div>${cfe.serie}-${cfe.numero}</div>${cfe.caeNumero ? `<div>CAE ${cfe.caeNumero}</div>` : ''}</div>`

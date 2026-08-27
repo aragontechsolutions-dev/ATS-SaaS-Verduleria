@@ -151,8 +151,23 @@ button { font: inherit; cursor: pointer; }
 .ticket__cfe .pill--muted { background: var(--bg); color: var(--muted); }
 .modal__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
 .medios { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-.medio { padding: 14px 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+.medio { padding: 14px 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); cursor: pointer; }
+.medio:hover { border-color: var(--green); }
 .medio--on { background: var(--green); color: #fff; border-color: var(--green); }
+
+/* Pago mixto: líneas de medios */
+.paylines { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
+.payline { display: flex; align-items: center; gap: 8px; }
+.payline__medio { flex: 0 0 auto; min-width: 92px; font-weight: 600; font-size: 14px; }
+.payline__monto { flex: 1 1 90px; min-width: 0; text-align: right; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 15px; font-weight: 600; }
+.payline__ref { flex: 1 1 90px; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+.payline__del { flex: 0 0 auto; width: 34px; height: 34px; border: none; background: var(--bg); border-radius: 8px; color: var(--muted); cursor: pointer; }
+.payline__del:hover { color: var(--warn); }
+.pay-resumen { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0 0; border-top: 1px dashed var(--border); }
+
+/* Ticket: desglose de pagos + vuelto */
+.ticket__pagos { border: 1px solid var(--border); border-radius: 12px; padding: 8px 14px; margin-bottom: 14px; }
+.ticket__row--vuelto { border-top: 1px dashed var(--border); margin-top: 4px; padding-top: 8px; color: var(--green-dark); }
 
 /* Toast */
 .toast {
