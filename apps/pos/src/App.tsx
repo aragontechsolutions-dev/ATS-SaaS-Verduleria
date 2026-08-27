@@ -12,6 +12,8 @@ import { TicketModal } from './components/TicketModal';
 import { ScaleSettingsModal } from './components/ScaleSettingsModal';
 import { OperationsModal } from './components/OperationsModal';
 import { CashMovementModal } from './components/CashMovementModal';
+import { CustomerPickerModal } from './components/CustomerPickerModal';
+import { requiereIdentificacion } from './lib/fiscal';
 import { useToast } from './lib/toast';
 import { formatMoney } from './lib/format';
 import { useCatalog } from './hooks/useCatalog';
@@ -26,7 +28,7 @@ import type { Sucursal } from './lib/api';
 import { supabase } from './lib/supabase';
 import { countPending, enqueueSale, getSale } from './lib/db';
 import { flushOutbox, onSyncChange, startAutoSync } from './lib/sync';
-import type { CartItem, CatalogProduct, OutboxSale, SalePayment } from './lib/types';
+import type { CartItem, CatalogProduct, OutboxSale, PosCustomer, SalePayment } from './lib/types';
 
 export default function App() {
   // undefined = cargando; null = sin sesión; Session = logueado.
@@ -64,6 +66,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const [scaleOpen, setScaleOpen] = useState(false);
   const [opsOpen, setOpsOpen] = useState(false);
   const [movingCash, setMovingCash] = useState(false);
+  const [customer, setCustomer] = useState<PosCustomer | null>(null);
+  const [customerOpen, setCustomerOpen] = useState(false);
   const scale = useScale();
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
 
@@ -151,7 +155,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   useScanner(onScan);
 
   const onConfirmPayment = useCallback(
-    async (payments: SalePayment[]) => {
+    async (payments: SalePayment[], vuelto: number) => {
       const items: CartItem[] = cart.items;
       const total = cart.total;
       const id = uuidv4(); // idempotencyKey = id_externo del CFE
@@ -162,11 +166,14 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         items,
         payments,
         total,
+        vuelto: vuelto > 0 ? vuelto : undefined,
+        customer: customer ?? undefined,
         status: 'pending',
         intentos: 0,
         createdAt: Date.now(),
       });
       cart.clear();
+      setCustomer(null);
       setPaying(false);
       // Intentar subir + emitir el e-Ticket ahora; luego mostrar el comprobante.
       await flushOutbox();
@@ -176,6 +183,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         items,
         payments,
         total,
+        vuelto: vuelto > 0 ? vuelto : undefined,
+        customer: customer ?? undefined,
         status: 'pending' as const,
         intentos: 0,
         createdAt: Date.now(),
@@ -183,10 +192,11 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
       setTicket(registro);
       const medios = [...new Set(payments.map((p) => p.medio.toLowerCase().replace(/_/g, ' ')))].join(', ');
       const comp = registro.cfe?.serie ? `Comprobante ${registro.cfe.serie}-${registro.cfe.numero}` : 'Ticket interno';
-      toast.success(`Venta cobrada · ${formatMoney(total)}`, `${medios} — ${comp}`);
+      const detalle = vuelto > 0 ? `${medios} · vuelto ${formatMoney(vuelto)} — ${comp}` : `${medios} — ${comp}`;
+      toast.success(`Venta cobrada · ${formatMoney(total)}`, detalle);
       void countPending().then(setPendientes);
     },
-    [cart, cash.session, toast],
+    [cart, cash.session, customer, toast],
   );
 
   const sinCaja = !cash.session;
@@ -237,6 +247,10 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
           items={cart.items}
           total={cart.total}
           sinCaja={sinCaja}
+          customer={customer}
+          requiereIdent={requiereIdentificacion(cart.total)}
+          onIdentify={() => setCustomerOpen(true)}
+          onClearCustomer={() => setCustomer(null)}
           onSetQty={cart.setQty}
           onRemove={cart.remove}
           onClear={cart.clear}
@@ -259,8 +273,21 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
 
       {scaleOpen && <ScaleSettingsModal scale={scale} onClose={() => setScaleOpen(false)} />}
 
+      {customerOpen && (
+        <CustomerPickerModal
+          onPick={(c) => { setCustomer(c); setCustomerOpen(false); }}
+          onClose={() => setCustomerOpen(false)}
+        />
+      )}
+
       {paying && !cobrarDisabled && (
-        <PaymentModal total={cart.total} onConfirm={onConfirmPayment} onCancel={() => setPaying(false)} />
+        <PaymentModal
+          total={cart.total}
+          customer={customer}
+          requiereIdent={requiereIdentificacion(cart.total)}
+          onConfirm={onConfirmPayment}
+          onCancel={() => setPaying(false)}
+        />
       )}
 
       {openingCash && (

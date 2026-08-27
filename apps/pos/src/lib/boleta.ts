@@ -29,11 +29,20 @@ export function boletaHtml(sale: OutboxSale): string {
     .map(([ind, monto]) => `<div class="row"><span>${TASA_LABEL[ind] ?? ind}</span><span>${formatMoney(monto)}</span></div>`)
     .join('');
 
+  // Los payments suman el total (montos aplicados). El vuelto se guarda aparte:
+  // en la boleta mostramos el efectivo RECIBIDO (aplicado + vuelto) y el vuelto.
+  const vuelto = sale.vuelto ?? Math.max(0, sale.payments.reduce((s, p) => s + p.monto, 0) - sale.total);
   const pagos = sale.payments
-    .map((p) => `<div class="row"><span>${MEDIO_LABEL[p.medio] ?? p.medio}</span><span>${formatMoney(p.monto)}</span></div>`)
+    .map((p) => {
+      const monto = p.medio === 'EFECTIVO' ? p.monto + vuelto : p.monto;
+      return `<div class="row"><span>${MEDIO_LABEL[p.medio] ?? p.medio}</span><span>${formatMoney(monto)}</span></div>`;
+    })
     .join('');
-  const recibido = sale.payments.reduce((s, p) => s + p.monto, 0);
-  const vuelto = Math.max(0, recibido - sale.total);
+
+  const cli = sale.customer;
+  const clienteBloque = cli
+    ? `<div class="cli">Comprador: ${escapeHtml(cli.nombre)}${cli.documento ? `<br>${cli.tipoDocumento} ${escapeHtml(cli.documento)}` : ''}</div>`
+    : '';
 
   const comprobante = cfe?.serie
     ? `<div class="cfe"><div>${cfe.serie}-${cfe.numero}</div>${cfe.caeNumero ? `<div>CAE ${cfe.caeNumero}</div>` : ''}</div>`
@@ -53,6 +62,7 @@ export function boletaHtml(sale: OutboxSale): string {
   .total { display: flex; justify-content: space-between; font-size: 16px; font-weight: bold; border-top: 2px solid #000; margin-top: 6px; padding-top: 6px; }
   .sec { margin-top: 8px; }
   .cfe { text-align: center; font-size: 12px; margin-top: 10px; border-top: 1px dashed #bbb; padding-top: 6px; }
+  .cli { font-size: 11px; margin-top: 8px; border-top: 1px dashed #bbb; padding-top: 6px; }
   .gracias { text-align: center; font-size: 11px; margin-top: 10px; }
 </style></head><body>
   <h1>BOLETA</h1>
@@ -61,6 +71,7 @@ export function boletaHtml(sale: OutboxSale): string {
   ${ivaRows ? `<div class="sec">${ivaRows}</div>` : ''}
   <div class="total"><span>TOTAL</span><span>${formatMoney(sale.total)}</span></div>
   <div class="sec">${pagos}${vuelto > 0 ? `<div class="row"><span>Vuelto</span><span>${formatMoney(vuelto)}</span></div>` : ''}</div>
+  ${clienteBloque}
   ${comprobante}
   <div class="gracias">¡Gracias por su compra!</div>
 </body></html>`;

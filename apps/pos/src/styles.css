@@ -151,8 +151,46 @@ button { font: inherit; cursor: pointer; }
 .ticket__cfe .pill--muted { background: var(--bg); color: var(--muted); }
 .modal__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
 .medios { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-.medio { padding: 14px 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+.medio { padding: 14px 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); cursor: pointer; }
+.medio:hover { border-color: var(--green); }
 .medio--on { background: var(--green); color: #fff; border-color: var(--green); }
+
+/* Pago mixto: líneas de medios */
+.paylines { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
+.payline { display: flex; align-items: center; gap: 8px; }
+.payline__medio { flex: 0 0 auto; min-width: 92px; font-weight: 600; font-size: 14px; }
+.payline__monto { flex: 1 1 90px; min-width: 0; text-align: right; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 15px; font-weight: 600; }
+.payline__ref { flex: 1 1 90px; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+.payline__del { flex: 0 0 auto; width: 34px; height: 34px; border: none; background: var(--bg); border-radius: 8px; color: var(--muted); cursor: pointer; }
+.payline__del:hover { color: var(--warn); }
+.pay-resumen { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0 0; border-top: 1px dashed var(--border); }
+
+/* Ticket: desglose de pagos + vuelto */
+.ticket__pagos { border: 1px solid var(--border); border-radius: 12px; padding: 8px 14px; margin-bottom: 14px; }
+.ticket__row--vuelto { border-top: 1px dashed var(--border); margin-top: 4px; padding-top: 8px; color: var(--green-dark); }
+.ticket__cliente { text-align: center; color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+
+/* Comprador (identificación fiscal) */
+.cust-add { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px dashed var(--border); border-radius: 10px; background: var(--bg); color: var(--muted); cursor: pointer; }
+.cust-add:hover { border-color: var(--green); color: var(--text); }
+.cust-add--req { border-color: var(--warn); border-style: solid; color: var(--warn); font-weight: 600; }
+.cust-chip { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; margin-bottom: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; }
+.cust-chip__info { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+.cust-chip__tag { background: var(--green); color: #fff; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+.cust-chip__doc { color: var(--muted); font-weight: 500; font-size: 12px; }
+.cust-chip__x { border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 15px; }
+.cust-chip__x:hover { color: var(--warn); }
+
+.cust-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; margin: 6px 0 14px; }
+.cust-row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); cursor: pointer; text-align: left; }
+.cust-row:hover { border-color: var(--green); }
+.cust-row__name { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.cust-row__tag { background: var(--green); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; }
+.cust-row__doc { color: var(--muted); font-size: 12px; }
+.cust-new .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.pay-cust { margin: 0 0 10px; padding: 8px 12px; background: var(--bg); border-radius: 8px; font-size: 14px; font-weight: 600; }
+.pay-cust--warn { background: #fdecea; color: var(--warn); font-weight: 500; }
 
 /* Toast */
 .toast {

@@ -34,6 +34,7 @@ export async function flushOutbox(): Promise<void> {
           idempotencyKey: sale.id,
           fecha: sale.fecha,
           cashSessionId: sale.cashSessionId,
+          customerId: sale.customer?.id,
           items: sale.items.map((it) => ({
             productId: it.productId,
             concepto: it.concepto,

@@ -1,10 +1,14 @@
-import { useState } from 'react';
-import type { MedioPago, SalePayment } from '../lib/types';
+import { useMemo, useState } from 'react';
+import type { MedioPago, PosCustomer, SalePayment } from '../lib/types';
+import { esEfactura } from '../lib/types';
 import { formatMoney } from '../lib/format';
+import { buildPayments, computeSplit, esEfectivo, round2 } from '../lib/payment';
 
 interface Props {
   total: number;
-  onConfirm: (payments: SalePayment[]) => void;
+  customer?: PosCustomer | null;
+  requiereIdent?: boolean;
+  onConfirm: (payments: SalePayment[], vuelto: number) => void;
   onCancel: () => void;
 }
 
@@ -16,59 +20,120 @@ const MEDIOS: Array<{ key: MedioPago; label: string }> = [
   { key: 'TRANSFERENCIA', label: '🏦 Transfer.' },
 ];
 
-/** Cobro de un medio. En efectivo exige que lo recibido cubra el total. */
-export function PaymentModal({ total, onConfirm, onCancel }: Props) {
-  const [medio, setMedio] = useState<MedioPago>('EFECTIVO');
-  const [recibido, setRecibido] = useState('');
-  const pagoEfectivo = medio === 'EFECTIVO';
-  const monto = parseFloat(recibido.replace(',', '.')) || 0;
-  const vuelto = pagoEfectivo ? Math.max(0, monto - total) : 0;
-  // Validación: en efectivo lo recibido debe cubrir el total.
-  const insuficiente = pagoEfectivo && monto < total;
-  const puedeCobrar = !pagoEfectivo || monto >= total;
+const labelDe = (m: MedioPago) => MEDIOS.find((x) => x.key === m)?.label ?? m;
+const parseMonto = (s: string) => parseFloat(s.replace(',', '.')) || 0;
+
+/** Una línea de pago que el cajero arma (monto como texto para editar). */
+interface LineDraft {
+  medio: MedioPago;
+  montoStr: string;
+  referencia?: string;
+}
+
+/**
+ * Cobro con PAGO MIXTO. El cajero arma una o varias líneas (efectivo + tarjeta +
+ * QR…). La lógica de montos/vuelto vive en lib/payment.ts (pura y testeada).
+ */
+export function PaymentModal({ total, customer, requiereIdent, onConfirm, onCancel }: Props) {
+  // Arranca con una línea de efectivo por el total (caso más común: 1 toque y listo).
+  const [lines, setLines] = useState<LineDraft[]>([{ medio: 'EFECTIVO', montoStr: total.toFixed(2) }]);
+
+  const parsed = useMemo(
+    () => lines.map((l) => ({ medio: l.medio, monto: parseMonto(l.montoStr), referencia: l.referencia })),
+    [lines],
+  );
+  const calc = useMemo(() => computeSplit(parsed, total), [parsed, total]);
+
+  // Agrega una línea de un medio, prellenada con lo que falta cubrir.
+  function addMedio(medio: MedioPago) {
+    const falta = Math.max(0, round2(total - calc.pagado));
+    setLines((ls) => [...ls, { medio, montoStr: (falta || total).toFixed(2) }]);
+  }
+  function setLine(i: number, patch: Partial<LineDraft>) {
+    setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+  }
+  function removeLine(i: number) {
+    setLines((ls) => ls.filter((_, idx) => idx !== i));
+  }
 
   function confirmar() {
-    if (!puedeCobrar) return;
-    onConfirm([{ medio, monto: total }]);
+    if (!calc.puedeCobrar) return;
+    const { payments, vuelto } = buildPayments(parsed, total);
+    onConfirm(payments, vuelto);
   }
+
+  const mixto = lines.length > 1;
 
   return (
     <div className="modal-backdrop">
       <div className="modal modal--wide">
         <h3>Cobrar {formatMoney(total)}</h3>
+
+        {customer ? (
+          <p className="pay-cust">👤 {customer.nombre}{esEfactura(customer) ? ' · e-Factura' : customer.documento ? ` · ${customer.tipoDocumento} ${customer.documento}` : ''}</p>
+        ) : requiereIdent ? (
+          <p className="pay-cust pay-cust--warn">⚠ Venta &gt; 5.000 UI sin comprador identificado. Cerrá y usá “Identificar comprador”.</p>
+        ) : null}
+
+        <p className="modal__sub">Agregá uno o varios medios (pago mixto).</p>
         <div className="medios">
           {MEDIOS.map((m) => (
-            <button
-              key={m.key}
-              className={`medio ${medio === m.key ? 'medio--on' : ''}`}
-              onClick={() => setMedio(m.key)}
-            >
+            <button key={m.key} className="medio" onClick={() => addMedio(m.key)}>
               {m.label}
             </button>
           ))}
         </div>
-        {pagoEfectivo && (
-          <>
-            <label className="field">
-              Recibido
+
+        <div className="paylines">
+          {lines.length === 0 && <p className="empty">Elegí un medio de pago.</p>}
+          {lines.map((l, i) => (
+            <div key={i} className="payline">
+              <span className="payline__medio">{labelDe(l.medio)}</span>
               <input
+                className="payline__monto"
                 type="number"
                 inputMode="decimal"
-                value={recibido}
-                onChange={(e) => setRecibido(e.target.value)}
-                placeholder={String(total)}
-                autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter' && puedeCobrar) confirmar(); }}
+                value={l.montoStr}
+                onChange={(e) => setLine(i, { montoStr: e.target.value })}
+                onFocus={(e) => e.currentTarget.select()}
+                aria-label={`Monto ${labelDe(l.medio)}`}
+                autoFocus={i === 0}
+                onKeyDown={(e) => { if (e.key === 'Enter' && calc.puedeCobrar) confirmar(); }}
               />
-            </label>
-            <div className={`modal__total ${insuficiente ? 'warn' : ''}`}>
-              {insuficiente ? `Faltan ${formatMoney(total - monto)}` : `Vuelto: ${formatMoney(vuelto)}`}
+              {!esEfectivo(l.medio) && (
+                <input
+                  className="payline__ref"
+                  value={l.referencia ?? ''}
+                  onChange={(e) => setLine(i, { referencia: e.target.value })}
+                  placeholder="N° / ref (opc.)"
+                  aria-label="Referencia"
+                />
+              )}
+              <button className="payline__del" onClick={() => removeLine(i)} aria-label="Quitar">✕</button>
             </div>
-          </>
+          ))}
+        </div>
+
+        {mixto && (
+          <div className="pay-resumen">
+            <span>Pagado</span>
+            <strong>{formatMoney(calc.pagado)}</strong>
+          </div>
         )}
+
+        <div className={`modal__total ${!calc.puedeCobrar ? 'warn' : ''}`}>
+          {calc.excedeNoEfectivo
+            ? 'Los medios electrónicos superan el total (no dan vuelto)'
+            : !calc.cubierto
+              ? `Faltan ${formatMoney(calc.restante)}`
+              : calc.vuelto > 0
+                ? `Vuelto: ${formatMoney(calc.vuelto)}`
+                : 'Pago exacto'}
+        </div>
+
         <div className="modal__actions">
           <button className="btn btn--ghost" onClick={onCancel}>Cancelar</button>
-          <button className="btn btn--primary" onClick={confirmar} disabled={!puedeCobrar}>
+          <button className="btn btn--primary" onClick={confirmar} disabled={!calc.puedeCobrar}>
             Confirmar venta
           </button>
         </div>

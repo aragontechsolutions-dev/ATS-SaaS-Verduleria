@@ -1,0 +1,17 @@
+{
+  "name": "ats-scale-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Puente WebSocket para balanzas de red (UTP/Ethernet) del POS ATS. Sin dependencias.",
+  "bin": {
+    "ats-scale-bridge": "scale-bridge.mjs"
+  },
+  "scripts": {
+    "start": "node scale-bridge.mjs",
+    "mock": "node mock-scale.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

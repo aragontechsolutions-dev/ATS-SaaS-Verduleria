@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { CartItem } from '../lib/types';
+import type { CartItem, PosCustomer } from '../lib/types';
+import { esEfactura } from '../lib/types';
 import { lineTotal } from '../state/cart';
 import { formatMoney, formatQty, ivaIncluido, TASA_LABEL } from '../lib/format';
 
@@ -7,6 +8,10 @@ interface Props {
   items: CartItem[];
   total: number;
   sinCaja?: boolean;
+  customer?: PosCustomer | null;
+  requiereIdent?: boolean;
+  onIdentify?: () => void;
+  onClearCustomer?: () => void;
   onSetQty: (index: number, cantidad: number) => void;
   onRemove: (index: number) => void;
   onClear: () => void;
@@ -14,7 +19,7 @@ interface Props {
   onAbrirCaja?: () => void;
 }
 
-export function Cart({ items, total, sinCaja, onSetQty, onRemove, onClear, onCheckout, onAbrirCaja }: Props) {
+export function Cart({ items, total, sinCaja, customer, requiereIdent, onIdentify, onClearCustomer, onSetQty, onRemove, onClear, onCheckout, onAbrirCaja }: Props) {
   // En móvil el carrito es una hoja inferior colapsable; en escritorio, panel fijo.
   const [expanded, setExpanded] = useState(false);
   const count = items.reduce((n, it) => n + (it.esPesable ? 1 : it.cantidad), 0);
@@ -69,6 +74,23 @@ export function Cart({ items, total, sinCaja, onSetQty, onRemove, onClear, onChe
         })}
       </div>
       <div className="cart__footer">
+        {onIdentify && (
+          customer ? (
+            <div className="cust-chip">
+              <span className="cust-chip__info">
+                👤 {customer.nombre}
+                {esEfactura(customer)
+                  ? <span className="cust-chip__tag">e-Factura</span>
+                  : customer.documento && <span className="cust-chip__doc">{customer.tipoDocumento} {customer.documento}</span>}
+              </span>
+              <button className="cust-chip__x" onClick={onClearCustomer} aria-label="Quitar comprador">✕</button>
+            </div>
+          ) : (
+            <button className={`cust-add ${requiereIdent ? 'cust-add--req' : ''}`} onClick={onIdentify}>
+              {requiereIdent ? '⚠ Identificar comprador (> 5.000 UI)' : '👤 Identificar comprador (opcional)'}
+            </button>
+          )
+        )}
         {sinCaja && (
           <div className="cart__cajahint">
             🔒 Abrí la caja para poder cobrar.

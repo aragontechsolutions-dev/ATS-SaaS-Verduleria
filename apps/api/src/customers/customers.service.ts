@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@ats/database';
+import { Prisma, TipoDocumentoCliente } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
-import type { CreateCustomerDto, ChargeDto, PaymentDto, UpdateCustomerDto } from './customers.dto';
+import type { CreateCustomerDto, ChargeDto, PaymentDto, QuickCustomerDto, UpdateCustomerDto } from './customers.dto';
 
 const num = (v: Prisma.Decimal | number | null | undefined): number => (v == null ? 0 : Number(v));
 
@@ -17,6 +17,44 @@ export class CustomersService {
       include: { account: true },
     });
     return customers.map((c) => this.toRow(c));
+  }
+
+  /**
+   * Búsqueda de clientes para el POS (identificación del comprador). Devuelve
+   * solo datos fiscales, no la cuenta corriente. Sin `q` trae los más recientes.
+   */
+  async search(tenantId: string, q?: string, limit = 20) {
+    const term = (q ?? '').trim();
+    const where: Prisma.CustomerWhereInput = { tenantId, activo: true };
+    if (term) {
+      where.OR = [
+        { nombre: { contains: term, mode: 'insensitive' } },
+        { documento: { contains: term } },
+        { razonSocial: { contains: term, mode: 'insensitive' } },
+      ];
+    }
+    const rows = await this.prisma.customer.findMany({
+      where,
+      orderBy: term ? { nombre: 'asc' } : { createdAt: 'desc' },
+      take: limit,
+    });
+    return rows.map((c) => this.toFiscalRow(c));
+  }
+
+  /** Alta rápida desde el POS: cliente no mayorista, solo datos fiscales. */
+  async quickCreate(tenantId: string, dto: QuickCustomerDto) {
+    const c = await this.prisma.customer.create({
+      data: {
+        tenantId,
+        nombre: dto.nombre,
+        esMayorista: false,
+        tipoDocumento: dto.tipoDocumento,
+        documento: dto.documento,
+        razonSocial: dto.razonSocial,
+        direccion: dto.direccion,
+      },
+    });
+    return this.toFiscalRow(c);
   }
 
   async create(tenantId: string, dto: CreateCustomerDto) {
@@ -119,6 +157,23 @@ export class CustomersService {
     const existing = await tx.accountReceivable.findUnique({ where: { customerId } });
     if (existing) return existing;
     return tx.accountReceivable.create({ data: { tenantId, customerId, saldo: new Prisma.Decimal(0) } });
+  }
+
+  /** Fila mínima para el POS: solo identificación fiscal del comprador. */
+  private toFiscalRow(c: {
+    id: string;
+    nombre: string;
+    tipoDocumento: TipoDocumentoCliente;
+    documento: string | null;
+    razonSocial: string | null;
+  }) {
+    return {
+      id: c.id,
+      nombre: c.nombre,
+      tipoDocumento: c.tipoDocumento,
+      documento: c.documento,
+      razonSocial: c.razonSocial,
+    };
   }
 
   private async assertCustomer(tenantId: string, id: string): Promise<void> {

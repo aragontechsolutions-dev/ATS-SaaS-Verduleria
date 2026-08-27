@@ -6,6 +6,8 @@ interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
   readonly VITE_SUPABASE_URL?: string;
   readonly VITE_SUPABASE_ANON_KEY?: string;
+  /** Umbral (en $UYU) que obliga a identificar al comprador (≈ 5.000 UI). */
+  readonly VITE_UMBRAL_IDENTIFICACION_UYU?: string;
 }
 
 interface ImportMeta {
