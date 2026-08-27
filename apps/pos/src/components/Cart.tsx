@@ -1,40 +1,61 @@
 import { useState } from 'react';
 import type { CartItem, PosCustomer } from '../lib/types';
 import { esEfactura } from '../lib/types';
-import { lineTotal } from '../state/cart';
+import { lineBruto, lineTotal, type CartTotals } from '../state/cart';
 import { formatMoney, formatQty, ivaIncluido, TASA_LABEL } from '../lib/format';
 
 interface Props {
   items: CartItem[];
-  total: number;
+  totals: CartTotals;
+  hayGlobalDiscount?: boolean;
   sinCaja?: boolean;
   customer?: PosCustomer | null;
   requiereIdent?: boolean;
   onIdentify?: () => void;
   onClearCustomer?: () => void;
   onSetQty: (index: number, cantidad: number) => void;
+  onLineDiscount?: (index: number) => void;
+  onGlobalDiscount?: () => void;
   onRemove: (index: number) => void;
   onClear: () => void;
   onCheckout: () => void;
   onAbrirCaja?: () => void;
 }
 
-export function Cart({ items, total, sinCaja, customer, requiereIdent, onIdentify, onClearCustomer, onSetQty, onRemove, onClear, onCheckout, onAbrirCaja }: Props) {
+export function Cart({
+  items,
+  totals,
+  hayGlobalDiscount,
+  sinCaja,
+  customer,
+  requiereIdent,
+  onIdentify,
+  onClearCustomer,
+  onSetQty,
+  onLineDiscount,
+  onGlobalDiscount,
+  onRemove,
+  onClear,
+  onCheckout,
+  onAbrirCaja,
+}: Props) {
   // En móvil el carrito es una hoja inferior colapsable; en escritorio, panel fijo.
   const [expanded, setExpanded] = useState(false);
   const count = items.reduce((n, it) => n + (it.esPesable ? 1 : it.cantidad), 0);
+  const hayDescuento = totals.descuento > 0;
 
   return (
     <aside className={`cart ${expanded ? 'cart--expanded' : ''}`}>
       <button className="cart__handle" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
         <span className="cart__handle-info">🛒 {items.length} {items.length === 1 ? 'ítem' : 'ítems'}{count !== items.length ? ` · ${count} u.` : ''}</span>
-        <span className="cart__handle-total">{formatMoney(total)}</span>
+        <span className="cart__handle-total">{formatMoney(totals.total)}</span>
         <span className="cart__handle-chevron">{expanded ? '▾' : '▴'}</span>
       </button>
       <div className="cart__list">
         {items.length === 0 && <p className="empty">Carrito vacío. Escaneá o tocá un producto.</p>}
         {items.map((it, i) => {
           const iva = ivaIncluido(lineTotal(it), it.ivaIndicador);
+          const desc = it.descuento ?? 0;
           return (
             <div key={i} className="cart__item">
               <div className="cart__info">
@@ -45,6 +66,7 @@ export function Cart({ items, total, sinCaja, customer, requiereIdent, onIdentif
                 <span className="cart__iva">
                   {TASA_LABEL[it.ivaIndicador] ?? it.ivaIndicador}
                   {iva > 0 && ` · ${formatMoney(iva)}`}
+                  {desc > 0 && <span className="cart__desc"> · −{formatMoney(desc)}</span>}
                 </span>
               </div>
               <div className="cart__qty">
@@ -65,10 +87,16 @@ export function Cart({ items, total, sinCaja, customer, requiereIdent, onIdentif
                   </>
                 )}
               </div>
-              <span className="cart__total">{formatMoney(lineTotal(it))}</span>
-              <button className="cart__del" onClick={() => onRemove(i)} aria-label="Quitar">
-                ✕
-              </button>
+              <span className="cart__total">
+                {desc > 0 && <s className="cart__was">{formatMoney(lineBruto(it))}</s>}
+                {formatMoney(lineTotal(it))}
+              </span>
+              <div className="cart__lineactions">
+                {onLineDiscount && (
+                  <button className="cart__disc" onClick={() => onLineDiscount(i)} aria-label="Descuento" title="Descuento de línea">🏷</button>
+                )}
+                <button className="cart__del" onClick={() => onRemove(i)} aria-label="Quitar">✕</button>
+              </div>
             </div>
           );
         })}
@@ -97,9 +125,26 @@ export function Cart({ items, total, sinCaja, customer, requiereIdent, onIdentif
             {onAbrirCaja && <button className="btn btn--sm btn--accent" onClick={onAbrirCaja}>Abrir caja</button>}
           </div>
         )}
+        {onGlobalDiscount && items.length > 0 && (
+          <button className={`cart__globaldisc ${hayGlobalDiscount ? 'is-on' : ''}`} onClick={onGlobalDiscount}>
+            🏷 {hayGlobalDiscount ? 'Editar descuento total' : 'Descuento total'}
+          </button>
+        )}
+        {hayDescuento && (
+          <div className="cart__totrow">
+            <span>Subtotal</span>
+            <span>{formatMoney(totals.bruto)}</span>
+          </div>
+        )}
+        {hayDescuento && (
+          <div className="cart__totrow cart__totrow--desc">
+            <span>Descuento</span>
+            <span>−{formatMoney(totals.descuento)}</span>
+          </div>
+        )}
         <div className="cart__grandtotal">
           <span>Total</span>
-          <strong>{formatMoney(total)}</strong>
+          <strong>{formatMoney(totals.total)}</strong>
         </div>
         <div className="cart__actions">
           <button className="btn btn--ghost" onClick={onClear} disabled={items.length === 0}>

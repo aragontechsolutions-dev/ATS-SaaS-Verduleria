@@ -1,6 +1,6 @@
 import type { OutboxSale } from './types';
 import { formatMoney, formatQty, ivaIncluido, TASA_LABEL } from './format';
-import { lineTotal } from '../state/cart';
+import { lineBruto, lineTotal } from '../state/cart';
 
 const MEDIO_LABEL: Record<string, string> = {
   EFECTIVO: 'Efectivo', DEBITO: 'Débito', CREDITO: 'Crédito', MERCADO_PAGO: 'QR / MP',
@@ -32,6 +32,9 @@ export function boletaHtml(sale: OutboxSale): string {
   // Los payments suman el total (montos aplicados). El vuelto se guarda aparte:
   // en la boleta mostramos el efectivo RECIBIDO (aplicado + vuelto) y el vuelto.
   const vuelto = sale.vuelto ?? Math.max(0, sale.payments.reduce((s, p) => s + p.monto, 0) - sale.total);
+  const brutoTotal = sale.items.reduce((s, it) => s + lineBruto(it), 0);
+  const descuentoTotal = sale.items.reduce((s, it) => s + (it.descuento ?? 0), 0);
+
   const pagos = sale.payments
     .map((p) => {
       const monto = p.medio === 'EFECTIVO' ? p.monto + vuelto : p.monto;
@@ -69,6 +72,7 @@ export function boletaHtml(sale: OutboxSale): string {
   <div class="meta">ATS SISGESVER · ${fecha}</div>
   <table>${lineas}</table>
   ${ivaRows ? `<div class="sec">${ivaRows}</div>` : ''}
+  ${descuentoTotal > 0 ? `<div class="sec"><div class="row"><span>Subtotal</span><span>${formatMoney(brutoTotal)}</span></div><div class="row"><span>Descuento</span><span>−${formatMoney(descuentoTotal)}</span></div></div>` : ''}
   <div class="total"><span>TOTAL</span><span>${formatMoney(sale.total)}</span></div>
   <div class="sec">${pagos}${vuelto > 0 ? `<div class="row"><span>Vuelto</span><span>${formatMoney(vuelto)}</span></div>` : ''}</div>
   ${clienteBloque}

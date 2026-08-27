@@ -192,6 +192,25 @@ button { font: inherit; cursor: pointer; }
 .pay-cust { margin: 0 0 10px; padding: 8px 12px; background: var(--bg); border-radius: 8px; font-size: 14px; font-weight: 600; }
 .pay-cust--warn { background: #fdecea; color: var(--warn); font-weight: 500; }
 
+/* Descuentos */
+.cart__lineactions { display: flex; align-items: center; gap: 2px; }
+.cart__disc { border: none; background: transparent; cursor: pointer; font-size: 14px; opacity: 0.7; padding: 2px 4px; }
+.cart__disc:hover { opacity: 1; }
+.cart__desc { color: var(--green-dark); font-weight: 600; }
+.cart__was { color: var(--muted); text-decoration: line-through; font-weight: 400; font-size: 11px; margin-right: 6px; }
+.cart__globaldisc { width: 100%; padding: 8px; margin-bottom: 8px; border: 1px dashed var(--border); border-radius: 10px; background: var(--bg); color: var(--muted); cursor: pointer; }
+.cart__globaldisc:hover { border-color: var(--green); color: var(--text); }
+.cart__globaldisc.is-on { border-style: solid; border-color: var(--green); color: var(--green-dark); font-weight: 600; }
+.cart__totrow { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); padding: 1px 0; }
+.cart__totrow--desc { color: var(--green-dark); font-weight: 600; }
+
+.disc-modes { display: flex; gap: 8px; margin-bottom: 12px; }
+.disc-mode { flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); font-size: 18px; font-weight: 700; cursor: pointer; }
+.disc-mode.is-on { background: var(--green); color: #fff; border-color: var(--green); }
+.disc-preview { display: flex; align-items: baseline; gap: 8px; margin: 12px 0; font-size: 16px; }
+.disc-preview strong { color: var(--green-dark); }
+.disc-preview__rest { margin-left: auto; color: var(--muted); font-size: 13px; }
+
 /* Toast */
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
