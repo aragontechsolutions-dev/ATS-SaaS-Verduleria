@@ -13,7 +13,9 @@ import { ScaleSettingsModal } from './components/ScaleSettingsModal';
 import { OperationsModal } from './components/OperationsModal';
 import { CashMovementModal } from './components/CashMovementModal';
 import { CustomerPickerModal } from './components/CustomerPickerModal';
+import { DiscountModal } from './components/DiscountModal';
 import { requiereIdentificacion } from './lib/fiscal';
+import { discountMoney, type DiscountSpec } from './lib/discount';
 import { useToast } from './lib/toast';
 import { formatMoney } from './lib/format';
 import { useCatalog } from './hooks/useCatalog';
@@ -21,7 +23,7 @@ import { useOnline } from './hooks/useOnline';
 import { useScanner } from './hooks/useScanner';
 import { useCash } from './hooks/useCash';
 import { useScale } from './hooks/useScale';
-import { cartItemFromProduct, useCart } from './state/cart';
+import { cartItemFromProduct, lineBruto, useCart } from './state/cart';
 import { parseScan } from './lib/barcode';
 import { getSucursales } from './lib/api';
 import type { Sucursal } from './lib/api';
@@ -68,6 +70,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const [movingCash, setMovingCash] = useState(false);
   const [customer, setCustomer] = useState<PosCustomer | null>(null);
   const [customerOpen, setCustomerOpen] = useState(false);
+  // Descuento: null = cerrado; {kind:'line', index} o {kind:'global'}.
+  const [discountTarget, setDiscountTarget] = useState<{ kind: 'line'; index: number } | { kind: 'global' } | null>(null);
   const scale = useScale();
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
 
@@ -156,7 +160,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
 
   const onConfirmPayment = useCallback(
     async (payments: SalePayment[], vuelto: number) => {
-      const items: CartItem[] = cart.items;
+      // Ítems efectivos: incluyen el descuento por línea + el global prorrateado.
+      const items: CartItem[] = cart.displayItems;
       const total = cart.total;
       const id = uuidv4(); // idempotencyKey = id_externo del CFE
       await enqueueSale({
@@ -244,14 +249,17 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
           <ProductGrid products={products} onPick={onPick} />
         )}
         <Cart
-          items={cart.items}
-          total={cart.total}
+          items={cart.displayItems}
+          totals={cart.totals}
+          hayGlobalDiscount={!!cart.globalDiscount}
           sinCaja={sinCaja}
           customer={customer}
           requiereIdent={requiereIdentificacion(cart.total)}
           onIdentify={() => setCustomerOpen(true)}
           onClearCustomer={() => setCustomer(null)}
           onSetQty={cart.setQty}
+          onLineDiscount={(index) => setDiscountTarget({ kind: 'line', index })}
+          onGlobalDiscount={() => setDiscountTarget({ kind: 'global' })}
           onRemove={cart.remove}
           onClear={cart.clear}
           onCheckout={onCheckout}
@@ -277,6 +285,30 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         <CustomerPickerModal
           onPick={(c) => { setCustomer(c); setCustomerOpen(false); }}
           onClose={() => setCustomerOpen(false)}
+        />
+      )}
+
+      {discountTarget?.kind === 'line' && cart.items[discountTarget.index] && (
+        <DiscountModal
+          titulo={`Descuento · ${cart.items[discountTarget.index].concepto}`}
+          base={lineBruto(cart.items[discountTarget.index])}
+          actual={cart.items[discountTarget.index].descuento ? { mode: 'amount', value: cart.items[discountTarget.index].descuento! } : null}
+          onConfirm={(spec: DiscountSpec | null) => {
+            const base = lineBruto(cart.items[discountTarget.index]);
+            cart.setDescuento(discountTarget.index, spec ? discountMoney(base, spec) : 0);
+            setDiscountTarget(null);
+          }}
+          onCancel={() => setDiscountTarget(null)}
+        />
+      )}
+
+      {discountTarget?.kind === 'global' && (
+        <DiscountModal
+          titulo="Descuento total"
+          base={cart.totals.total + cart.totals.globalDescuento}
+          actual={cart.globalDiscount}
+          onConfirm={(spec: DiscountSpec | null) => { cart.setGlobalDiscount(spec); setDiscountTarget(null); }}
+          onCancel={() => setDiscountTarget(null)}
         />
       )}
 
