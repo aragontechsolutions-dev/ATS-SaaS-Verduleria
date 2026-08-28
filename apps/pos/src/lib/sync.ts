@@ -4,11 +4,51 @@
 //
 // Background Sync solo existe en Chromium; por eso el disparador principal es un
 // listener `online` + un flush manual/por intervalo. Siempre encolamos primero.
-import { emitCfe, postSale } from './api';
+import { emitCfe, postDevolucion, postSale } from './api';
 import { getPendingSales, updateSale } from './db';
-import type { CfeSummary } from './types';
+import type { CfeSummary, OutboxSale } from './types';
 
 let sincronizando = false;
+
+/** Sube una venta normal. */
+function subirVenta(sale: OutboxSale) {
+  return postSale({
+    idempotencyKey: sale.id,
+    fecha: sale.fecha,
+    cashSessionId: sale.cashSessionId,
+    customerId: sale.customer?.id,
+    items: sale.items.map((it) => ({
+      productId: it.productId,
+      concepto: it.concepto,
+      unidad: it.unidad,
+      cantidad: it.cantidad,
+      precioUnit: it.precioUnit,
+      ivaIndicador: it.ivaIndicador,
+      descuento: it.descuento,
+    })),
+    payments: sale.payments,
+  });
+}
+
+/** Sube una devolución (cantidades en positivo; el backend las guarda negativas). */
+function subirDevolucion(sale: OutboxSale) {
+  return postDevolucion({
+    idempotencyKey: sale.id,
+    originalSaleId: sale.referenciaSaleId ?? '',
+    cashSessionId: sale.cashSessionId,
+    medio: sale.payments[0]?.medio ?? 'EFECTIVO',
+    motivo: sale.motivo,
+    items: sale.items.map((it) => ({
+      productId: it.productId,
+      concepto: it.concepto,
+      unidad: it.unidad,
+      cantidad: Math.abs(it.cantidad),
+      precioUnit: it.precioUnit,
+      descuento: it.descuento,
+      ivaIndicador: it.ivaIndicador,
+    })),
+  });
+}
 
 export type SyncListener = () => void;
 const listeners = new Set<SyncListener>();
@@ -30,22 +70,7 @@ export async function flushOutbox(): Promise<void> {
       await updateSale(sale.id, { status: 'syncing' });
       notify();
       try {
-        const res = await postSale({
-          idempotencyKey: sale.id,
-          fecha: sale.fecha,
-          cashSessionId: sale.cashSessionId,
-          customerId: sale.customer?.id,
-          items: sale.items.map((it) => ({
-            productId: it.productId,
-            concepto: it.concepto,
-            unidad: it.unidad,
-            cantidad: it.cantidad,
-            precioUnit: it.precioUnit,
-            ivaIndicador: it.ivaIndicador,
-            descuento: it.descuento,
-          })),
-          payments: sale.payments,
-        });
+        const res = sale.esDevolucion ? await subirDevolucion(sale) : await subirVenta(sale);
 
         // Emisión del e-Ticket (best-effort). Si falla, la venta igual quedó
         // registrada; el CFE se puede reintentar. El polling DGI corre server-side.
