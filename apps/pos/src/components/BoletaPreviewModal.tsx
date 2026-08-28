@@ -1,4 +1,5 @@
-import { boletaHtml, printBoleta } from '../lib/boleta';
+import { boletaHtml } from '../lib/boleta';
+import { loadPrinterConfig, printSale } from '../lib/printer';
 import type { OutboxSale } from '../lib/types';
 
 interface Props {
@@ -20,7 +21,7 @@ export function BoletaPreviewModal({ sale, onClose }: Props) {
         </div>
         <div className="modal__actions">
           <button className="btn btn--ghost" onClick={onClose}>Cerrar</button>
-          <button className="btn btn--primary" onClick={() => printBoleta(sale)}>🖨 Imprimir</button>
+          <button className="btn btn--primary" onClick={() => void printSale(sale, loadPrinterConfig())}>🖨 Imprimir</button>
         </div>
       </div>
     </div>
