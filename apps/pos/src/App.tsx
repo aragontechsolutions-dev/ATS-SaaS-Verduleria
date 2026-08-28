@@ -17,6 +17,8 @@ import { DiscountModal } from './components/DiscountModal';
 import { ParkedModal } from './components/ParkedModal';
 import { PriceCheckModal } from './components/PriceCheckModal';
 import { CobranzaModal } from './components/CobranzaModal';
+import { PrinterSettingsModal } from './components/PrinterSettingsModal';
+import { loadPrinterConfig, maybeOpenDrawer, tryReconnect } from './lib/printer';
 import { requiereIdentificacion } from './lib/fiscal';
 import { discountMoney, type DiscountSpec } from './lib/discount';
 import { useToast } from './lib/toast';
@@ -84,6 +86,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const [priceCheckOpen, setPriceCheckOpen] = useState(false);
   const [checkedProduct, setCheckedProduct] = useState<CatalogProduct | null>(null);
   const [cobranzaOpen, setCobranzaOpen] = useState(false);
+  const [printerOpen, setPrinterOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const multBufRef = useRef('');
   const multTimeRef = useRef(0);
@@ -92,6 +95,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
 
   useEffect(() => {
     void getSucursales().then(setSucursales).catch(() => setSucursales([]));
+    // Reconecta a una impresora ESC/POS ya autorizada (sin re-pedir permiso).
+    void tryReconnect(loadPrinterConfig());
   }, []);
   const [ticket, setTicket] = useState<OutboxSale | null>(null);
 
@@ -228,6 +233,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         createdAt: Date.now(),
       };
       setTicket(registro);
+      // Cajón: se abre una vez al cobrar en efectivo (si está configurado).
+      void maybeOpenDrawer(registro, loadPrinterConfig());
       const medios = [...new Set(payments.map((p) => p.medio.toLowerCase().replace(/_/g, ' ')))].join(', ');
       const comp = registro.cfe?.serie ? `Comprobante ${registro.cfe.serie}-${registro.cfe.numero}` : 'Ticket interno';
       const detalle = vuelto > 0 ? `${medios} · vuelto ${formatMoney(vuelto)} — ${comp}` : `${medios} — ${comp}`;
@@ -303,11 +310,12 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
 
   const anyModalOpen =
     paying || openingCash || closingCash || scaleOpen || opsOpen || movingCash ||
-    customerOpen || !!discountTarget || !!ticket || !!weighing || parkedOpen || priceCheckOpen || cobranzaOpen;
+    customerOpen || !!discountTarget || !!ticket || !!weighing || parkedOpen || priceCheckOpen || cobranzaOpen || printerOpen;
 
   // Cierra el modal de nivel superior con Escape. Devuelve true si cerró alguno.
   const closeTopModal = useCallback((): boolean => {
     if (ticket) return setTicket(null), true;
+    if (printerOpen) return setPrinterOpen(false), true;
     if (cobranzaOpen) return setCobranzaOpen(false), true;
     if (priceCheckOpen) return setPriceCheckOpen(false), true;
     if (parkedOpen) return setParkedOpen(false), true;
@@ -321,7 +329,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     if (opsOpen) return setOpsOpen(false), true;
     if (weighing) return setWeighing(null), true;
     return false;
-  }, [ticket, cobranzaOpen, priceCheckOpen, parkedOpen, discountTarget, customerOpen, paying, movingCash, closingCash, openingCash, scaleOpen, opsOpen, weighing]);
+  }, [ticket, printerOpen, cobranzaOpen, priceCheckOpen, parkedOpen, discountTarget, customerOpen, paying, movingCash, closingCash, openingCash, scaleOpen, opsOpen, weighing]);
 
   const openPriceCheck = useCallback(() => { setCheckedProduct(null); setPriceCheckOpen(true); }, []);
 
@@ -406,6 +414,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         onOpenCash={() => setOpeningCash(true)}
         onCloseCash={() => setClosingCash(true)}
         onOpenScale={() => setScaleOpen(true)}
+        onOpenPrinter={() => setPrinterOpen(true)}
         onOpenOps={() => setOpsOpen(true)}
         onOpenPrice={openPriceCheck}
         onCobranza={() => setCobranzaOpen(true)}
@@ -488,6 +497,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
           onClose={() => setPriceCheckOpen(false)}
         />
       )}
+
+      {printerOpen && <PrinterSettingsModal onClose={() => setPrinterOpen(false)} />}
 
       {cobranzaOpen && (
         <CobranzaModal

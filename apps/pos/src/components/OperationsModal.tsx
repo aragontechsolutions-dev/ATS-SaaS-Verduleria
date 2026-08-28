@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getAllSales } from '../lib/db';
-import { printBoleta } from '../lib/boleta';
+import { loadPrinterConfig, printSale } from '../lib/printer';
 import { formatMoney } from '../lib/format';
 import { useToast } from '../lib/toast';
 import { useSecurity } from '../lib/security';
@@ -70,7 +70,7 @@ export function OperationsModal({ sessionId, onClose }: Props) {
                   <span className={`pill ${est.cls}`}>{est.txt}</span>
                   <strong className="ops__total">{formatMoney(s.total)}</strong>
                   <div className="ops__actions">
-                    <button className="btn btn--ghost btn--sm" onClick={() => printBoleta(s)}>🖨</button>
+                    <button className="btn btn--ghost btn--sm" onClick={() => void printSale(s, loadPrinterConfig())}>🖨</button>
                     <button className="btn btn--ghost btn--sm" onClick={() => setDetalle(s)}>Ver</button>
                     {devolvible && (
                       <button className="btn btn--ghost btn--sm" onClick={() => void security.requireAuth('return').then((ok) => ok && setDevolviendo(s))} title="Devolver">↩ Devolver</button>

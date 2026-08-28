@@ -14,6 +14,7 @@ interface Props {
   onOpenCash: () => void;
   onCloseCash: () => void;
   onOpenScale: () => void;
+  onOpenPrinter?: () => void;
   onOpenOps: () => void;
   onOpenPrice?: () => void;
   onCobranza?: () => void;
@@ -35,6 +36,7 @@ export function StatusBar({
   onOpenCash,
   onCloseCash,
   onOpenScale,
+  onOpenPrinter,
   onOpenOps,
   onOpenPrice,
   onCobranza,
@@ -77,6 +79,9 @@ export function StatusBar({
         <button className={`sbtn ${scaleLive ? 'sbtn--on' : ''}`} onClick={onOpenScale} title="Balanza">
           ⚖ Balanza{scaleLive ? ' ●' : ''}
         </button>
+        {onOpenPrinter && (
+          <button className="sbtn" onClick={onOpenPrinter} title="Impresora / cajón">🖨</button>
+        )}
         {onOpenSecurity && (
           <button className="sbtn" onClick={onOpenSecurity} title="Seguridad / PIN de supervisor">🔒</button>
         )}
