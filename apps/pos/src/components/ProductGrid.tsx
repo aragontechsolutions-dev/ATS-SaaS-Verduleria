@@ -1,10 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type RefObject } from 'react';
 import type { CatalogProduct } from '../lib/types';
 import { formatMoney } from '../lib/format';
 
 interface Props {
   products: CatalogProduct[];
   onPick: (p: CatalogProduct) => void;
+  /** Ref al input de búsqueda, para enfocarlo con un atajo (F2 / «/»). */
+  searchRef?: RefObject<HTMLInputElement>;
+  /** Tecleá «3*» o «3x» en el buscador para fijar el multiplicador de cantidad. */
+  onMultiplier?: (n: number) => void;
 }
 
 /** ¿Hay stock para vender? null = producto sin stock controlado → se vende libre. */
@@ -12,7 +16,7 @@ export function hayStock(p: CatalogProduct): boolean {
   return p.stock == null || p.stock > 0;
 }
 
-export function ProductGrid({ products, onPick }: Props) {
+export function ProductGrid({ products, onPick, searchRef, onMultiplier }: Props) {
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<string | null>(null);
 
@@ -34,10 +38,31 @@ export function ProductGrid({ products, onPick }: Props) {
   return (
     <section className="grid-panel">
       <input
+        ref={searchRef}
         className="search"
-        placeholder="Buscar por nombre o PLU…"
+        placeholder="Buscar por nombre o PLU… (F2)"
         value={q}
-        onChange={(e) => setQ(e.target.value)}
+        onChange={(e) => {
+          const v = e.target.value;
+          // «3*» o «3x» fija el multiplicador de cantidad y limpia el buscador.
+          const m = v.match(/^(\d+)\s*[*xX]$/);
+          if (m && onMultiplier) {
+            onMultiplier(parseInt(m[1], 10));
+            setQ('');
+            return;
+          }
+          setQ(v);
+        }}
+        onKeyDown={(e) => {
+          // Enter agrega el primer resultado disponible (venta rápida por teclado).
+          if (e.key === 'Enter') {
+            const first = filtered.find((p) => hayStock(p));
+            if (first) {
+              onPick(first);
+              setQ('');
+            }
+          }
+        }}
         autoFocus
       />
       <div className="chips">

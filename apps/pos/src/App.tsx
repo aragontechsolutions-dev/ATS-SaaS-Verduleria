@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { StatusBar } from './components/StatusBar';
 import { Login } from './components/Login';
@@ -72,6 +72,11 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const [customerOpen, setCustomerOpen] = useState(false);
   // Descuento: null = cerrado; {kind:'line', index} o {kind:'global'}.
   const [discountTarget, setDiscountTarget] = useState<{ kind: 'line'; index: number } | { kind: 'global' } | null>(null);
+  // Multiplicador de cantidad: teclear «3 *» agrega 3 unidades al próximo producto.
+  const [multiplier, setMultiplier] = useState<number | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const multBufRef = useRef('');
+  const multTimeRef = useRef(0);
   const scale = useScale();
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
 
@@ -123,10 +128,16 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const onPick = useCallback(
     (p: CatalogProduct) => {
       if (!hayStock(p)) return showToast(`${p.nombre}: sin stock`);
-      if (p.esPesable) setWeighing(p);
-      else addProduct(p, 1);
+      if (p.esPesable) {
+        setMultiplier(null); // el multiplicador no aplica a pesables
+        setWeighing(p);
+      } else {
+        const qty = multiplier && multiplier > 0 ? multiplier : 1;
+        addProduct(p, qty);
+        if (multiplier) setMultiplier(null);
+      }
     },
-    [addProduct, showToast],
+    [addProduct, showToast, multiplier],
   );
 
   const onScan = useCallback(
@@ -217,6 +228,73 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     setPaying(true);
   }, [sinCaja, showToast]);
 
+  const anyModalOpen =
+    paying || openingCash || closingCash || scaleOpen || opsOpen || movingCash ||
+    customerOpen || !!discountTarget || !!ticket || !!weighing;
+
+  // Cierra el modal de nivel superior con Escape. Devuelve true si cerró alguno.
+  const closeTopModal = useCallback((): boolean => {
+    if (ticket) return setTicket(null), true;
+    if (discountTarget) return setDiscountTarget(null), true;
+    if (customerOpen) return setCustomerOpen(false), true;
+    if (paying) return setPaying(false), true;
+    if (movingCash) return setMovingCash(false), true;
+    if (closingCash) return setClosingCash(false), true;
+    if (openingCash) return setOpeningCash(false), true;
+    if (scaleOpen) return setScaleOpen(false), true;
+    if (opsOpen) return setOpsOpen(false), true;
+    if (weighing) return setWeighing(null), true;
+    return false;
+  }, [ticket, discountTarget, customerOpen, paying, movingCash, closingCash, openingCash, scaleOpen, opsOpen, weighing]);
+
+  // Atajos de teclado y multiplicador de cantidad (venta rápida por teclado).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = e.target as HTMLElement | null;
+      const typing = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+
+      // Cobrar: F9 o Ctrl/Cmd+Enter (Enter simple lo usa el lector de código).
+      if (e.key === 'F9' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
+        e.preventDefault();
+        if (!anyModalOpen && !cobrarDisabled) onCheckout();
+        return;
+      }
+      // Enfocar el buscador: F2 o «/» (si no se está tipeando).
+      if (e.key === 'F2' || (e.key === '/' && !typing)) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+        return;
+      }
+      // Cancelar: cierra el modal abierto o limpia el multiplicador.
+      if (e.key === 'Escape') {
+        if (closeTopModal()) { e.preventDefault(); return; }
+        if (multiplier) { setMultiplier(null); e.preventDefault(); }
+        return;
+      }
+
+      // El multiplicador solo se arma fuera de inputs y sin modales abiertos.
+      if (typing || anyModalOpen) return;
+      if (/^[0-9]$/.test(e.key)) {
+        const now = Date.now();
+        if (now - multTimeRef.current > 1500) multBufRef.current = '';
+        multTimeRef.current = now;
+        multBufRef.current += e.key;
+        return;
+      }
+      if (e.key === '*' || e.key === 'x' || e.key === 'X') {
+        const n = parseInt(multBufRef.current, 10);
+        multBufRef.current = '';
+        if (n > 0) { setMultiplier(n); e.preventDefault(); }
+        return;
+      }
+      if (e.key === 'Enter') { multBufRef.current = ''; return; } // límite de escaneo
+      if (e.key.length === 1) multBufRef.current = ''; // cualquier otra tecla reinicia
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [anyModalOpen, cobrarDisabled, onCheckout, closeTopModal, multiplier]);
+
   // Nombre de la sucursal del turno (solo si hay más de una, para diferenciar).
   const sucursalNombre =
     sucursales.length > 1 && cash.session?.sucursalId
@@ -246,8 +324,20 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         {loading ? (
           <p className="empty">Cargando catálogo…</p>
         ) : (
-          <ProductGrid products={products} onPick={onPick} />
+          <ProductGrid products={products} onPick={onPick} searchRef={searchRef} onMultiplier={(n) => setMultiplier(n > 0 ? n : null)} />
         )}
+        {multiplier && (
+          <div className="mult-badge" role="status">
+            × {multiplier}
+            <button onClick={() => setMultiplier(null)} aria-label="Quitar multiplicador">✕</button>
+          </div>
+        )}
+        <div className="kbd-hints">
+          <span><kbd>F2</kbd> buscar</span>
+          <span><kbd>3</kbd><kbd>*</kbd> cantidad</span>
+          <span><kbd>F9</kbd> cobrar</span>
+          <span><kbd>Esc</kbd> cancelar</span>
+        </div>
         <Cart
           items={cart.displayItems}
           totals={cart.totals}
