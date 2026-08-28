@@ -14,6 +14,7 @@ import { OperationsModal } from './components/OperationsModal';
 import { CashMovementModal } from './components/CashMovementModal';
 import { CustomerPickerModal } from './components/CustomerPickerModal';
 import { DiscountModal } from './components/DiscountModal';
+import { ParkedModal } from './components/ParkedModal';
 import { requiereIdentificacion } from './lib/fiscal';
 import { discountMoney, type DiscountSpec } from './lib/discount';
 import { useToast } from './lib/toast';
@@ -23,12 +24,12 @@ import { useOnline } from './hooks/useOnline';
 import { useScanner } from './hooks/useScanner';
 import { useCash } from './hooks/useCash';
 import { useScale } from './hooks/useScale';
-import { cartItemFromProduct, lineBruto, useCart } from './state/cart';
+import { cartItemFromProduct, lineBruto, useCart, type ParkedTicket } from './state/cart';
 import { parseScan } from './lib/barcode';
 import { getSucursales } from './lib/api';
 import type { Sucursal } from './lib/api';
 import { supabase } from './lib/supabase';
-import { countPending, enqueueSale, getSale } from './lib/db';
+import { countParked, countPending, deleteParked, enqueueSale, getSale, parkTicket } from './lib/db';
 import { flushOutbox, onSyncChange, startAutoSync } from './lib/sync';
 import type { CartItem, CatalogProduct, OutboxSale, PosCustomer, SalePayment } from './lib/types';
 
@@ -74,6 +75,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const [discountTarget, setDiscountTarget] = useState<{ kind: 'line'; index: number } | { kind: 'global' } | null>(null);
   // Multiplicador de cantidad: teclear «3 *» agrega 3 unidades al próximo producto.
   const [multiplier, setMultiplier] = useState<number | null>(null);
+  const [parkedOpen, setParkedOpen] = useState(false);
+  const [parkedCount, setParkedCount] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const multBufRef = useRef('');
   const multTimeRef = useRef(0);
@@ -228,13 +231,65 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     setPaying(true);
   }, [sinCaja, showToast]);
 
+  const refreshParked = useCallback(() => void countParked().then(setParkedCount), []);
+  useEffect(() => { refreshParked(); }, [refreshParked]);
+
+  // Etiqueta automática de un ticket en espera (primer producto + cantidad).
+  const parkedLabel = useCallback(
+    (items: CartItem[]) =>
+      items.length ? `${items[0].concepto}${items.length > 1 ? ` +${items.length - 1}` : ''}` : 'Ticket',
+    [],
+  );
+
+  // Suspender: guarda el carrito actual como ticket en espera y limpia la caja.
+  const onSuspend = useCallback(() => {
+    if (cart.items.length === 0) return showToast('El carrito está vacío');
+    void parkTicket({
+      id: uuidv4(),
+      label: parkedLabel(cart.items),
+      items: cart.items,
+      globalDiscount: cart.globalDiscount,
+      customer: customer ?? undefined,
+      createdAt: Date.now(),
+    }).then(() => {
+      cart.clear();
+      setCustomer(null);
+      setMultiplier(null);
+      refreshParked();
+      toast.info('Venta puesta en espera');
+    });
+  }, [cart, customer, parkedLabel, refreshParked, showToast, toast]);
+
+  // Retomar: si hay algo en el carrito, lo suspende antes para no perderlo.
+  const onResume = useCallback(
+    (t: ParkedTicket) => {
+      if (cart.items.length > 0) {
+        void parkTicket({
+          id: uuidv4(),
+          label: parkedLabel(cart.items),
+          items: cart.items,
+          globalDiscount: cart.globalDiscount,
+          customer: customer ?? undefined,
+          createdAt: Date.now(),
+        });
+      }
+      cart.load(t.items, t.globalDiscount);
+      setCustomer(t.customer ?? null);
+      void deleteParked(t.id).then(refreshParked);
+      setParkedOpen(false);
+      toast.info(`Retomaste: ${t.label}`);
+    },
+    [cart, customer, parkedLabel, refreshParked, toast],
+  );
+
   const anyModalOpen =
     paying || openingCash || closingCash || scaleOpen || opsOpen || movingCash ||
-    customerOpen || !!discountTarget || !!ticket || !!weighing;
+    customerOpen || !!discountTarget || !!ticket || !!weighing || parkedOpen;
 
   // Cierra el modal de nivel superior con Escape. Devuelve true si cerró alguno.
   const closeTopModal = useCallback((): boolean => {
     if (ticket) return setTicket(null), true;
+    if (parkedOpen) return setParkedOpen(false), true;
     if (discountTarget) return setDiscountTarget(null), true;
     if (customerOpen) return setCustomerOpen(false), true;
     if (paying) return setPaying(false), true;
@@ -245,7 +300,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     if (opsOpen) return setOpsOpen(false), true;
     if (weighing) return setWeighing(null), true;
     return false;
-  }, [ticket, discountTarget, customerOpen, paying, movingCash, closingCash, openingCash, scaleOpen, opsOpen, weighing]);
+  }, [ticket, parkedOpen, discountTarget, customerOpen, paying, movingCash, closingCash, openingCash, scaleOpen, opsOpen, weighing]);
 
   // Atajos de teclado y multiplicador de cantidad (venta rápida por teclado).
   useEffect(() => {
@@ -257,6 +312,12 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
       if (e.key === 'F9' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
         e.preventDefault();
         if (!anyModalOpen && !cobrarDisabled) onCheckout();
+        return;
+      }
+      // Suspender la venta actual: F7.
+      if (e.key === 'F7') {
+        e.preventDefault();
+        if (!anyModalOpen && cart.items.length > 0) onSuspend();
         return;
       }
       // Enfocar el buscador: F2 o «/» (si no se está tipeando).
@@ -293,7 +354,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [anyModalOpen, cobrarDisabled, onCheckout, closeTopModal, multiplier]);
+  }, [anyModalOpen, cobrarDisabled, onCheckout, closeTopModal, multiplier, cart.items.length, onSuspend]);
 
   // Nombre de la sucursal del turno (solo si hay más de una, para diferenciar).
   const sucursalNombre =
@@ -350,6 +411,9 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
           onSetQty={cart.setQty}
           onLineDiscount={(index) => setDiscountTarget({ kind: 'line', index })}
           onGlobalDiscount={() => setDiscountTarget({ kind: 'global' })}
+          onSuspend={onSuspend}
+          onOpenParked={() => setParkedOpen(true)}
+          parkedCount={parkedCount}
           onRemove={cart.remove}
           onClear={cart.clear}
           onCheckout={onCheckout}
@@ -376,6 +440,10 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
           onPick={(c) => { setCustomer(c); setCustomerOpen(false); }}
           onClose={() => setCustomerOpen(false)}
         />
+      )}
+
+      {parkedOpen && (
+        <ParkedModal onResume={onResume} onClose={() => setParkedOpen(false)} onChange={refreshParked} />
       )}
 
       {discountTarget?.kind === 'line' && cart.items[discountTarget.index] && (

@@ -16,6 +16,9 @@ interface Props {
   onSetQty: (index: number, cantidad: number) => void;
   onLineDiscount?: (index: number) => void;
   onGlobalDiscount?: () => void;
+  onSuspend?: () => void;
+  onOpenParked?: () => void;
+  parkedCount?: number;
   onRemove: (index: number) => void;
   onClear: () => void;
   onCheckout: () => void;
@@ -34,6 +37,9 @@ export function Cart({
   onSetQty,
   onLineDiscount,
   onGlobalDiscount,
+  onSuspend,
+  onOpenParked,
+  parkedCount = 0,
   onRemove,
   onClear,
   onCheckout,
@@ -123,6 +129,20 @@ export function Cart({
           <div className="cart__cajahint">
             🔒 Abrí la caja para poder cobrar.
             {onAbrirCaja && <button className="btn btn--sm btn--accent" onClick={onAbrirCaja}>Abrir caja</button>}
+          </div>
+        )}
+        {(onSuspend || onOpenParked) && (
+          <div className="cart__hold">
+            {onSuspend && (
+              <button className="btn btn--ghost btn--sm" onClick={onSuspend} disabled={items.length === 0}>
+                ⏸ Suspender
+              </button>
+            )}
+            {onOpenParked && (
+              <button className="btn btn--ghost btn--sm" onClick={onOpenParked} disabled={parkedCount === 0}>
+                ⏳ En espera{parkedCount > 0 ? ` (${parkedCount})` : ''}
+              </button>
+            )}
           </div>
         )}
         {onGlobalDiscount && items.length > 0 && (

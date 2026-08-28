@@ -3,6 +3,7 @@
 //  - `outbox`: cola de ventas pendientes de subir al backend (con idempotencia).
 import Dexie, { type Table } from 'dexie';
 import type { CatalogProduct, OutboxSale } from './types';
+import type { ParkedTicket } from '../state/cart';
 
 export interface CatalogMeta {
   key: string; // 'catalog'
@@ -14,6 +15,7 @@ class PosDatabase extends Dexie {
   catalog!: Table<CatalogProduct, string>;
   meta!: Table<CatalogMeta, string>;
   outbox!: Table<OutboxSale, string>;
+  parked!: Table<ParkedTicket, string>;
 
   constructor() {
     super('ats-pos');
@@ -22,6 +24,10 @@ class PosDatabase extends Dexie {
       catalog: 'id, plu, codigoBarras, nombre, categoriaId',
       meta: 'key',
       outbox: 'id, status, createdAt',
+    });
+    // v2: tickets suspendidos (venta en espera).
+    this.version(2).stores({
+      parked: 'id, createdAt',
     });
   }
 }
@@ -83,4 +89,22 @@ export async function getAllSales(limit = 200): Promise<OutboxSale[]> {
 
 export async function countPending(): Promise<number> {
   return db.outbox.where('status').anyOf('pending', 'error', 'syncing').count();
+}
+
+// --- Tickets suspendidos (venta en espera) ----------------------------------
+
+export async function parkTicket(ticket: ParkedTicket): Promise<void> {
+  await db.parked.put(ticket);
+}
+
+export async function getParkedTickets(): Promise<ParkedTicket[]> {
+  return db.parked.orderBy('createdAt').reverse().toArray();
+}
+
+export async function deleteParked(id: string): Promise<void> {
+  await db.parked.delete(id);
+}
+
+export async function countParked(): Promise<number> {
+  return db.parked.count();
 }
