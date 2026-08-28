@@ -6,12 +6,15 @@ import { getTenantContext } from '../tenant/tenant-context';
 
 /** Solo estos roles pueden fijar el IVA a mano (override del motor). */
 const ROLES_OVERRIDE_IVA = new Set(['ADMIN', 'CONTADOR']);
+import { PromoTipo } from '@ats/database';
 import type {
   BulkPriceDto,
   CreateCategoriaDto,
+  CreatePromoDto,
   CreateProductDto,
   UpdateCategoriaDto,
   UpdateProductDto,
+  UpdatePromoDto,
 } from './products.dto';
 
 @Injectable()
@@ -234,6 +237,103 @@ export class ProductsService {
       actualizados++;
     }
     return { actualizados };
+  }
+
+  // --- Promociones ----------------------------------------------------------
+
+  async listPromos(tenantId: string) {
+    const promos = await this.prisma.promo.findMany({
+      where: { tenantId },
+      include: { product: { select: { nombre: true } } },
+      orderBy: [{ activo: 'desc' }, { createdAt: 'desc' }],
+    });
+    return promos.map((p) => this.promoRow(p));
+  }
+
+  async createPromo(tenantId: string, dto: CreatePromoDto) {
+    this.validarPromo(dto.tipo, dto.llevaN, dto.pagaM, dto.precioTotal);
+    const prod = await this.prisma.product.findFirst({ where: { id: dto.productId, tenantId }, select: { id: true } });
+    if (!prod) throw new NotFoundException('Producto no encontrado');
+    const p = await this.prisma.promo.create({
+      data: {
+        tenantId,
+        productId: dto.productId,
+        nombre: dto.nombre,
+        tipo: dto.tipo,
+        llevaN: dto.llevaN,
+        pagaM: dto.tipo === PromoTipo.NXM ? dto.pagaM : null,
+        precioTotal: dto.tipo === PromoTipo.CANTIDAD ? new Prisma.Decimal(dto.precioTotal ?? 0) : null,
+        desde: dto.desde ? new Date(dto.desde) : null,
+        hasta: dto.hasta ? new Date(dto.hasta) : null,
+        activo: dto.activo ?? true,
+      },
+      include: { product: { select: { nombre: true } } },
+    });
+    return this.promoRow(p);
+  }
+
+  async updatePromo(tenantId: string, id: string, dto: UpdatePromoDto) {
+    const actual = await this.prisma.promo.findFirst({ where: { id, tenantId } });
+    if (!actual) throw new NotFoundException('Promoción no encontrada');
+    const tipo = dto.tipo ?? actual.tipo;
+    const llevaN = dto.llevaN ?? actual.llevaN;
+    const pagaM = dto.pagaM ?? actual.pagaM ?? undefined;
+    const precioTotal = dto.precioTotal ?? (actual.precioTotal != null ? Number(actual.precioTotal) : undefined);
+    this.validarPromo(tipo, llevaN, pagaM, precioTotal);
+    const p = await this.prisma.promo.update({
+      where: { id },
+      data: {
+        nombre: dto.nombre,
+        tipo: dto.tipo,
+        llevaN: dto.llevaN,
+        pagaM: tipo === PromoTipo.NXM ? pagaM ?? null : null,
+        precioTotal: tipo === PromoTipo.CANTIDAD ? new Prisma.Decimal(precioTotal ?? 0) : null,
+        desde: dto.desde !== undefined ? (dto.desde ? new Date(dto.desde) : null) : undefined,
+        hasta: dto.hasta !== undefined ? (dto.hasta ? new Date(dto.hasta) : null) : undefined,
+        activo: dto.activo,
+      },
+      include: { product: { select: { nombre: true } } },
+    });
+    return this.promoRow(p);
+  }
+
+  async deletePromo(tenantId: string, id: string) {
+    const p = await this.prisma.promo.findFirst({ where: { id, tenantId }, select: { id: true } });
+    if (!p) throw new NotFoundException('Promoción no encontrada');
+    await this.prisma.promo.delete({ where: { id } });
+    return { ok: true };
+  }
+
+  private validarPromo(tipo: PromoTipo, llevaN: number, pagaM?: number | null, precioTotal?: number | null): void {
+    if (tipo === PromoTipo.NXM) {
+      if (pagaM == null || pagaM < 1 || pagaM >= llevaN) {
+        throw new BadRequestException('En NxM, "paga M" debe ser menor que "lleva N".');
+      }
+    } else if (tipo === PromoTipo.CANTIDAD) {
+      if (precioTotal == null || precioTotal <= 0) {
+        throw new BadRequestException('En "N por precio", indicá el precio total.');
+      }
+    }
+  }
+
+  private promoRow(p: {
+    id: string; productId: string; nombre: string; tipo: PromoTipo; llevaN: number;
+    pagaM: number | null; precioTotal: Prisma.Decimal | null; desde: Date | null; hasta: Date | null;
+    activo: boolean; product?: { nombre: string };
+  }) {
+    return {
+      id: p.id,
+      productId: p.productId,
+      productoNombre: p.product?.nombre ?? '',
+      nombre: p.nombre,
+      tipo: p.tipo,
+      llevaN: p.llevaN,
+      pagaM: p.pagaM,
+      precioTotal: p.precioTotal != null ? Number(p.precioTotal) : null,
+      desde: p.desde,
+      hasta: p.hasta,
+      activo: p.activo,
+    };
   }
 
   private async assertCategoria(tenantId: string, categoriaId: string): Promise<void> {

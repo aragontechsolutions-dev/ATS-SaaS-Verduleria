@@ -18,10 +18,21 @@ export interface CatalogProduct {
   stock: number | null;
 }
 
+export interface CatalogPromo {
+  id: string;
+  productId: string;
+  nombre: string;
+  tipo: string; // 'NXM' | 'CANTIDAD'
+  llevaN: number;
+  pagaM: number | null;
+  precioTotal: number | null;
+}
+
 export interface CatalogResponse {
   updatedAt: string;
   listaPrecio: string | null;
   products: CatalogProduct[];
+  promos: CatalogPromo[];
 }
 
 /**
@@ -70,10 +81,33 @@ export class CatalogService {
       };
     });
 
+    // Promos activas y vigentes (dentro de desde/hasta si están definidas).
+    const ahora = new Date();
+    const promosRaw = await this.prisma.promo.findMany({
+      where: {
+        tenantId,
+        activo: true,
+        AND: [
+          { OR: [{ desde: null }, { desde: { lte: ahora } }] },
+          { OR: [{ hasta: null }, { hasta: { gte: ahora } }] },
+        ],
+      },
+    });
+    const promos: CatalogPromo[] = promosRaw.map((p) => ({
+      id: p.id,
+      productId: p.productId,
+      nombre: p.nombre,
+      tipo: p.tipo,
+      llevaN: p.llevaN,
+      pagaM: p.pagaM,
+      precioTotal: p.precioTotal != null ? Number(p.precioTotal) : null,
+    }));
+
     return {
       updatedAt: new Date().toISOString(),
       listaPrecio: lista?.nombre ?? null,
       products,
+      promos,
     };
   }
 }

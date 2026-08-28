@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { Role } from '@ats/database';
 import { CurrentTenant } from '../tenant/current-tenant.decorator';
 import { TenantGuard } from '../tenant/tenant.guard';
@@ -10,9 +10,11 @@ import { ProductsService } from './products.service';
 import {
   BulkPriceDto,
   CreateCategoriaDto,
+  CreatePromoDto,
   CreateProductDto,
   UpdateCategoriaDto,
   UpdateProductDto,
+  UpdatePromoDto,
 } from './products.dto';
 import { ClasificarDto } from '../iva/iva.dto';
 
@@ -71,5 +73,30 @@ export class ProductsController {
     @Body() dto: UpdateCategoriaDto,
   ) {
     return this.products.updateCategoria(tenantId, id, dto);
+  }
+
+  // --- Promociones ----------------------------------------------------------
+
+  @Get('promos')
+  listPromos(@CurrentTenant('tenantId') tenantId: string) {
+    return this.products.listPromos(tenantId);
+  }
+
+  @Post('promos')
+  @Roles(Role.ADMIN, Role.ENCARGADO)
+  createPromo(@CurrentTenant('tenantId') tenantId: string, @Body() dto: CreatePromoDto) {
+    return this.products.createPromo(tenantId, dto);
+  }
+
+  @Patch('promos/:id')
+  @Roles(Role.ADMIN, Role.ENCARGADO)
+  updatePromo(@CurrentTenant('tenantId') tenantId: string, @Param('id') id: string, @Body() dto: UpdatePromoDto) {
+    return this.products.updatePromo(tenantId, id, dto);
+  }
+
+  @Delete('promos/:id')
+  @Roles(Role.ADMIN, Role.ENCARGADO)
+  deletePromo(@CurrentTenant('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.products.deletePromo(tenantId, id);
   }
 }

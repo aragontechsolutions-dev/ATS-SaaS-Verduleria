@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { StatusBar } from './components/StatusBar';
 import { Login } from './components/Login';
@@ -30,6 +30,7 @@ import { useScanner } from './hooks/useScanner';
 import { useCash } from './hooks/useCash';
 import { useScale } from './hooks/useScale';
 import { cartItemFromProduct, lineBruto, useCart, type ParkedTicket } from './state/cart';
+import { promosByProduct } from './lib/promo';
 import { parseScan } from './lib/barcode';
 import { getSucursales } from './lib/api';
 import type { Sucursal } from './lib/api';
@@ -64,9 +65,10 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const toast = useToast();
   const security = useSecurity();
   const online = useOnline();
-  const { products, listaPrecio, loading, fromCache } = useCatalog();
+  const { products, promos, listaPrecio, loading, fromCache } = useCatalog();
+  const promosMap = useMemo(() => promosByProduct(promos), [promos]);
   const cash = useCash();
-  const cart = useCart();
+  const cart = useCart(promosMap);
   const [pendientes, setPendientes] = useState(0);
   const [weighing, setWeighing] = useState<CatalogProduct | null>(null);
   const [paying, setPaying] = useState(false);
@@ -445,6 +447,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         <Cart
           items={cart.displayItems}
           totals={cart.totals}
+          promos={promosMap}
           hayGlobalDiscount={!!cart.globalDiscount}
           sinCaja={sinCaja}
           customer={customer}
