@@ -1,5 +1,5 @@
 import { useReducer } from 'react';
-import type { CartItem, CatalogProduct, IvaIndicador } from '../lib/types';
+import type { CartItem, CatalogProduct, IvaIndicador, PosCustomer } from '../lib/types';
 import { discountMoney, distribuir, round2, type DiscountSpec } from '../lib/discount';
 
 export interface CartState {
@@ -8,11 +8,22 @@ export interface CartState {
   globalDiscount?: DiscountSpec | null;
 }
 
+/** Ticket suspendido (venta en espera). Se guarda local, por dispositivo. */
+export interface ParkedTicket {
+  id: string;
+  label: string;
+  items: CartItem[];
+  globalDiscount?: DiscountSpec | null;
+  customer?: PosCustomer;
+  createdAt: number;
+}
+
 type Action =
   | { type: 'add'; item: CartItem }
   | { type: 'setQty'; index: number; cantidad: number }
   | { type: 'setDescuento'; index: number; descuento: number }
   | { type: 'setGlobalDiscount'; spec: DiscountSpec | null }
+  | { type: 'load'; items: CartItem[]; globalDiscount?: DiscountSpec | null }
   | { type: 'remove'; index: number }
   | { type: 'clear' };
 
@@ -50,6 +61,8 @@ function reducer(state: CartState, action: Action): CartState {
     }
     case 'setGlobalDiscount':
       return { ...state, globalDiscount: action.spec };
+    case 'load':
+      return { items: action.items, globalDiscount: action.globalDiscount ?? null };
     case 'remove':
       return { ...state, items: state.items.filter((_, i) => i !== action.index) };
     case 'clear':
@@ -138,6 +151,7 @@ export function useCart() {
     setQty: (index: number, cantidad: number) => dispatch({ type: 'setQty', index, cantidad }),
     setDescuento: (index: number, descuento: number) => dispatch({ type: 'setDescuento', index, descuento }),
     setGlobalDiscount: (spec: DiscountSpec | null) => dispatch({ type: 'setGlobalDiscount', spec }),
+    load: (items: CartItem[], globalDiscount?: DiscountSpec | null) => dispatch({ type: 'load', items, globalDiscount }),
     remove: (index: number) => dispatch({ type: 'remove', index }),
     clear: () => dispatch({ type: 'clear' }),
   };
