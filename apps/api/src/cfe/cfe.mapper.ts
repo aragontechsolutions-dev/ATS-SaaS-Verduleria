@@ -72,14 +72,18 @@ export function requiereCfe(regimen: RegimenFiscal, provider: string): boolean {
 export interface SaleConItems extends Sale {
   items: SaleItem[];
   customer?: Customer | null;
+  /** Referencia al CFE original (para notas de crédito de devolución). */
+  referenciaCfe?: { tipo: CfeTipo; serie: string; numero: number } | null;
 }
 
-/** Elige el tipo de CFE: e-Factura si hay cliente con RUC, si no e-Ticket. */
+/**
+ * Elige el tipo de CFE: e-Factura si hay cliente con RUC, si no e-Ticket. Para
+ * devoluciones, la nota de crédito equivalente (NC_E_FACTURA / NC_E_TICKET).
+ */
 export function tipoCfePorVenta(sale: SaleConItems): CfeTipo {
-  if (sale.customer?.tipoDocumento === 'RUC' && sale.customer.documento) {
-    return 'E_FACTURA';
-  }
-  return 'E_TICKET';
+  const conRuc = sale.customer?.tipoDocumento === 'RUC' && !!sale.customer.documento;
+  if (sale.esDevolucion) return conRuc ? 'NC_E_FACTURA' : 'NC_E_TICKET';
+  return conRuc ? 'E_FACTURA' : 'E_TICKET';
 }
 
 export function saleToCfeInput(sale: SaleConItems, cfeConfig: CfeTenantConfig, regimen: RegimenFiscal): CfeInput {
@@ -91,13 +95,15 @@ export function saleToCfeInput(sale: SaleConItems, cfeConfig: CfeTenantConfig, r
     formaPago: sale.forma === 'CREDITO' ? 'CREDITO' : 'CONTADO',
     moneda: 'UYU',
     codMontosBrutos: cfeConfig.codMontosBrutos || codMontosBrutosPorRegimen(regimen),
+    // Devolución: los importes se guardan negativos; el CFE (NC) lleva valores
+    // positivos, así que se toma el valor absoluto de cantidad y descuento.
     items: sale.items.map((it) => ({
       concepto: it.concepto,
       unidad: UNIDAD_MAP[it.unidad] ?? String(it.unidad).toLowerCase(),
-      cantidad: Number(it.cantidad),
+      cantidad: Math.abs(Number(it.cantidad)),
       precio: Number(it.precioUnit),
       iva: IVA_MAP[it.ivaIndicador],
-      ...(Number(it.descuento) > 0 ? { descuento: Number(it.descuento) } : {}),
+      ...(Math.abs(Number(it.descuento)) > 0 ? { descuento: Math.abs(Number(it.descuento)) } : {}),
     })),
   };
 
@@ -109,6 +115,11 @@ export function saleToCfeInput(sale: SaleConItems, cfeConfig: CfeTenantConfig, r
       ...(sale.customer.razonSocial ? { razonSocial: sale.customer.razonSocial } : {}),
       ...(sale.customer.direccion ? { direccion: sale.customer.direccion } : {}),
     };
+  }
+
+  // Referencia al comprobante original (devolución → nota de crédito).
+  if (sale.referenciaCfe) {
+    input.referencia = sale.referenciaCfe;
   }
 
   return input;

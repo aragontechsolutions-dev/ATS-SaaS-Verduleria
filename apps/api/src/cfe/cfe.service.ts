@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { CfeProvider, EstadoDgiResult } from '@ats/cfe';
+import type { CfeProvider, EstadoDgiResult, CfeTipo as CfeDomainTipo } from '@ats/cfe';
 import { CfeError } from '@ats/cfe';
 import { CfeTipo, EstadoDgi, type CfeDocument } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
@@ -54,6 +54,20 @@ export class CfeService {
     })) as SaleConItems | null;
     if (!sale) throw new NotFoundException('Venta no encontrada');
 
+    // Devolución: referencia al comprobante original (para la nota de crédito).
+    if (sale.esDevolucion && sale.referenciaSaleId) {
+      const refDoc = await this.prisma.cfeDocument.findFirst({
+        where: { tenantId, saleId: sale.referenciaSaleId },
+      });
+      if (refDoc?.serie && refDoc.numero != null) {
+        sale.referenciaCfe = {
+          tipo: refDoc.tipo as unknown as CfeDomainTipo,
+          serie: refDoc.serie,
+          numero: refDoc.numero,
+        };
+      }
+    }
+
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       include: { cfeConfig: true },
@@ -74,7 +88,7 @@ export class CfeService {
           tipo: CfeTipo.TICKET_INTERNO,
           estado: EstadoDgi.LOCAL,
           idExterno: sale.idempotencyKey,
-          importeTotal: sale.total,
+          importeTotal: Math.abs(Number(sale.total)),
         },
       });
     }
@@ -111,7 +125,7 @@ export class CfeService {
           caeRangoInicio: result.caeRangoInicio,
           caeRangoFinal: result.caeRangoFinal,
           caeVencimiento: result.caeVencimiento ? new Date(result.caeVencimiento) : null,
-          importeTotal: result.importeTotal ?? sale.total,
+          importeTotal: result.importeTotal ?? Math.abs(Number(sale.total)),
           qrUrl: result.qrUrl,
           ultimoError: null,
         },

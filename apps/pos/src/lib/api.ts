@@ -1,6 +1,6 @@
 // Cliente HTTP del backend @ats/api. En dev, Vite proxya /api → :3000.
 // El tenant y el usuario se mandan por header (foundations); en prod → JWT.
-import type { CartItem, CashSession, CashSummary, CfeSummary, PosCustomer, SalePayment, TipoDocumentoCliente } from './types';
+import type { CartItem, CashSession, CashSummary, CfeSummary, IvaIndicador, MedioPago, PosCustomer, SalePayment, TipoDocumentoCliente } from './types';
 
 import { supabase } from './supabase';
 
@@ -103,6 +103,34 @@ export async function quickCreateCustomer(payload: QuickCustomerPayload): Promis
   return ok(
     await fetch(`${API_BASE}/pos/customers`, { method: 'POST', headers: headers(), body: JSON.stringify(payload) }),
     'customers-quick',
+  );
+}
+
+// --- Devoluciones (nota de crédito) -----------------------------------------
+
+export interface DevolucionItemPayload {
+  productId?: string;
+  concepto: string;
+  unidad: string;
+  cantidad: number;
+  precioUnit: number;
+  descuento?: number;
+  ivaIndicador: IvaIndicador;
+}
+
+export interface CreateDevolucionPayload {
+  idempotencyKey: string;
+  originalSaleId: string;
+  cashSessionId?: string;
+  medio: MedioPago;
+  motivo?: string;
+  items: DevolucionItemPayload[];
+}
+
+export async function postDevolucion(payload: CreateDevolucionPayload): Promise<CreateSaleResponse> {
+  return ok(
+    await fetch(`${API_BASE}/sales/devoluciones`, { method: 'POST', headers: headers(), body: JSON.stringify(payload) }),
+    'devolucion',
   );
 }
 

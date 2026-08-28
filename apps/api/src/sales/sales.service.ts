@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { IvaIndicador, MedioPago, Prisma, SaleStatus, StockMovementType } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { getTenantContext } from '../tenant/tenant-context';
-import type { CreateSaleDto } from './sales.dto';
+import type { CreateDevolucionDto, CreateSaleDto } from './sales.dto';
 
 /** Tasa efectiva por indicador (para desglosar el IVA incluido en el precio). */
 const TASA: Record<IvaIndicador, number> = {
@@ -164,6 +164,169 @@ export class SalesService {
       }
 
       return sale;
+    });
+  }
+
+  /**
+   * Crea una DEVOLUCIÓN (nota de crédito) de una venta. Es idempotente por
+   * idempotencyKey. La devolución se guarda como una venta con importes y pagos
+   * NEGATIVOS y `esDevolucion=true`, referenciando la venta original; así netea
+   * en caja y reportes, restaura el stock y permite emitir la NC (con el CFE
+   * original como referencia). Valida que no se devuelva más de lo vendido.
+   */
+  async createDevolucion(tenantId: string, dto: CreateDevolucionDto) {
+    if (!dto.idempotencyKey) throw new BadRequestException('Falta idempotencyKey');
+    if (!dto.items?.length) throw new BadRequestException('La devolución no tiene ítems');
+
+    const existing = await this.prisma.sale.findUnique({
+      where: { idempotencyKey: dto.idempotencyKey },
+      include: { items: true, payments: true, cfeDocument: true },
+    });
+    if (existing) {
+      if (existing.tenantId !== tenantId) throw new BadRequestException('Clave de otro tenant');
+      return existing;
+    }
+
+    const original = await this.prisma.sale.findFirst({
+      where: { id: dto.originalSaleId, tenantId },
+      include: { items: true },
+    });
+    if (!original) throw new BadRequestException('Venta original no encontrada');
+    if (original.esDevolucion) throw new BadRequestException('No se puede devolver una devolución');
+
+    // Clave por producto (o por concepto si no tiene productId).
+    const keyOf = (x: { productId?: string | null; concepto: string }) => x.productId ?? `c:${x.concepto}`;
+
+    // Vendido y ya devuelto por producto, para no devolver de más.
+    const vendido = new Map<string, number>();
+    for (const it of original.items) vendido.set(keyOf(it), (vendido.get(keyOf(it)) ?? 0) + num(it.cantidad));
+
+    const previas = await this.prisma.saleItem.findMany({
+      where: { tenantId, sale: { is: { referenciaSaleId: original.id, esDevolucion: true } } },
+      select: { productId: true, concepto: true, cantidad: true },
+    });
+    const devuelto = new Map<string, number>();
+    for (const it of previas) devuelto.set(keyOf(it), (devuelto.get(keyOf(it)) ?? 0) + Math.abs(num(it.cantidad)));
+
+    const pedido = new Map<string, number>();
+    for (const it of dto.items) pedido.set(keyOf(it), (pedido.get(keyOf(it)) ?? 0) + it.cantidad);
+    for (const [k, req] of pedido) {
+      const disponible = (vendido.get(k) ?? 0) - (devuelto.get(k) ?? 0);
+      if (req > disponible + 1e-6) {
+        throw new BadRequestException('La cantidad a devolver supera lo disponible de la venta original');
+      }
+    }
+
+    // Ítems de la devolución: cantidades e importes NEGATIVOS.
+    let subtotal = new Prisma.Decimal(0);
+    let descuentoTotal = new Prisma.Decimal(0);
+    let ivaTotal = new Prisma.Decimal(0);
+
+    const items = dto.items.map((it) => {
+      const bruto = new Prisma.Decimal(it.cantidad).mul(it.precioUnit);
+      const desc = new Prisma.Decimal(it.descuento ?? 0);
+      const lineaTotal = bruto.minus(desc);
+      const tasa = TASA[it.ivaIndicador] ?? 0;
+      const ivaLinea = tasa > 0 ? lineaTotal.minus(lineaTotal.div(1 + tasa)) : new Prisma.Decimal(0);
+
+      subtotal = subtotal.plus(bruto);
+      descuentoTotal = descuentoTotal.plus(desc);
+      ivaTotal = ivaTotal.plus(ivaLinea);
+
+      // Costo real de la línea original (para rentabilidad).
+      const orig = original.items.find((o) => keyOf(o) === keyOf(it));
+
+      return {
+        tenantId,
+        productId: it.productId,
+        concepto: it.concepto,
+        unidad: it.unidad,
+        cantidad: new Prisma.Decimal(-it.cantidad),
+        precioUnit: new Prisma.Decimal(it.precioUnit),
+        descuento: desc,
+        ivaIndicador: it.ivaIndicador,
+        costoUnit: orig?.costoUnit ?? null,
+        total: lineaTotal.negated(),
+      };
+    });
+
+    const totalPos = subtotal.minus(descuentoTotal);
+
+    const sucursalId = original.sucursalId ?? (await this.resolveSucursalId(tenantId, { cashSessionId: dto.cashSessionId } as CreateSaleDto));
+
+    // Stock de los productos devueltos en esa sucursal (para reponer).
+    const productIds = [...new Set(dto.items.map((it) => it.productId).filter((x): x is string => !!x))];
+    const stockByProduct = new Map<string, { id: string; cantidad: number; costo: number }>();
+    if (sucursalId && productIds.length) {
+      const stocks = await this.prisma.stock.findMany({ where: { tenantId, sucursalId, productId: { in: productIds } } });
+      for (const s of stocks) stockByProduct.set(s.productId, { id: s.id, cantidad: num(s.cantidad), costo: num(s.costoPromedio) });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const devolucion = await tx.sale.create({
+        data: {
+          tenantId,
+          sucursalId: sucursalId ?? undefined,
+          cashSessionId: dto.cashSessionId,
+          cajeroId: getTenantContext()?.userId,
+          customerId: original.customerId,
+          status: SaleStatus.COMPLETADA,
+          esDevolucion: true,
+          referenciaSaleId: original.id,
+          idempotencyKey: dto.idempotencyKey,
+          fecha: new Date(),
+          subtotal: subtotal.negated(),
+          descuento: descuentoTotal.negated(),
+          ivaTotal: ivaTotal.negated(),
+          total: totalPos.negated(),
+          items: { create: items },
+          payments: { create: [{ tenantId, medio: dto.medio, monto: totalPos.negated(), referencia: dto.motivo }] },
+        },
+        include: { items: true, payments: true, cfeDocument: true },
+      });
+
+      // Reposición de stock (solo productos con stock controlado).
+      const porProducto = new Map<string, number>();
+      for (const it of dto.items) {
+        if (!it.productId) continue;
+        porProducto.set(it.productId, (porProducto.get(it.productId) ?? 0) + it.cantidad);
+      }
+      for (const [productId, cantidad] of porProducto) {
+        const stock = stockByProduct.get(productId);
+        if (!stock || cantidad <= 0) continue;
+        await tx.stock.update({
+          where: { id: stock.id },
+          data: { cantidad: new Prisma.Decimal(stock.cantidad + cantidad) },
+        });
+        await tx.stockMovement.create({
+          data: {
+            tenantId,
+            productId,
+            tipo: StockMovementType.DEVOLUCION,
+            cantidad: new Prisma.Decimal(cantidad),
+            costoUnit: new Prisma.Decimal(stock.costo),
+            motivo: dto.motivo || 'Devolución',
+            refId: devolucion.id,
+          },
+        });
+      }
+
+      // Si se reintegra a cuenta corriente, baja el saldo del cliente.
+      if (original.customerId && dto.medio === MedioPago.CUENTA_CORRIENTE) {
+        const credito = Number(totalPos);
+        const account = await tx.accountReceivable.findUnique({ where: { customerId: original.customerId } });
+        if (account && credito > 0) {
+          await tx.accountReceivable.update({
+            where: { id: account.id },
+            data: { saldo: new Prisma.Decimal(Number(account.saldo) - credito) },
+          });
+          await tx.accountMovement.create({
+            data: { tenantId, accountId: account.id, monto: new Prisma.Decimal(-credito), concepto: 'Devolución', refId: devolucion.id },
+          });
+        }
+      }
+
+      return devolucion;
     });
   }
 

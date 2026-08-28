@@ -87,6 +87,9 @@ export interface OutboxSale {
   vuelto?: number;
   /** Comprador identificado (para CFE). Al backend solo se envía el customerId. */
   customer?: PosCustomer;
+  /** Devolución (nota de crédito): importes negativos y referencia a la venta original. */
+  esDevolucion?: boolean;
+  referenciaSaleId?: string;
   status: OutboxStatus;
   intentos: number;
   ultimoError?: string;
