@@ -264,6 +264,11 @@ button { font: inherit; cursor: pointer; }
 .cobranza-sel__saldo { color: var(--muted); font-size: 14px; }
 .cobranza-sel__saldo strong { color: var(--warn); }
 
+/* Seguridad / PIN */
+.modal-backdrop--top { z-index: 100; }
+.modal--sm { width: 320px; }
+.pin-input { width: 100%; padding: 14px; font-size: 24px; letter-spacing: 8px; text-align: center; border: 1px solid var(--border); border-radius: 10px; margin: 4px 0 10px; }
+
 /* Toast */
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);

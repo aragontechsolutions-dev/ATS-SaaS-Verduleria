@@ -3,6 +3,7 @@ import { getAllSales } from '../lib/db';
 import { printBoleta } from '../lib/boleta';
 import { formatMoney } from '../lib/format';
 import { useToast } from '../lib/toast';
+import { useSecurity } from '../lib/security';
 import type { OutboxSale } from '../lib/types';
 import { BoletaPreviewModal } from './BoletaPreviewModal';
 import { DevolucionModal } from './DevolucionModal';
@@ -25,6 +26,7 @@ const medios = (s: OutboxSale) => [...new Set(s.payments.map((p) => p.medio.toLo
 /** Operaciones realizadas: lista de ventas del dispositivo con su boleta. */
 export function OperationsModal({ sessionId, onClose }: Props) {
   const toast = useToast();
+  const security = useSecurity();
   const [sales, setSales] = useState<OutboxSale[] | null>(null);
   const [detalle, setDetalle] = useState<OutboxSale | null>(null);
   const [devolviendo, setDevolviendo] = useState<OutboxSale | null>(null);
@@ -71,7 +73,7 @@ export function OperationsModal({ sessionId, onClose }: Props) {
                     <button className="btn btn--ghost btn--sm" onClick={() => printBoleta(s)}>🖨</button>
                     <button className="btn btn--ghost btn--sm" onClick={() => setDetalle(s)}>Ver</button>
                     {devolvible && (
-                      <button className="btn btn--ghost btn--sm" onClick={() => setDevolviendo(s)} title="Devolver">↩ Devolver</button>
+                      <button className="btn btn--ghost btn--sm" onClick={() => void security.requireAuth('return').then((ok) => ok && setDevolviendo(s))} title="Devolver">↩ Devolver</button>
                     )}
                   </div>
                 </div>

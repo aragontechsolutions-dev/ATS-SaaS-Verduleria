@@ -20,6 +20,7 @@ import { CobranzaModal } from './components/CobranzaModal';
 import { requiereIdentificacion } from './lib/fiscal';
 import { discountMoney, type DiscountSpec } from './lib/discount';
 import { useToast } from './lib/toast';
+import { useSecurity } from './lib/security';
 import { formatMoney } from './lib/format';
 import { useCatalog } from './hooks/useCatalog';
 import { useOnline } from './hooks/useOnline';
@@ -59,6 +60,7 @@ export default function App() {
 
 function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void }) {
   const toast = useToast();
+  const security = useSecurity();
   const online = useOnline();
   const { products, listaPrecio, loading, fromCache } = useCatalog();
   const cash = useCash();
@@ -407,6 +409,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         onOpenOps={() => setOpsOpen(true)}
         onOpenPrice={openPriceCheck}
         onCobranza={() => setCobranzaOpen(true)}
+        onOpenSecurity={security.openSettings}
         onMovimiento={cash.session ? () => setMovingCash(true) : undefined}
         onLogout={onLogout}
       />
@@ -440,13 +443,13 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
           onIdentify={() => setCustomerOpen(true)}
           onClearCustomer={() => setCustomer(null)}
           onSetQty={cart.setQty}
-          onLineDiscount={(index) => setDiscountTarget({ kind: 'line', index })}
-          onGlobalDiscount={() => setDiscountTarget({ kind: 'global' })}
+          onLineDiscount={(index) => void security.requireAuth('discount').then((ok) => ok && setDiscountTarget({ kind: 'line', index }))}
+          onGlobalDiscount={() => void security.requireAuth('discount').then((ok) => ok && setDiscountTarget({ kind: 'global' }))}
           onSuspend={onSuspend}
           onOpenParked={() => setParkedOpen(true)}
           parkedCount={parkedCount}
           onRemove={cart.remove}
-          onClear={cart.clear}
+          onClear={() => void security.requireAuth('void').then((ok) => ok && cart.clear())}
           onCheckout={onCheckout}
           onAbrirCaja={() => setOpeningCash(true)}
         />

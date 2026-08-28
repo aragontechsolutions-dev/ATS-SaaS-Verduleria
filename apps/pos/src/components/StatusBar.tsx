@@ -17,6 +17,7 @@ interface Props {
   onOpenOps: () => void;
   onOpenPrice?: () => void;
   onCobranza?: () => void;
+  onOpenSecurity?: () => void;
   onMovimiento?: () => void;
   onLogout: () => void;
 }
@@ -37,6 +38,7 @@ export function StatusBar({
   onOpenOps,
   onOpenPrice,
   onCobranza,
+  onOpenSecurity,
   onMovimiento,
   onLogout,
 }: Props) {
@@ -75,6 +77,9 @@ export function StatusBar({
         <button className={`sbtn ${scaleLive ? 'sbtn--on' : ''}`} onClick={onOpenScale} title="Balanza">
           ⚖ Balanza{scaleLive ? ' ●' : ''}
         </button>
+        {onOpenSecurity && (
+          <button className="sbtn" onClick={onOpenSecurity} title="Seguridad / PIN de supervisor">🔒</button>
+        )}
         {userEmail && <span className="statusbar__tenant" title={userEmail}>{userEmail}</span>}
         <button className="sbtn sbtn--ghost" onClick={onLogout} title="Cerrar sesión">Salir</button>
       </div>
