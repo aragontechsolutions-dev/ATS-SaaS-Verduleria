@@ -245,6 +245,19 @@ button { font: inherit; cursor: pointer; }
 .parked__total { min-width: 90px; text-align: right; }
 .parked__actions { display: flex; gap: 6px; }
 
+/* Verificador de precio */
+.pc-list { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+.pc-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); cursor: pointer; text-align: left; }
+.pc-row:hover { border-color: var(--green); }
+.pc-row__name { font-weight: 600; }
+.pc-row__price { font-weight: 700; white-space: nowrap; }
+.pc-row__price small, .pc-card__unit { color: var(--muted); font-weight: 500; font-size: 0.7em; }
+.pc-card { text-align: center; padding: 12px 8px; }
+.pc-card__name { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+.pc-card__price { font-size: 44px; font-weight: 800; color: var(--green-dark); line-height: 1.1; }
+.pc-card__meta { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 16px 0; }
+.pc-card .btn { min-width: 180px; }
+
 /* Toast */
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
