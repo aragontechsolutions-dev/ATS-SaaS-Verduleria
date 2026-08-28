@@ -68,8 +68,8 @@ export function boletaHtml(sale: OutboxSale): string {
   .cli { font-size: 11px; margin-top: 8px; border-top: 1px dashed #bbb; padding-top: 6px; }
   .gracias { text-align: center; font-size: 11px; margin-top: 10px; }
 </style></head><body>
-  <h1>BOLETA</h1>
-  <div class="meta">ATS SISGESVER · ${fecha}</div>
+  <h1>${sale.esDevolucion ? 'NOTA DE CRÉDITO' : 'BOLETA'}</h1>
+  <div class="meta">ATS SISGESVER · ${fecha}${sale.esDevolucion ? '<br>DEVOLUCIÓN' : ''}</div>
   <table>${lineas}</table>
   ${ivaRows ? `<div class="sec">${ivaRows}</div>` : ''}
   ${descuentoTotal > 0 ? `<div class="sec"><div class="row"><span>Subtotal</span><span>${formatMoney(brutoTotal)}</span></div><div class="row"><span>Descuento</span><span>−${formatMoney(descuentoTotal)}</span></div></div>` : ''}

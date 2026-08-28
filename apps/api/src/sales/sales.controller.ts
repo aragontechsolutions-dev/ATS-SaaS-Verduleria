@@ -4,7 +4,7 @@ import { TenantGuard } from '../tenant/tenant.guard';
 import { EntitlementsGuard } from '../entitlements/entitlements.guard';
 import { RequiresModule } from '../entitlements/requires-module.decorator';
 import { SalesService } from './sales.service';
-import { CreateSaleDto } from './sales.dto';
+import { CreateDevolucionDto, CreateSaleDto } from './sales.dto';
 
 @Controller('sales')
 @UseGuards(TenantGuard, EntitlementsGuard)
@@ -16,6 +16,12 @@ export class SalesController {
   @Post()
   async create(@CurrentTenant('tenantId') tenantId: string, @Body() dto: CreateSaleDto) {
     return this.sales.createSale(tenantId, dto);
+  }
+
+  /** Crea una devolución (nota de crédito) de una venta. Idempotente. */
+  @Post('devoluciones')
+  async devolucion(@CurrentTenant('tenantId') tenantId: string, @Body() dto: CreateDevolucionDto) {
+    return this.sales.createDevolucion(tenantId, dto);
   }
 
   @Get(':id')

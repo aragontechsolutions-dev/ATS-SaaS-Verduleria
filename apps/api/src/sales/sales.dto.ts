@@ -56,6 +56,66 @@ export class CreateSalePaymentDto {
   referencia?: string;
 }
 
+export class DevolucionItemDto {
+  @IsOptional()
+  @IsString()
+  productId?: string;
+
+  @IsString()
+  @MinLength(1)
+  concepto!: string;
+
+  @IsEnum(UnidadMedida)
+  unidad!: UnidadMedida;
+
+  /** Cantidad a devolver (positiva). */
+  @IsNumber()
+  @Min(0.001)
+  cantidad!: number;
+
+  @IsNumber()
+  @Min(0)
+  precioUnit!: number;
+
+  /** Descuento proporcional de la línea devuelta. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  descuento?: number;
+
+  @IsEnum(IvaIndicador)
+  ivaIndicador!: IvaIndicador;
+}
+
+export class CreateDevolucionDto {
+  /** Idempotencia: uuid del POS. */
+  @IsString()
+  @MinLength(8)
+  idempotencyKey!: string;
+
+  /** Venta original (id del servidor) que se devuelve. */
+  @IsString()
+  originalSaleId!: string;
+
+  @IsOptional()
+  @IsString()
+  cashSessionId?: string;
+
+  /** Medio por el que se reintegra el dinero. */
+  @IsEnum(MedioPago)
+  medio!: MedioPago;
+
+  @IsOptional()
+  @IsString()
+  motivo?: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => DevolucionItemDto)
+  items!: DevolucionItemDto[];
+}
+
 export class CreateSaleDto {
   /** Idempotencia: uuid generado en el POS (sobrevive al sync offline). */
   @IsString()
