@@ -1,11 +1,11 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { Role } from '@ats/database';
 import { CurrentTenant } from '../tenant/current-tenant.decorator';
 import { TenantGuard } from '../tenant/tenant.guard';
 import { RolesGuard } from '../tenant/roles.guard';
 import { Roles } from '../tenant/roles.decorator';
 import { CustomersService } from './customers.service';
-import { QuickCustomerDto } from './customers.dto';
+import { CobranzaDto, QuickCustomerDto } from './customers.dto';
 
 /**
  * Identificación fiscal del comprador desde el POS. A diferencia del módulo de
@@ -30,5 +30,22 @@ export class PosCustomersController {
   @Post()
   quick(@CurrentTenant('tenantId') tenantId: string, @Body() dto: QuickCustomerDto) {
     return this.customers.quickCreate(tenantId, dto);
+  }
+
+  /** Clientes con deuda (saldo > 0), para cobrar. */
+  @Get('deudores')
+  deudores(@CurrentTenant('tenantId') tenantId: string, @Query('q') q?: string) {
+    return this.customers.deudores(tenantId, q);
+  }
+
+  /** Registra una cobranza de cuenta corriente (baja saldo; ingresa efectivo a caja). */
+  @Post(':id/cobranza')
+  cobranza(
+    @CurrentTenant('tenantId') tenantId: string,
+    @CurrentTenant('userId') userId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: CobranzaDto,
+  ) {
+    return this.customers.cobranza(tenantId, id, dto, userId);
   }
 }

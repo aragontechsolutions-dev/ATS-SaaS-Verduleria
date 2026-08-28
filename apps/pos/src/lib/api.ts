@@ -106,6 +106,39 @@ export async function quickCreateCustomer(payload: QuickCustomerPayload): Promis
   );
 }
 
+// --- Cuenta corriente (cobranza) --------------------------------------------
+
+export interface Deudor {
+  id: string;
+  nombre: string;
+  documento: string | null;
+  saldo: number;
+  limiteCredito: number;
+}
+
+export async function getDeudores(q: string): Promise<Deudor[]> {
+  const qs = q.trim() ? `?q=${encodeURIComponent(q.trim())}` : '';
+  return ok(await fetch(`${API_BASE}/pos/customers/deudores${qs}`, { headers: headers() }), 'deudores');
+}
+
+export interface CobranzaPayload {
+  monto: number;
+  medio: MedioPago;
+  cashSessionId?: string;
+  concepto?: string;
+}
+
+export async function postCobranza(customerId: string, payload: CobranzaPayload): Promise<{ saldo: number }> {
+  return ok(
+    await fetch(`${API_BASE}/pos/customers/${customerId}/cobranza`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify(payload),
+    }),
+    'cobranza',
+  );
+}
+
 // --- Devoluciones (nota de crédito) -----------------------------------------
 
 export interface DevolucionItemPayload {

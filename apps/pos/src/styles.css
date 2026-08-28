@@ -258,6 +258,17 @@ button { font: inherit; cursor: pointer; }
 .pc-card__meta { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 16px 0; }
 .pc-card .btn { min-width: 180px; }
 
+/* Cobranza de cuenta corriente */
+.cobranza-sel { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 14px; }
+.cobranza-sel__name { font-weight: 700; }
+.cobranza-sel__saldo { color: var(--muted); font-size: 14px; }
+.cobranza-sel__saldo strong { color: var(--warn); }
+
+/* Seguridad / PIN */
+.modal-backdrop--top { z-index: 100; }
+.modal--sm { width: 320px; }
+.pin-input { width: 100%; padding: 14px; font-size: 24px; letter-spacing: 8px; text-align: center; border: 1px solid var(--border); border-radius: 10px; margin: 4px 0 10px; }
+
 /* Toast */
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
