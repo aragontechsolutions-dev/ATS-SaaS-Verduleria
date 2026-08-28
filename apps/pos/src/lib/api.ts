@@ -57,6 +57,7 @@ export interface CatalogApiResponse {
   updatedAt: string;
   listaPrecio: string | null;
   products: import('./types').CatalogProduct[];
+  promos?: import('./promo').Promo[];
 }
 
 export async function fetchCatalog(): Promise<CatalogApiResponse> {

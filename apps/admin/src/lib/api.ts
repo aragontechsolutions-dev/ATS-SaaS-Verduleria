@@ -584,3 +584,43 @@ export const getCashOperations = async (f: CashOpsFilters = {}) => {
     'cash-operations',
   );
 };
+
+// --- Promociones ------------------------------------------------------------
+
+export type PromoTipo = 'NXM' | 'CANTIDAD';
+
+export interface Promo {
+  id: string;
+  productId: string;
+  productoNombre: string;
+  nombre: string;
+  tipo: PromoTipo;
+  llevaN: number;
+  pagaM: number | null;
+  precioTotal: number | null;
+  desde: string | null;
+  hasta: string | null;
+  activo: boolean;
+}
+
+export interface PromoInput {
+  productId: string;
+  nombre: string;
+  tipo: PromoTipo;
+  llevaN: number;
+  pagaM?: number;
+  precioTotal?: number;
+  activo?: boolean;
+}
+
+export const getPromos = async () =>
+  ok<Promo[]>(await fetch(`${API_BASE}/products/promos`, { headers: headers() }), 'promos');
+
+export const createPromo = async (input: PromoInput) =>
+  ok<Promo>(await fetch(`${API_BASE}/products/promos`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }), 'createPromo');
+
+export const updatePromo = async (id: string, patch: Partial<PromoInput>) =>
+  ok<Promo>(await fetch(`${API_BASE}/products/promos/${id}`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) }), 'updatePromo');
+
+export const deletePromo = async (id: string) =>
+  ok<{ ok: boolean }>(await fetch(`${API_BASE}/products/promos/${id}`, { method: 'DELETE', headers: headers() }), 'deletePromo');

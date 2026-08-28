@@ -1,6 +1,9 @@
 import { useReducer } from 'react';
 import type { CartItem, CatalogProduct, IvaIndicador, PosCustomer } from '../lib/types';
 import { discountMoney, distribuir, round2, type DiscountSpec } from '../lib/discount';
+import { promoDiscount, type Promo } from '../lib/promo';
+
+export type PromoMap = Map<string, Promo>;
 
 export interface CartState {
   items: CartItem[];
@@ -94,30 +97,45 @@ export function lineTotal(item: CartItem): number {
   return lineBruto(item) - (item.descuento ?? 0);
 }
 
-/** Subtotal tras descuentos por línea (antes del descuento global). */
-export function subtotalConLinea(items: CartItem[]): number {
-  return items.reduce((sum, it) => sum + lineTotal(it), 0);
+/** Descuento de la línea antes del global: manual + promo (acotado al bruto). */
+export function lineDescBase(item: CartItem, promos?: PromoMap): number {
+  const bruto = lineBruto(item);
+  const manual = item.descuento ?? 0;
+  const promo =
+    !item.esPesable && item.productId && promos
+      ? promoDiscount(promos.get(item.productId), item.cantidad, item.precioUnit)
+      : 0;
+  return Math.min(bruto, round2(manual + promo));
 }
 
-/** Importe en $ del descuento global sobre el subtotal (tras descuentos de línea). */
-export function globalDiscountMoney(state: CartState): number {
-  return discountMoney(subtotalConLinea(state.items), state.globalDiscount);
+/** Total de la línea tras descuentos de línea + promo (antes del global). */
+function lineTotalBase(item: CartItem, promos?: PromoMap): number {
+  return lineBruto(item) - lineDescBase(item, promos);
+}
+
+/** Subtotal tras descuentos por línea y promos (antes del descuento global). */
+export function subtotalConLinea(items: CartItem[], promos?: PromoMap): number {
+  return items.reduce((sum, it) => sum + lineTotalBase(it, promos), 0);
+}
+
+/** Importe en $ del descuento global sobre el subtotal (tras línea + promos). */
+export function globalDiscountMoney(state: CartState, promos?: PromoMap): number {
+  return discountMoney(subtotalConLinea(state.items, promos), state.globalDiscount);
 }
 
 /**
- * Ítems "efectivos": el descuento por línea + la parte prorrateada del descuento
- * global. Es lo que se muestra en el carrito y lo que se envía al backend, de
- * modo que total e IVA queden consistentes.
+ * Ítems "efectivos": descuento por línea + promo + la parte prorrateada del
+ * descuento global. Es lo que se muestra en el carrito y lo que se envía al
+ * backend, de modo que total e IVA queden consistentes.
  */
-export function effectiveItems(state: CartState): CartItem[] {
-  const gMoney = globalDiscountMoney(state);
-  if (gMoney <= 0) return state.items;
-  const bases = state.items.map((it) => lineTotal(it)); // base repartible por línea
-  const shares = distribuir(bases, gMoney);
-  return state.items.map((it, i) => ({
-    ...it,
-    descuento: round2((it.descuento ?? 0) + shares[i]),
-  }));
+export function effectiveItems(state: CartState, promos?: PromoMap): CartItem[] {
+  const gMoney = globalDiscountMoney(state, promos);
+  const bases = state.items.map((it) => lineTotalBase(it, promos));
+  const shares = gMoney > 0 ? distribuir(bases, gMoney) : bases.map(() => 0);
+  return state.items.map((it, i) => {
+    const desc = round2(lineDescBase(it, promos) + shares[i]);
+    return desc > 0 ? { ...it, descuento: desc } : { ...it, descuento: undefined };
+  });
 }
 
 export interface CartTotals {
@@ -131,19 +149,19 @@ export interface CartTotals {
   globalDescuento: number;
 }
 
-export function cartTotals(state: CartState): CartTotals {
+export function cartTotals(state: CartState, promos?: PromoMap): CartTotals {
   const bruto = round2(state.items.reduce((s, it) => s + lineBruto(it), 0));
-  const globalDescuento = globalDiscountMoney(state);
-  const total = round2(subtotalConLinea(state.items) - globalDescuento);
+  const globalDescuento = globalDiscountMoney(state, promos);
+  const total = round2(subtotalConLinea(state.items, promos) - globalDescuento);
   return { bruto, descuento: round2(bruto - total), total, globalDescuento };
 }
 
-export function useCart() {
+export function useCart(promos?: PromoMap) {
   const [state, dispatch] = useReducer(reducer, { items: [] });
-  const totals = cartTotals(state);
+  const totals = cartTotals(state, promos);
   return {
     items: state.items,
-    displayItems: effectiveItems(state),
+    displayItems: effectiveItems(state, promos),
     globalDiscount: state.globalDiscount ?? null,
     totals,
     total: totals.total,

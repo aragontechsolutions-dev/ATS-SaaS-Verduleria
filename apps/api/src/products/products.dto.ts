@@ -1,9 +1,10 @@
-import { IvaIndicador, UnidadMedida } from '@ats/database';
+import { IvaIndicador, PromoTipo, UnidadMedida } from '@ats/database';
 import {
   IsBoolean,
   IsEnum,
   IsIn,
   IsInt,
+  IsISO8601,
   IsNumber,
   IsOptional,
   IsString,
@@ -166,4 +167,84 @@ export class BulkPriceDto {
   @IsNumber()
   @Min(0)
   redondear?: number;
+}
+
+/** Promoción de un producto (2x1, NxM, o N por un precio total). */
+export class CreatePromoDto {
+  @IsString()
+  productId!: string;
+
+  @IsString()
+  @MinLength(1)
+  nombre!: string;
+
+  @IsEnum(PromoTipo)
+  tipo!: PromoTipo;
+
+  /** Cantidad que dispara la promo (N). */
+  @IsInt()
+  @Min(2)
+  llevaN!: number;
+
+  /** NXM: cuántas se pagan (M < N). */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  pagaM?: number;
+
+  /** CANTIDAD: precio total por llevar N. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  precioTotal?: number;
+
+  @IsOptional()
+  @IsISO8601()
+  desde?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  hasta?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  activo?: boolean;
+}
+
+export class UpdatePromoDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  nombre?: string;
+
+  @IsOptional()
+  @IsEnum(PromoTipo)
+  tipo?: PromoTipo;
+
+  @IsOptional()
+  @IsInt()
+  @Min(2)
+  llevaN?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  pagaM?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  precioTotal?: number;
+
+  @IsOptional()
+  @IsISO8601()
+  desde?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  hasta?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  activo?: boolean;
 }

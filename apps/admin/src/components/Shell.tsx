@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ProductsPage } from './ProductsPage';
 import { CategoriasPage } from './CategoriasPage';
+import { PromocionesPage } from './PromocionesPage';
 import { ComprasPage } from './ComprasPage';
 import { StockPage } from './StockPage';
 import { CajaPage } from './CajaPage';
@@ -11,12 +12,13 @@ import { UsersPage } from './UsersPage';
 import { ReportsPage } from './ReportsPage';
 import { SettingsPage } from './SettingsPage';
 
-type Tab = 'reportes' | 'productos' | 'categorias' | 'compras' | 'stock' | 'caja' | 'sucursales' | 'mayoristas' | 'miweb' | 'usuarios' | 'config';
+type Tab = 'reportes' | 'productos' | 'categorias' | 'promos' | 'compras' | 'stock' | 'caja' | 'sucursales' | 'mayoristas' | 'miweb' | 'usuarios' | 'config';
 
 const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'reportes', label: 'Reportes', icon: '📊' },
   { id: 'productos', label: 'Productos', icon: '🥬' },
   { id: 'categorias', label: 'Categorías', icon: '🏷️' },
+  { id: 'promos', label: 'Promociones', icon: '🎉' },
   { id: 'compras', label: 'Compras', icon: '🛒' },
   { id: 'stock', label: 'Stock', icon: '📦' },
   { id: 'caja', label: 'Caja', icon: '💰' },
@@ -31,6 +33,7 @@ const PAGES: Record<Tab, JSX.Element> = {
   reportes: <ReportsPage />,
   productos: <ProductsPage />,
   categorias: <CategoriasPage />,
+  promos: <PromocionesPage />,
   compras: <ComprasPage />,
   stock: <StockPage />,
   caja: <CajaPage />,

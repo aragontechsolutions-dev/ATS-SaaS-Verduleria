@@ -243,6 +243,7 @@ model Tenant {
   products      Product[]
   categorias    Categoria[]
   priceLists    PriceList[]
+  promos        Promo[]
   customers     Customer[]
   suppliers     Supplier[]
   purchases     Purchase[]
@@ -530,6 +531,7 @@ model Product {
   tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   categoria   Categoria?      @relation(fields: [categoriaId], references: [id])
   priceItems  PriceListItem[]
+  promos      Promo[]
   saleItems   SaleItem[]
   purchaseItems PurchaseItem[]
   stockItems  Stock[]
@@ -541,6 +543,41 @@ model Product {
   @@index([tenantId])
   @@index([tenantId, categoriaId])
   @@index([tenantId, activo])
+}
+
+/// Tipo de promoción del POS.
+enum PromoTipo {
+  NXM // lleva N, paga M (2x1 = lleva 2 paga 1)
+  CANTIDAD // lleva N por un precio total (3 por $100)
+}
+
+/// Promoción por producto (se aplica automáticamente en el POS).
+model Promo {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @db.Uuid
+  productId String    @db.Uuid
+  nombre    String
+  tipo      PromoTipo
+  /// Cantidad que dispara la promo (N).
+  llevaN    Int
+  /// NXM: cuántas se pagan (M).
+  pagaM     Int?
+  /// CANTIDAD: precio total por llevar N.
+  precioTotal Decimal? @db.Decimal(14, 2)
+
+  desde  DateTime?
+  hasta  DateTime?
+  activo Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, activo])
+  @@index([productId])
 }
 
 model PriceList {

@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import type { CartItem, PosCustomer } from '../lib/types';
 import { esEfactura } from '../lib/types';
-import { lineBruto, lineTotal, type CartTotals } from '../state/cart';
+import { lineBruto, lineTotal, type CartTotals, type PromoMap } from '../state/cart';
+import { promoLabel } from '../lib/promo';
 import { formatMoney, formatQty, ivaIncluido, TASA_LABEL } from '../lib/format';
 
 interface Props {
   items: CartItem[];
   totals: CartTotals;
+  promos?: PromoMap;
   hayGlobalDiscount?: boolean;
   sinCaja?: boolean;
   customer?: PosCustomer | null;
@@ -28,6 +30,7 @@ interface Props {
 export function Cart({
   items,
   totals,
+  promos,
   hayGlobalDiscount,
   sinCaja,
   customer,
@@ -73,6 +76,12 @@ export function Cart({
                   {TASA_LABEL[it.ivaIndicador] ?? it.ivaIndicador}
                   {iva > 0 && ` · ${formatMoney(iva)}`}
                   {desc > 0 && <span className="cart__desc"> · −{formatMoney(desc)}</span>}
+                  {(() => {
+                    const promo = !it.esPesable && it.productId ? promos?.get(it.productId) : undefined;
+                    return promo && it.cantidad >= promo.llevaN
+                      ? <span className="cart__promo">{promoLabel(promo)}</span>
+                      : null;
+                  })()}
                 </span>
               </div>
               <div className="cart__qty">
