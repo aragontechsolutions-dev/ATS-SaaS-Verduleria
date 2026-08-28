@@ -1,4 +1,4 @@
-import { TipoDocumentoCliente } from '@ats/database';
+import { MedioPago, TipoDocumentoCliente } from '@ats/database';
 import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
 
 export class CreateCustomerDto {
@@ -124,6 +124,27 @@ export class PaymentDto {
   @IsNumber()
   @Min(0.01)
   monto!: number;
+
+  @IsOptional()
+  @IsString()
+  concepto?: string;
+}
+
+/**
+ * Cobranza desde el POS: baja el saldo de la cuenta corriente y, si es en
+ * efectivo con un turno de caja abierto, ingresa el efectivo a la caja.
+ */
+export class CobranzaDto {
+  @IsNumber()
+  @Min(0.01)
+  monto!: number;
+
+  @IsEnum(MedioPago)
+  medio!: MedioPago;
+
+  @IsOptional()
+  @IsString()
+  cashSessionId?: string;
 
   @IsOptional()
   @IsString()

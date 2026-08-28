@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, TipoDocumentoCliente } from '@ats/database';
+import { CashMovementTipo, CashSessionStatus, MedioPago, Prisma, TipoDocumentoCliente } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
-import type { CreateCustomerDto, ChargeDto, PaymentDto, QuickCustomerDto, UpdateCustomerDto } from './customers.dto';
+import type { CobranzaDto, CreateCustomerDto, ChargeDto, PaymentDto, QuickCustomerDto, UpdateCustomerDto } from './customers.dto';
 
 const num = (v: Prisma.Decimal | number | null | undefined): number => (v == null ? 0 : Number(v));
 
@@ -55,6 +55,78 @@ export class CustomersService {
       },
     });
     return this.toFiscalRow(c);
+  }
+
+  /** Clientes con deuda (saldo > 0), para cobrar desde el POS. */
+  async deudores(tenantId: string, q?: string, limit = 30) {
+    const term = (q ?? '').trim();
+    const rows = await this.prisma.customer.findMany({
+      where: {
+        tenantId,
+        activo: true,
+        account: { is: { saldo: { gt: 0 } } },
+        ...(term
+          ? { OR: [{ nombre: { contains: term, mode: 'insensitive' } }, { documento: { contains: term } }] }
+          : {}),
+      },
+      include: { account: true },
+      orderBy: { nombre: 'asc' },
+      take: limit,
+    });
+    return rows.map((c) => ({
+      id: c.id,
+      nombre: c.nombre,
+      documento: c.documento,
+      saldo: num(c.account?.saldo),
+      limiteCredito: num(c.limiteCredito),
+    }));
+  }
+
+  /**
+   * Cobranza desde el POS: baja el saldo de la cuenta corriente y, si es en
+   * efectivo con un turno abierto, ingresa el efectivo a la caja (para que el
+   * arqueo cuadre). En medios electrónicos solo baja el saldo (fue al banco).
+   */
+  async cobranza(tenantId: string, customerId: string, dto: CobranzaDto, userId?: string) {
+    if (!(dto.monto > 0)) throw new BadRequestException('El monto debe ser mayor a 0');
+    const customer = await this.prisma.customer.findFirst({
+      where: { id: customerId, tenantId },
+      select: { id: true, nombre: true },
+    });
+    if (!customer) throw new NotFoundException('Cliente no encontrado');
+
+    return this.prisma.$transaction(async (tx) => {
+      const account = await this.ensureAccount(tx, tenantId, customerId);
+      const saldo = num(account.saldo) - dto.monto;
+      await tx.accountReceivable.update({ where: { id: account.id }, data: { saldo: new Prisma.Decimal(saldo) } });
+      await tx.accountMovement.create({
+        data: {
+          tenantId,
+          accountId: account.id,
+          monto: new Prisma.Decimal(-dto.monto),
+          concepto: dto.concepto?.trim() || `Cobranza (${dto.medio.toLowerCase().replace(/_/g, ' ')})`,
+        },
+      });
+
+      // En efectivo con caja abierta: ingresa el efectivo al turno.
+      if (dto.medio === MedioPago.EFECTIVO && dto.cashSessionId) {
+        const session = await tx.cashSession.findFirst({ where: { id: dto.cashSessionId, tenantId } });
+        if (session && session.status !== CashSessionStatus.CERRADA) {
+          await tx.cashMovement.create({
+            data: {
+              tenantId,
+              cashSessionId: dto.cashSessionId,
+              userId,
+              tipo: CashMovementTipo.INGRESO,
+              monto: new Prisma.Decimal(dto.monto),
+              motivo: `Cobranza cta. cte. — ${customer.nombre}`,
+            },
+          });
+        }
+      }
+
+      return { saldo: Number(saldo.toFixed(2)) };
+    });
   }
 
   async create(tenantId: string, dto: CreateCustomerDto) {

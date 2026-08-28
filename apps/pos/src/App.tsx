@@ -16,6 +16,7 @@ import { CustomerPickerModal } from './components/CustomerPickerModal';
 import { DiscountModal } from './components/DiscountModal';
 import { ParkedModal } from './components/ParkedModal';
 import { PriceCheckModal } from './components/PriceCheckModal';
+import { CobranzaModal } from './components/CobranzaModal';
 import { requiereIdentificacion } from './lib/fiscal';
 import { discountMoney, type DiscountSpec } from './lib/discount';
 import { useToast } from './lib/toast';
@@ -80,6 +81,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const [parkedCount, setParkedCount] = useState(0);
   const [priceCheckOpen, setPriceCheckOpen] = useState(false);
   const [checkedProduct, setCheckedProduct] = useState<CatalogProduct | null>(null);
+  const [cobranzaOpen, setCobranzaOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const multBufRef = useRef('');
   const multTimeRef = useRef(0);
@@ -299,11 +301,12 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
 
   const anyModalOpen =
     paying || openingCash || closingCash || scaleOpen || opsOpen || movingCash ||
-    customerOpen || !!discountTarget || !!ticket || !!weighing || parkedOpen || priceCheckOpen;
+    customerOpen || !!discountTarget || !!ticket || !!weighing || parkedOpen || priceCheckOpen || cobranzaOpen;
 
   // Cierra el modal de nivel superior con Escape. Devuelve true si cerró alguno.
   const closeTopModal = useCallback((): boolean => {
     if (ticket) return setTicket(null), true;
+    if (cobranzaOpen) return setCobranzaOpen(false), true;
     if (priceCheckOpen) return setPriceCheckOpen(false), true;
     if (parkedOpen) return setParkedOpen(false), true;
     if (discountTarget) return setDiscountTarget(null), true;
@@ -316,7 +319,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     if (opsOpen) return setOpsOpen(false), true;
     if (weighing) return setWeighing(null), true;
     return false;
-  }, [ticket, priceCheckOpen, parkedOpen, discountTarget, customerOpen, paying, movingCash, closingCash, openingCash, scaleOpen, opsOpen, weighing]);
+  }, [ticket, cobranzaOpen, priceCheckOpen, parkedOpen, discountTarget, customerOpen, paying, movingCash, closingCash, openingCash, scaleOpen, opsOpen, weighing]);
 
   const openPriceCheck = useCallback(() => { setCheckedProduct(null); setPriceCheckOpen(true); }, []);
 
@@ -403,6 +406,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         onOpenScale={() => setScaleOpen(true)}
         onOpenOps={() => setOpsOpen(true)}
         onOpenPrice={openPriceCheck}
+        onCobranza={() => setCobranzaOpen(true)}
         onMovimiento={cash.session ? () => setMovingCash(true) : undefined}
         onLogout={onLogout}
       />
@@ -479,6 +483,20 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
           product={checkedProduct}
           onSelect={setCheckedProduct}
           onClose={() => setPriceCheckOpen(false)}
+        />
+      )}
+
+      {cobranzaOpen && (
+        <CobranzaModal
+          cashSessionId={cash.session?.id}
+          onClose={() => setCobranzaOpen(false)}
+          onDone={(monto, medio, cliente) => {
+            setCobranzaOpen(false);
+            toast.success(
+              `Cobranza · ${formatMoney(monto)}`,
+              `${cliente} — ${medio.toLowerCase().replace(/_/g, ' ')}`,
+            );
+          }}
         />
       )}
 

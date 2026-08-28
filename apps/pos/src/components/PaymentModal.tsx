@@ -12,12 +12,14 @@ interface Props {
   onCancel: () => void;
 }
 
-const MEDIOS: Array<{ key: MedioPago; label: string }> = [
+const MEDIOS: Array<{ key: MedioPago; label: string; requiereCliente?: boolean }> = [
   { key: 'EFECTIVO', label: '💵 Efectivo' },
   { key: 'DEBITO', label: '💳 Débito' },
   { key: 'CREDITO', label: '💳 Crédito' },
   { key: 'MERCADO_PAGO', label: '📱 QR / MP' },
   { key: 'TRANSFERENCIA', label: '🏦 Transfer.' },
+  // Fiado: requiere comprador identificado (se carga a su cuenta corriente).
+  { key: 'CUENTA_CORRIENTE', label: '📒 Cuenta cte.', requiereCliente: true },
 ];
 
 const labelDe = (m: MedioPago) => MEDIOS.find((x) => x.key === m)?.label ?? m;
@@ -77,7 +79,7 @@ export function PaymentModal({ total, customer, requiereIdent, onConfirm, onCanc
 
         <p className="modal__sub">Agregá uno o varios medios (pago mixto).</p>
         <div className="medios">
-          {MEDIOS.map((m) => (
+          {MEDIOS.filter((m) => !m.requiereCliente || customer).map((m) => (
             <button key={m.key} className="medio" onClick={() => addMedio(m.key)}>
               {m.label}
             </button>
