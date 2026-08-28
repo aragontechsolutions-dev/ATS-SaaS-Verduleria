@@ -88,10 +88,13 @@ export function OperationsModal({ sessionId, onClose }: Props) {
           sale={devolviendo}
           cashSessionId={sessionId}
           onClose={() => setDevolviendo(null)}
-          onDone={(monto) => {
+          onDone={(monto, sincronizada) => {
             setDevolviendo(null);
             cargar();
-            toast.success(`Devolución registrada · ${formatMoney(monto)}`, 'Nota de crédito emitida');
+            toast.success(
+              `Devolución registrada · ${formatMoney(monto)}`,
+              sincronizada ? 'Nota de crédito emitida' : 'Se sincroniza y emite al reconectar',
+            );
           }}
         />
       )}

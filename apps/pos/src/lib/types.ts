@@ -90,6 +90,8 @@ export interface OutboxSale {
   /** Devolución (nota de crédito): importes negativos y referencia a la venta original. */
   esDevolucion?: boolean;
   referenciaSaleId?: string;
+  /** Motivo de la devolución (se envía al backend al sincronizar). */
+  motivo?: string;
   status: OutboxStatus;
   intentos: number;
   ultimoError?: string;
