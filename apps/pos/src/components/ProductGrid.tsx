@@ -31,7 +31,11 @@ export function ProductGrid({ products, onPick, searchRef, onMultiplier }: Props
     return products.filter((p) => {
       if (cat && p.categoriaId !== cat) return false;
       if (!term) return true;
-      return p.nombre.toLowerCase().includes(term) || String(p.plu ?? '').includes(term);
+      return (
+        p.nombre.toLowerCase().includes(term) ||
+        String(p.plu ?? '').includes(term) ||
+        (p.codigoBarras?.toLowerCase().includes(term) ?? false)
+      );
     });
   }, [products, q, cat]);
 
@@ -40,7 +44,7 @@ export function ProductGrid({ products, onPick, searchRef, onMultiplier }: Props
       <input
         ref={searchRef}
         className="search"
-        placeholder="Buscar por nombre o PLU… (F2)"
+        placeholder="Buscar por nombre, PLU o código… (F2)"
         value={q}
         onChange={(e) => {
           const v = e.target.value;

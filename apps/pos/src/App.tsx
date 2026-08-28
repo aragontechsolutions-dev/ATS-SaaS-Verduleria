@@ -15,6 +15,7 @@ import { CashMovementModal } from './components/CashMovementModal';
 import { CustomerPickerModal } from './components/CustomerPickerModal';
 import { DiscountModal } from './components/DiscountModal';
 import { ParkedModal } from './components/ParkedModal';
+import { PriceCheckModal } from './components/PriceCheckModal';
 import { requiereIdentificacion } from './lib/fiscal';
 import { discountMoney, type DiscountSpec } from './lib/discount';
 import { useToast } from './lib/toast';
@@ -77,6 +78,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const [multiplier, setMultiplier] = useState<number | null>(null);
   const [parkedOpen, setParkedOpen] = useState(false);
   const [parkedCount, setParkedCount] = useState(0);
+  const [priceCheckOpen, setPriceCheckOpen] = useState(false);
+  const [checkedProduct, setCheckedProduct] = useState<CatalogProduct | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const multBufRef = useRef('');
   const multTimeRef = useRef(0);
@@ -147,6 +150,18 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     (code: string) => {
       // El formato del EAN de peso variable es configurable por balanza (modo etiqueta).
       const r = parseScan(code, scale.config.barcode);
+      // Verificador de precio abierto: el escaneo consulta, no agrega al carrito.
+      if (priceCheckOpen) {
+        const prod =
+          r.type === 'weight'
+            ? products.find((p) => p.plu === r.plu)
+            : r.type === 'ean'
+              ? products.find((p) => p.codigoBarras === r.code)
+              : undefined;
+        if (prod) setCheckedProduct(prod);
+        else showToast('Producto no encontrado');
+        return;
+      }
       if (r.type === 'weight') {
         const prod = products.find((p) => p.plu === r.plu);
         if (!prod) return showToast(`PLU ${r.plu} no encontrado`);
@@ -167,7 +182,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
       }
       showToast('Código no reconocido');
     },
-    [products, addProduct, onPick, showToast, scale.config.barcode],
+    [products, addProduct, onPick, showToast, scale.config.barcode, priceCheckOpen],
   );
 
   useScanner(onScan);
@@ -284,11 +299,12 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
 
   const anyModalOpen =
     paying || openingCash || closingCash || scaleOpen || opsOpen || movingCash ||
-    customerOpen || !!discountTarget || !!ticket || !!weighing || parkedOpen;
+    customerOpen || !!discountTarget || !!ticket || !!weighing || parkedOpen || priceCheckOpen;
 
   // Cierra el modal de nivel superior con Escape. Devuelve true si cerró alguno.
   const closeTopModal = useCallback((): boolean => {
     if (ticket) return setTicket(null), true;
+    if (priceCheckOpen) return setPriceCheckOpen(false), true;
     if (parkedOpen) return setParkedOpen(false), true;
     if (discountTarget) return setDiscountTarget(null), true;
     if (customerOpen) return setCustomerOpen(false), true;
@@ -300,7 +316,9 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     if (opsOpen) return setOpsOpen(false), true;
     if (weighing) return setWeighing(null), true;
     return false;
-  }, [ticket, parkedOpen, discountTarget, customerOpen, paying, movingCash, closingCash, openingCash, scaleOpen, opsOpen, weighing]);
+  }, [ticket, priceCheckOpen, parkedOpen, discountTarget, customerOpen, paying, movingCash, closingCash, openingCash, scaleOpen, opsOpen, weighing]);
+
+  const openPriceCheck = useCallback(() => { setCheckedProduct(null); setPriceCheckOpen(true); }, []);
 
   // Atajos de teclado y multiplicador de cantidad (venta rápida por teclado).
   useEffect(() => {
@@ -318,6 +336,12 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
       if (e.key === 'F7') {
         e.preventDefault();
         if (!anyModalOpen && cart.items.length > 0) onSuspend();
+        return;
+      }
+      // Consultar precio: F3.
+      if (e.key === 'F3') {
+        e.preventDefault();
+        if (!anyModalOpen) openPriceCheck();
         return;
       }
       // Enfocar el buscador: F2 o «/» (si no se está tipeando).
@@ -354,7 +378,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [anyModalOpen, cobrarDisabled, onCheckout, closeTopModal, multiplier, cart.items.length, onSuspend]);
+  }, [anyModalOpen, cobrarDisabled, onCheckout, closeTopModal, multiplier, cart.items.length, onSuspend, openPriceCheck]);
 
   // Nombre de la sucursal del turno (solo si hay más de una, para diferenciar).
   const sucursalNombre =
@@ -378,6 +402,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         onCloseCash={() => setClosingCash(true)}
         onOpenScale={() => setScaleOpen(true)}
         onOpenOps={() => setOpsOpen(true)}
+        onOpenPrice={openPriceCheck}
         onMovimiento={cash.session ? () => setMovingCash(true) : undefined}
         onLogout={onLogout}
       />
@@ -396,6 +421,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         <div className="kbd-hints">
           <span><kbd>F2</kbd> buscar</span>
           <span><kbd>3</kbd><kbd>*</kbd> cantidad</span>
+          <span><kbd>F3</kbd> precio</span>
+          <span><kbd>F7</kbd> suspender</span>
           <span><kbd>F9</kbd> cobrar</span>
           <span><kbd>Esc</kbd> cancelar</span>
         </div>
@@ -444,6 +471,15 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
 
       {parkedOpen && (
         <ParkedModal onResume={onResume} onClose={() => setParkedOpen(false)} onChange={refreshParked} />
+      )}
+
+      {priceCheckOpen && (
+        <PriceCheckModal
+          products={products}
+          product={checkedProduct}
+          onSelect={setCheckedProduct}
+          onClose={() => setPriceCheckOpen(false)}
+        />
       )}
 
       {discountTarget?.kind === 'line' && cart.items[discountTarget.index] && (
