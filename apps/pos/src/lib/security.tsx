@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
 // frente al cajero. Se puede migrar a verificación por usuario/rol más adelante.
 // ============================================================================
 
-export type SecurityGate = 'discount' | 'void' | 'return';
+export type SecurityGate = 'discount' | 'void' | 'return' | 'price';
 
 export interface SecurityConfig {
   /** SHA-256 del PIN (o null si no hay PIN configurado). */
@@ -22,13 +22,14 @@ const KEY = 'ats.pos.security';
 
 const DEFAULT_CONFIG: SecurityConfig = {
   pinHash: null,
-  gates: { discount: false, void: false, return: false },
+  gates: { discount: false, void: false, return: false, price: false },
 };
 
 export const GATE_LABEL: Record<SecurityGate, string> = {
   discount: 'Aplicar descuento',
   void: 'Vaciar el carrito',
   return: 'Registrar devolución',
+  price: 'Cambiar el precio de una línea',
 };
 
 export function loadSecurity(): SecurityConfig {
@@ -169,7 +170,7 @@ function AuthGate({ reason, pinHash, onResult }: { reason: string; pinHash: stri
   );
 }
 
-const GATES: SecurityGate[] = ['discount', 'void', 'return'];
+const GATES: SecurityGate[] = ['discount', 'price', 'void', 'return'];
 
 /** Configura el PIN de supervisor y qué acciones lo requieren. */
 function SecuritySettingsModal({
@@ -203,7 +204,7 @@ function SecuritySettingsModal({
   }
 
   function quitarPin() {
-    onSave({ pinHash: null, gates: { discount: false, void: false, return: false } });
+    onSave({ pinHash: null, gates: { discount: false, void: false, return: false, price: false } });
     onClose();
   }
 

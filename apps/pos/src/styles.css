@@ -212,6 +212,25 @@ button { font: inherit; cursor: pointer; }
 .disc-preview strong { color: var(--green-dark); }
 .disc-preview__rest { margin-left: auto; color: var(--muted); font-size: 13px; }
 
+/* Toggle segmentado (Total / Por denominación) */
+.seg { display: flex; gap: 6px; margin: 6px 0 12px; }
+.seg--sm { margin: 4px 0 8px; }
+.seg__btn { flex: 1; padding: 9px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.seg__btn.is-on { background: var(--green); color: #fff; border-color: var(--green); }
+
+/* Conteo de efectivo por denominación */
+.denom { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 4px; }
+.denom__group { display: flex; flex-direction: column; gap: 4px; }
+.denom__label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.denom__row { display: grid; grid-template-columns: 70px 16px 78px 1fr; gap: 8px; align-items: center; }
+.denom__val { font-weight: 600; text-align: right; }
+.denom__x { color: var(--muted); text-align: center; }
+.denom__input { padding: 7px 9px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 15px; text-align: right; }
+.denom__input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(18,140,126,.15); }
+.denom__sub { text-align: right; color: var(--green-dark); font-size: 14px; }
+.denom__total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 8px; border-top: 1px solid var(--border); font-size: 16px; }
+.denom__total strong { color: var(--green-dark); font-size: 18px; }
+
 /* Devoluciones */
 .ops__row--dev { background: #fff7f0; }
 .ops__tag { display: inline-block; background: var(--warn); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; margin-right: 6px; }
