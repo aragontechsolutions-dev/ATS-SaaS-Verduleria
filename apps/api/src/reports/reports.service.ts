@@ -161,6 +161,55 @@ export class ReportsService {
     };
   }
 
+  /** Ventas por categoría de producto en el rango (monto y cantidad). */
+  async byCategory(tenantId: string, from?: string, to?: string) {
+    const fecha = parseRange(from, to);
+    const items = await this.prisma.saleItem.findMany({
+      where: { tenantId, sale: { is: { status: SaleStatus.COMPLETADA, fecha } } },
+      select: {
+        total: true,
+        cantidad: true,
+        product: { select: { categoriaId: true, categoria: { select: { nombre: true } } } },
+      },
+    });
+
+    type Row = { categoriaId: string | null; nombre: string; monto: number; cantidad: number };
+    const byCat = new Map<string, Row>();
+    for (const it of items) {
+      const catId = it.product?.categoriaId ?? null;
+      const nombre = it.product?.categoria?.nombre ?? 'Sin categoría';
+      const key = catId ?? 'sin';
+      const row = byCat.get(key) ?? { categoriaId: catId, nombre, monto: 0, cantidad: 0 };
+      row.monto += Number(it.total);
+      row.cantidad += Number(it.cantidad);
+      byCat.set(key, row);
+    }
+
+    return [...byCat.values()]
+      .map((r) => ({ ...r, monto: Number(r.monto.toFixed(2)), cantidad: Number(r.cantidad.toFixed(3)) }))
+      .sort((a, b) => b.monto - a.monto);
+  }
+
+  /**
+   * Ventas por hora del día (0–23) en el rango, en hora de Uruguay (UTC−3, sin
+   * horario de verano). Devuelve las 24 horas para poder graficar la curva.
+   */
+  async byHour(tenantId: string, from?: string, to?: string) {
+    const fecha = parseRange(from, to);
+    const sales = await this.prisma.sale.findMany({
+      where: { tenantId, status: SaleStatus.COMPLETADA, fecha },
+      select: { fecha: true, total: true },
+    });
+
+    const buckets = Array.from({ length: 24 }, (_, hora) => ({ hora, ventas: 0, total: 0 }));
+    for (const s of sales) {
+      const horaUY = (s.fecha.getUTCHours() - 3 + 24) % 24; // Uruguay = UTC−3
+      buckets[horaUY].ventas += 1;
+      buckets[horaUY].total += Number(s.total);
+    }
+    return buckets.map((b) => ({ ...b, total: Number(b.total.toFixed(2)) }));
+  }
+
   /** Ventas por día en los últimos N días (para el gráfico). */
   async daily(tenantId: string, days = 7) {
     const end = new Date();

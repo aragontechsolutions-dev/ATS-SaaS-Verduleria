@@ -34,6 +34,24 @@ export class ReportsController {
     return this.reports.topProducts(tenantId, from, to, limit ? Number(limit) : 10);
   }
 
+  @Get('by-category')
+  byCategory(
+    @CurrentTenant('tenantId') tenantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reports.byCategory(tenantId, from, to);
+  }
+
+  @Get('by-hour')
+  byHour(
+    @CurrentTenant('tenantId') tenantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reports.byHour(tenantId, from, to);
+  }
+
   @Get('daily')
   daily(@CurrentTenant('tenantId') tenantId: string, @Query('days') days?: string) {
     return this.reports.daily(tenantId, days ? Number(days) : 7);
