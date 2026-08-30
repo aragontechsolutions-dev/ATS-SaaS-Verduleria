@@ -655,3 +655,26 @@ export const resetUserPassword = async (membershipId: string) =>
 
 export const unlockUser = async (membershipId: string) =>
   ok<{ ok: boolean }>(await fetch(`${API_BASE}/users/${membershipId}/unlock`, { method: 'POST', headers: headers() }), 'unlockUser');
+
+// --- Auditoría (bitácora del tenant) ----------------------------------------
+
+export interface AuditEvent {
+  id: string;
+  fecha: string;
+  tipo: string;
+  descripcion: string | null;
+  monto: number | null;
+  usuario: string | null;
+  refId: string | null;
+  meta: unknown;
+}
+
+export const getAuditEvents = async (params: { tipo?: string; from?: string; to?: string; limit?: number } = {}) => {
+  const qs = new URLSearchParams();
+  if (params.tipo) qs.set('tipo', params.tipo);
+  if (params.from) qs.set('from', params.from);
+  if (params.to) qs.set('to', params.to);
+  if (params.limit) qs.set('limit', String(params.limit));
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return ok<AuditEvent[]>(await fetch(`${API_BASE}/audit${suffix}`, { headers: headers() }), 'audit');
+};

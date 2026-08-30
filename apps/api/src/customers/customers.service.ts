@@ -1,13 +1,17 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { CashMovementTipo, CashSessionStatus, MedioPago, Prisma, TipoDocumentoCliente } from '@ats/database';
+import { AuditEventTipo, CashMovementTipo, CashSessionStatus, MedioPago, Prisma, TipoDocumentoCliente } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import type { CobranzaDto, CreateCustomerDto, ChargeDto, PaymentDto, QuickCustomerDto, UpdateCustomerDto } from './customers.dto';
 
 const num = (v: Prisma.Decimal | number | null | undefined): number => (v == null ? 0 : Number(v));
 
 @Injectable()
 export class CustomersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   /** Clientes (por defecto solo mayoristas, que son los de cuenta corriente). */
   async list(tenantId: string, soloMayoristas = true) {
@@ -95,7 +99,7 @@ export class CustomersService {
     });
     if (!customer) throw new NotFoundException('Cliente no encontrado');
 
-    return this.prisma.$transaction(async (tx) => {
+    const resultado = await this.prisma.$transaction(async (tx) => {
       const account = await this.ensureAccount(tx, tenantId, customerId);
       const saldo = num(account.saldo) - dto.monto;
       await tx.accountReceivable.update({ where: { id: account.id }, data: { saldo: new Prisma.Decimal(saldo) } });
@@ -127,6 +131,16 @@ export class CustomersService {
 
       return { saldo: Number(saldo.toFixed(2)) };
     });
+
+    await this.audit.log({
+      tipo: AuditEventTipo.COBRANZA,
+      descripcion: `Cobranza cta. cte. — ${customer.nombre}`,
+      monto: dto.monto,
+      cashSessionId: dto.cashSessionId,
+      refId: customerId,
+      meta: { medio: dto.medio },
+    });
+    return resultado;
   }
 
   async create(tenantId: string, dto: CreateCustomerDto) {

@@ -4,9 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, Role, SubscriptionStatus, TipoListaPrecio } from '@ats/database';
+import { AuditEventTipo, Prisma, Role, SubscriptionStatus, TipoListaPrecio } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
+import { AuditService } from '../audit/audit.service';
 import { generateTempPassword } from '../common/password.util';
 import type { CreateTenantDto, UpdateTenantDto } from './platform.dto';
 
@@ -15,6 +16,7 @@ export class PlatformService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auth: AuthService,
+    private readonly audit: AuditService,
   ) {}
 
   /** Métricas globales para el dashboard de la consola. */
@@ -45,11 +47,21 @@ export class PlatformService {
 
   /** Desbloquea a un usuario (cualquier tenant) y lo obliga a cambiar la clave. */
   async unlockUser(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { memberships: { select: { tenantId: true }, take: 1 } },
+    });
     if (!user) throw new NotFoundException('Usuario no encontrado');
     await this.prisma.user.update({
       where: { id: userId },
       data: { bloqueado: false, failedLoginAttempts: 0, mustChangePassword: true },
+    });
+    await this.audit.log({
+      tipo: AuditEventTipo.USUARIO_DESBLOQUEADO,
+      descripcion: `Desbloqueo por soporte (Aragon) · ${user.email}`,
+      tenantId: user.memberships[0]?.tenantId,
+      userId,
+      refId: userId,
     });
     return { ok: true };
   }

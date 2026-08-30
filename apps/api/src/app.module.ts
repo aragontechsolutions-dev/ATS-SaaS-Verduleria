@@ -22,6 +22,7 @@ import { SucursalesModule } from './sucursales/sucursales.module';
 import { UsersModule } from './users/users.module';
 import { ReportsModule } from './reports/reports.module';
 import { SettingsModule } from './settings/settings.module';
+import { AuditModule } from './audit/audit.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -47,6 +48,7 @@ import { HealthController } from './health/health.controller';
     UsersModule,
     ReportsModule,
     SettingsModule,
+    AuditModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

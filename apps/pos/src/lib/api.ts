@@ -203,6 +203,22 @@ export async function postDevolucion(payload: CreateDevolucionPayload): Promise<
   );
 }
 
+// --- Auditoría (eventos emitidos por el POS) --------------------------------
+
+export type PosAuditTipo = 'CAJON_ABIERTO' | 'ANULACION_LINEA' | 'PRECIO_MODIFICADO';
+
+/** Registra un evento de auditoría del POS. Best-effort: nunca corta el flujo. */
+export async function postAuditEvent(
+  tipo: PosAuditTipo,
+  opts: { descripcion?: string; monto?: number; refId?: string; cashSessionId?: string; meta?: Record<string, unknown> } = {},
+): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/audit`, { method: 'POST', headers: headers(), body: JSON.stringify({ tipo, ...opts }) });
+  } catch {
+    /* sin conexión: se pierde el evento del cliente, no es crítico */
+  }
+}
+
 // --- CFE (e-Ticket) ---------------------------------------------------------
 
 export async function emitCfe(saleServerId: string): Promise<CfeSummary> {

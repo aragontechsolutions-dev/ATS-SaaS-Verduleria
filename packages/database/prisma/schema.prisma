@@ -551,6 +551,51 @@ model Product {
   @@index([tenantId, activo])
 }
 
+/// Tipo de evento de auditoría (quién hizo qué, cuándo y en qué caja).
+enum AuditEventTipo {
+  LOGIN
+  LOGIN_FALLIDO
+  USUARIO_BLOQUEADO
+  USUARIO_DESBLOQUEADO
+  PASSWORD_RESET
+  CAJA_ABIERTA
+  CAJA_CERRADA
+  MOV_INGRESO
+  MOV_EGRESO
+  VENTA
+  DEVOLUCION
+  COBRANZA
+  CAJON_ABIERTO
+  ANULACION_LINEA
+  PRECIO_MODIFICADO
+}
+
+/// Bitácora de auditoría: registro append-only de operaciones sensibles.
+/// Campos escalares (sin relaciones) para mantener el log liviano e independiente.
+model AuditEvent {
+  id            String         @id @default(uuid()) @db.Uuid
+  tenantId      String         @db.Uuid
+  userId        String?        @db.Uuid
+  cashSessionId String?        @db.Uuid
+  sucursalId    String?        @db.Uuid
+  tipo          AuditEventTipo
+  /// Descripción legible (ej. "Egreso de efectivo · retiro a caja fuerte").
+  descripcion   String?
+  /// Nombre/email del usuario al momento del evento (snapshot).
+  usuario       String?
+  /// Monto asociado (si aplica).
+  monto         Decimal?       @db.Decimal(14, 2)
+  /// Referencia a la entidad (saleId, movementId, etc.).
+  refId         String?
+  /// Datos extra en JSON (motivo, medio, detalle…).
+  meta          Json?
+  createdAt     DateTime       @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, tipo])
+  @@index([tenantId, userId])
+}
+
 /// Tipo de promoción del POS.
 enum PromoTipo {
   NXM // lleva N, paga M (2x1 = lleva 2 paga 1)

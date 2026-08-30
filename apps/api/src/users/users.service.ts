@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { AuditEventTipo } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
+import { AuditService } from '../audit/audit.service';
 import { generateTempPassword } from '../common/password.util';
 import type { CreateUserDto, UpdateUserDto } from './users.dto';
 
@@ -9,6 +11,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auth: AuthService,
+    private readonly audit: AuditService,
   ) {}
 
   /** Usuarios (memberships) del tenant. */
@@ -100,6 +103,7 @@ export class UsersService {
       where: { id: m.userId },
       data: { mustChangePassword: true, bloqueado: false, failedLoginAttempts: 0 },
     });
+    await this.audit.log({ tipo: AuditEventTipo.PASSWORD_RESET, descripcion: `Reset de contraseña · ${m.user.email}`, refId: m.userId });
     return { email: m.user.email, password };
   }
 
@@ -110,6 +114,7 @@ export class UsersService {
       where: { id: m.userId },
       data: { bloqueado: false, failedLoginAttempts: 0, mustChangePassword: true },
     });
+    await this.audit.log({ tipo: AuditEventTipo.USUARIO_DESBLOQUEADO, descripcion: `Desbloqueo · ${m.user.email}`, refId: m.userId });
     return { ok: true };
   }
 
