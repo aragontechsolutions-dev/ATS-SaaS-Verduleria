@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getDaily, getProfit, getSummary, getTopProducts } from '../lib/api';
-import type { DailyPoint, ProfitReport, ReportSummary, TopProduct } from '../lib/api';
+import { getByCategory, getByHour, getDaily, getProfit, getSummary, getTopProducts } from '../lib/api';
+import type { CategoryRow, DailyPoint, HourPoint, ProfitReport, ReportSummary, TopProduct } from '../lib/api';
 import { SkeletonCards } from './Skeleton';
 import { useToast } from '../lib/toast';
 
@@ -29,6 +29,8 @@ export function ReportsPage() {
   const [preset, setPreset] = useState<Preset>('hoy');
   const [summary, setSummary] = useState<ReportSummary | null>(null);
   const [top, setTop] = useState<TopProduct[]>([]);
+  const [categorias, setCategorias] = useState<CategoryRow[]>([]);
+  const [porHora, setPorHora] = useState<HourPoint[]>([]);
   const [daily, setDaily] = useState<DailyPoint[]>([]);
   const [profit, setProfit] = useState<ProfitReport | null>(null);
   const [profitLocked, setProfitLocked] = useState(false);
@@ -38,13 +40,17 @@ export function ReportsPage() {
     setLoading(true);
     try {
       const r = rangeFor(p);
-      const [s, t, d] = await Promise.all([
+      const [s, t, cat, hr, d] = await Promise.all([
         getSummary(r),
         getTopProducts(r),
+        getByCategory(r),
+        getByHour(r),
         getDaily(p === '30d' ? 30 : 7),
       ]);
       setSummary(s);
       setTop(t);
+      setCategorias(cat);
+      setPorHora(hr);
       setDaily(d);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error cargando reportes');
@@ -67,6 +73,14 @@ export function ReportsPage() {
   }, [preset, load]);
 
   const maxDaily = useMemo(() => Math.max(1, ...daily.map((d) => d.total)), [daily]);
+  const maxHora = useMemo(() => Math.max(1, ...porHora.map((h) => h.total)), [porHora]);
+  const totalCategorias = useMemo(() => categorias.reduce((s, c) => s + c.monto, 0), [categorias]);
+  // Acota el gráfico por hora a la franja con actividad (evita 24 barras vacías).
+  const horasActivas = useMemo(() => {
+    const idx = porHora.map((h, i) => (h.total > 0 ? i : -1)).filter((i) => i >= 0);
+    if (idx.length === 0) return porHora.slice(8, 21); // franja comercial por defecto
+    return porHora.slice(Math.min(...idx), Math.max(...idx) + 1);
+  }, [porHora]);
 
   return (
     <>
@@ -187,23 +201,58 @@ export function ReportsPage() {
           </div>
 
           <section className="panel">
-            <div className="panel__head"><h2>Productos más vendidos</h2></div>
-            <div className="table-wrap">
-              <table className="table">
-                <thead><tr><th>Producto</th><th style={{ textAlign: 'right' }}>Cantidad</th><th style={{ textAlign: 'right' }}>Monto</th></tr></thead>
-                <tbody>
-                  {top.map((p, i) => (
-                    <tr key={p.productId ?? `x${i}`}>
-                      <td><strong>{p.nombre}</strong></td>
-                      <td style={{ textAlign: 'right' }}>{Number(p.cantidad).toLocaleString('es-UY')}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 700 }}>{money.format(p.monto)}</td>
-                    </tr>
-                  ))}
-                  {top.length === 0 && <tr><td colSpan={3} className="muted">Sin ventas en el período.</td></tr>}
-                </tbody>
-              </table>
+            <div className="panel__head"><h2>Ventas por hora</h2></div>
+            <div className="bars">
+              {horasActivas.map((h) => (
+                <div className="bar" key={h.hora} title={`${String(h.hora).padStart(2, '0')}:00 — ${money.format(h.total)} · ${h.ventas} venta(s)`}>
+                  <div className="bar__fill" style={{ height: `${(h.total / maxHora) * 100}%` }} />
+                  <span className="bar__label">{String(h.hora).padStart(2, '0')}</span>
+                </div>
+              ))}
             </div>
+            <p className="hint">Hora de Uruguay. Sirve para detectar los picos del día y planificar personal.</p>
           </section>
+
+          <div className="cols">
+            <section className="panel">
+              <div className="panel__head"><h2>Ventas por categoría</h2></div>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead><tr><th>Categoría</th><th style={{ textAlign: 'right' }}>Cantidad</th><th style={{ textAlign: 'right' }}>Monto</th><th style={{ textAlign: 'right' }}>%</th></tr></thead>
+                  <tbody>
+                    {categorias.map((c, i) => (
+                      <tr key={c.categoriaId ?? `x${i}`}>
+                        <td><strong>{c.nombre}</strong></td>
+                        <td style={{ textAlign: 'right' }}>{Number(c.cantidad).toLocaleString('es-UY')}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 700 }}>{money.format(c.monto)}</td>
+                        <td style={{ textAlign: 'right' }} className="muted">{totalCategorias > 0 ? `${Math.round((c.monto / totalCategorias) * 100)}%` : '—'}</td>
+                      </tr>
+                    ))}
+                    {categorias.length === 0 && <tr><td colSpan={4} className="muted">Sin ventas en el período.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="panel">
+              <div className="panel__head"><h2>Productos más vendidos</h2></div>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead><tr><th>Producto</th><th style={{ textAlign: 'right' }}>Cantidad</th><th style={{ textAlign: 'right' }}>Monto</th></tr></thead>
+                  <tbody>
+                    {top.map((p, i) => (
+                      <tr key={p.productId ?? `x${i}`}>
+                        <td><strong>{p.nombre}</strong></td>
+                        <td style={{ textAlign: 'right' }}>{Number(p.cantidad).toLocaleString('es-UY')}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 700 }}>{money.format(p.monto)}</td>
+                      </tr>
+                    ))}
+                    {top.length === 0 && <tr><td colSpan={3} className="muted">Sin ventas en el período.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
         </>
       )}
     </>

@@ -521,6 +521,25 @@ export const getTopProducts = async (qs: { from?: string; to?: string } = {}) =>
 export const getDaily = async (days = 7) =>
   ok<DailyPoint[]>(await fetch(`${API_BASE}/reports/daily?days=${days}`, { headers: headers() }), 'daily');
 
+export interface CategoryRow {
+  categoriaId: string | null;
+  nombre: string;
+  monto: number;
+  cantidad: number;
+}
+
+export interface HourPoint {
+  hora: number;
+  ventas: number;
+  total: number;
+}
+
+export const getByCategory = async (qs: { from?: string; to?: string } = {}) =>
+  ok<CategoryRow[]>(await fetch(`${API_BASE}/reports/by-category${range(qs)}`, { headers: headers() }), 'by-category');
+
+export const getByHour = async (qs: { from?: string; to?: string } = {}) =>
+  ok<HourPoint[]>(await fetch(`${API_BASE}/reports/by-hour${range(qs)}`, { headers: headers() }), 'by-hour');
+
 export interface ProfitProduct {
   productId: string | null;
   nombre: string;
