@@ -25,8 +25,24 @@ export class CashController {
     @Query('to') to?: string,
     @Query('userId') userId?: string,
     @Query('sucursalId') sucursalId?: string,
+    @Query('terminalId') terminalId?: string,
   ) {
-    return this.cash.operations(tenantId, { from, to, userId, sucursalId });
+    return this.cash.operations(tenantId, { from, to, userId, sucursalId, terminalId });
+  }
+
+  /** Arqueos por turno de caja (reporte por caja). Debe ir antes de :id. */
+  @Get('arqueos')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.ENCARGADO, Role.CONTADOR)
+  async arqueos(
+    @CurrentTenant('tenantId') tenantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('userId') userId?: string,
+    @Query('sucursalId') sucursalId?: string,
+    @Query('terminalId') terminalId?: string,
+  ) {
+    return this.cash.arqueos(tenantId, { from, to, userId, sucursalId, terminalId });
   }
 
   @Post('open')

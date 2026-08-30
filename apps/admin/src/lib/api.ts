@@ -612,20 +612,46 @@ export interface CashOpsFilters {
   to?: string;
   userId?: string;
   sucursalId?: string;
+  terminalId?: string;
 }
 
-export const getCashOperations = async (f: CashOpsFilters = {}) => {
+function cashQuery(f: CashOpsFilters): string {
   const q = new URLSearchParams();
   if (f.from) q.set('from', f.from);
   if (f.to) q.set('to', f.to);
   if (f.userId) q.set('userId', f.userId);
   if (f.sucursalId) q.set('sucursalId', f.sucursalId);
+  if (f.terminalId) q.set('terminalId', f.terminalId);
   const qs = q.toString();
-  return ok<CashOperation[]>(
-    await fetch(`${API_BASE}/cash-sessions/operations${qs ? `?${qs}` : ''}`, { headers: headers() }),
+  return qs ? `?${qs}` : '';
+}
+
+export const getCashOperations = async (f: CashOpsFilters = {}) =>
+  ok<CashOperation[]>(
+    await fetch(`${API_BASE}/cash-sessions/operations${cashQuery(f)}`, { headers: headers() }),
     'cash-operations',
   );
-};
+
+export interface ArqueoTurno {
+  sessionId: string;
+  fechaApertura: string;
+  fechaCierre: string | null;
+  abierta: boolean;
+  terminal: string | null;
+  sucursalNombre: string | null;
+  userNombre: string | null;
+  montoApertura: number;
+  ventas: number;
+  totalVendido: number;
+  montoCierre: number | null;
+  diferencia: number | null;
+}
+
+export const getArqueos = async (f: CashOpsFilters = {}) =>
+  ok<ArqueoTurno[]>(
+    await fetch(`${API_BASE}/cash-sessions/arqueos${cashQuery(f)}`, { headers: headers() }),
+    'cash-arqueos',
+  );
 
 // --- Promociones ------------------------------------------------------------
 

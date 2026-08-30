@@ -235,7 +235,7 @@ export class CashService {
    */
   async operations(
     tenantId: string,
-    filtros: { from?: string; to?: string; userId?: string; sucursalId?: string; limit?: number },
+    filtros: { from?: string; to?: string; userId?: string; sucursalId?: string; terminalId?: string; limit?: number },
   ): Promise<OperacionCaja[]> {
     const desde = filtros.from ? new Date(filtros.from) : undefined;
     const hasta = filtros.to ? new Date(filtros.to) : undefined;
@@ -250,6 +250,7 @@ export class CashService {
           ...(rango ? { fecha: rango } : {}),
           ...(filtros.userId ? { cajeroId: filtros.userId } : {}),
           ...(filtros.sucursalId ? { sucursalId: filtros.sucursalId } : {}),
+          ...(filtros.terminalId ? { cashSession: { terminalId: filtros.terminalId } } : {}),
         },
         include: {
           payments: true,
@@ -265,6 +266,7 @@ export class CashService {
           tenantId,
           ...(filtros.userId ? { userId: filtros.userId } : {}),
           ...(filtros.sucursalId ? { sucursalId: filtros.sucursalId } : {}),
+          ...(filtros.terminalId ? { terminalId: filtros.terminalId } : {}),
           ...(rango ? { aperturaAt: rango } : {}),
         },
         include: { user: { select: { nombre: true } } },
@@ -275,6 +277,7 @@ export class CashService {
         where: {
           tenantId,
           ...(filtros.userId ? { userId: filtros.userId } : {}),
+          ...(filtros.terminalId ? { cashSession: { terminalId: filtros.terminalId } } : {}),
           ...(rango ? { createdAt: rango } : {}),
         },
         include: { user: { select: { nombre: true } }, cashSession: { select: { terminal: true } } },
@@ -347,6 +350,82 @@ export class CashService {
     ops.sort((a, b) => b.fecha.localeCompare(a.fecha));
     return ops.slice(0, limit);
   }
+
+  /**
+   * Arqueos por turno de caja: una fila por sesión (abierta o cerrada) con su
+   * caja, cajero, sucursal, fondo, total vendido, cierre y diferencia. Es el
+   * reporte "por caja": se filtra por caja/cajero/sucursal y rango de fechas.
+   */
+  async arqueos(
+    tenantId: string,
+    filtros: { from?: string; to?: string; userId?: string; sucursalId?: string; terminalId?: string; limit?: number },
+  ): Promise<ArqueoTurno[]> {
+    const desde = filtros.from ? new Date(filtros.from) : undefined;
+    const hasta = filtros.to ? new Date(filtros.to) : undefined;
+    const rango = desde || hasta ? { gte: desde, lte: hasta } : undefined;
+    const limit = Math.min(filtros.limit ?? 300, 1000);
+
+    const sessions = await this.prisma.cashSession.findMany({
+      where: {
+        tenantId,
+        ...(filtros.userId ? { userId: filtros.userId } : {}),
+        ...(filtros.sucursalId ? { sucursalId: filtros.sucursalId } : {}),
+        ...(filtros.terminalId ? { terminalId: filtros.terminalId } : {}),
+        ...(rango ? { aperturaAt: rango } : {}),
+      },
+      include: {
+        user: { select: { nombre: true } },
+        sucursal: { select: { nombre: true } },
+      },
+      orderBy: { aperturaAt: 'desc' },
+      take: limit,
+    });
+
+    // Total vendido y cantidad de ventas por sesión (una sola consulta agrupada).
+    const ids = sessions.map((s) => s.id);
+    const ventas = ids.length
+      ? await this.prisma.sale.groupBy({
+          by: ['cashSessionId'],
+          where: { tenantId, cashSessionId: { in: ids }, status: { not: 'ANULADA' } },
+          _sum: { total: true },
+          _count: { _all: true },
+        })
+      : [];
+    const vmap = new Map(ventas.map((v) => [v.cashSessionId, { total: Number(v._sum.total ?? 0), count: v._count._all }]));
+
+    return sessions.map((s) => {
+      const v = vmap.get(s.id);
+      return {
+        sessionId: s.id,
+        fechaApertura: s.aperturaAt.toISOString(),
+        fechaCierre: s.cierreAt?.toISOString() ?? null,
+        abierta: s.status === CashSessionStatus.ABIERTA,
+        terminal: s.terminal ?? null,
+        sucursalNombre: s.sucursal?.nombre ?? null,
+        userNombre: s.user?.nombre ?? null,
+        montoApertura: Number(s.montoApertura),
+        ventas: v?.count ?? 0,
+        totalVendido: v?.total ?? 0,
+        montoCierre: s.montoCierre != null ? Number(s.montoCierre) : null,
+        diferencia: s.diferencia != null ? Number(s.diferencia) : null,
+      };
+    });
+  }
+}
+
+export interface ArqueoTurno {
+  sessionId: string;
+  fechaApertura: string;
+  fechaCierre: string | null;
+  abierta: boolean;
+  terminal: string | null;
+  sucursalNombre: string | null;
+  userNombre: string | null;
+  montoApertura: number;
+  ventas: number;
+  totalVendido: number;
+  montoCierre: number | null;
+  diferencia: number | null;
 }
 
 export interface OperacionCaja {
