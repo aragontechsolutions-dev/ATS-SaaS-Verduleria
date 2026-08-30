@@ -41,6 +41,33 @@ async function ok<T>(res: Response, label: string): Promise<T> {
 
 // --- Auth (contexto de la app; el login lo hace Supabase) -------------------
 
+export interface LoginTokens {
+  access_token: string;
+  refresh_token: string;
+}
+
+export interface LoginError extends Error {
+  code?: 'LOCKED' | 'BAD_CREDENTIALS' | string;
+  remaining?: number | null;
+  status?: number;
+}
+
+/** Login mediado por el backend (cuenta fallos y bloquea). No usa `ok()`. */
+export async function login(email: string, password: string): Promise<LoginTokens> {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim(), password }),
+  });
+  if (res.ok) return res.json() as Promise<LoginTokens>;
+  const body = (await res.json().catch(() => ({}))) as { code?: string; message?: string; remaining?: number };
+  const err = new Error(body.message || 'No se pudo iniciar sesión') as LoginError;
+  err.code = body.code;
+  err.remaining = body.remaining ?? null;
+  err.status = res.status;
+  throw err;
+}
+
 export interface MeResponse {
   tenantId: string;
   userId?: string;

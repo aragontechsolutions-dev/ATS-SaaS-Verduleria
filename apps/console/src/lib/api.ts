@@ -215,3 +215,37 @@ export const reclassifyIva = async () =>
     await fetch(`${API_BASE}/platform/iva/reclasificar`, { method: 'POST', headers: headers() }),
     'iva-reclassify',
   );
+
+// --- Login mediado por backend (bloqueo por intentos) + accesos --------------
+
+export interface LoginTokens { access_token: string; refresh_token: string; }
+export interface LoginError extends Error { code?: string; remaining?: number | null; status?: number; }
+
+export async function login(email: string, password: string): Promise<LoginTokens> {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim(), password }),
+  });
+  if (res.ok) return res.json() as Promise<LoginTokens>;
+  const body = (await res.json().catch(() => ({}))) as { code?: string; message?: string; remaining?: number };
+  const err = new Error(body.message || 'No se pudo iniciar sesión') as LoginError;
+  err.code = body.code;
+  err.remaining = body.remaining ?? null;
+  err.status = res.status;
+  throw err;
+}
+
+export interface LockedUser {
+  id: string;
+  email: string;
+  nombre: string;
+  tenants: string[];
+  roles: string[];
+}
+
+export const getLockedUsers = async () =>
+  ok<LockedUser[]>(await fetch(`${API_BASE}/platform/locked-users`, { headers: headers() }), 'lockedUsers');
+
+export const unlockPlatformUser = async (id: string) =>
+  ok<{ ok: boolean }>(await fetch(`${API_BASE}/platform/users/${id}/unlock`, { method: 'POST', headers: headers() }), 'unlockUser');

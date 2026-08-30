@@ -299,6 +299,9 @@ button { font: inherit; cursor: pointer; }
 .login__btn { margin-top: 8px; }
 .login__err { color: var(--warn); font-size: 14px; margin: 0; text-align: center; }
 .login__note { background: var(--bg); color: var(--text); font-size: 13px; margin: 0; padding: 8px 12px; border-radius: 8px; text-align: center; }
+.pwd-wrap { position: relative; display: flex; }
+.pwd-wrap input { flex: 1; padding-right: 42px; }
+.pwd-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: none; background: transparent; cursor: pointer; font-size: 16px; padding: 4px 6px; line-height: 1; }
 .login__foot { color: rgba(255,255,255,.85); font-size: 12px; text-align: center; max-width: 380px; }
 
 /* Balanza — configuración y lectura en vivo */

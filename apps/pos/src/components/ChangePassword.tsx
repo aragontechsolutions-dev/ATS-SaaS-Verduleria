@@ -12,6 +12,7 @@ interface Props {
 export function ChangePassword({ email, onDone }: Props) {
   const [pass, setPass] = useState('');
   const [pass2, setPass2] = useState('');
+  const [show, setShow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -44,11 +45,14 @@ export function ChangePassword({ email, onDone }: Props) {
 
         <label className="field">
           Nueva contraseña
-          <input type="password" autoComplete="new-password" value={pass} onChange={(e) => setPass(e.target.value)} required autoFocus />
+          <div className="pwd-wrap">
+            <input type={show ? 'text' : 'password'} autoComplete="new-password" value={pass} onChange={(e) => setPass(e.target.value)} required autoFocus />
+            <button type="button" className="pwd-eye" onClick={() => setShow((v) => !v)} aria-label={show ? 'Ocultar' : 'Mostrar'}>{show ? '🙈' : '👁'}</button>
+          </div>
         </label>
         <label className="field">
           Repetir contraseña
-          <input type="password" autoComplete="new-password" value={pass2} onChange={(e) => setPass2(e.target.value)} required />
+          <input type={show ? 'text' : 'password'} autoComplete="new-password" value={pass2} onChange={(e) => setPass2(e.target.value)} required />
         </label>
 
         {error && <p className="login__err">{error}</p>}

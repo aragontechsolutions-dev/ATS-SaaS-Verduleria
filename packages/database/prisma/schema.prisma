@@ -413,6 +413,10 @@ model User {
   activo    Boolean  @default(true)
   /// Primer acceso: obliga a cambiar la contraseña temporal en el POS.
   mustChangePassword Boolean @default(false)
+  /// Intentos de login fallidos consecutivos (se resetea al entrar bien).
+  failedLoginAttempts Int @default(0)
+  /// Usuario bloqueado por intentos fallidos (lo desbloquea un admin).
+  bloqueado Boolean @default(false)
   /// Super-admin de la PLATAFORMA (Aragon), por encima de los tenants.
   isPlatformAdmin Boolean @default(false)
   createdAt DateTime @default(now())

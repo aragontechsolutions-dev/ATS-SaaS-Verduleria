@@ -413,3 +413,8 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 .op--egreso { background: #fdecea; color: var(--warn); }
 .op--apertura { background: #f0eefe; color: #5b3dbd; }
 .op--cierre { background: #eee; color: #555; }
+
+/* Ojo de contraseña (mostrar/ocultar) */
+.pwd-wrap { position: relative; display: flex; }
+.pwd-wrap input { flex: 1; padding-right: 42px; }
+.pwd-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: none; background: transparent; cursor: pointer; font-size: 16px; padding: 4px 6px; line-height: 1; }

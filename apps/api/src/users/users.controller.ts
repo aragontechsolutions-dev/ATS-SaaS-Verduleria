@@ -32,4 +32,16 @@ export class UsersController {
   ) {
     return this.users.update(tenantId, membershipId, dto);
   }
+
+  /** Resetea la contraseña: genera una temporal y obliga a cambiarla. */
+  @Post(':membershipId/reset-password')
+  resetPassword(@CurrentTenant('tenantId') tenantId: string, @Param('membershipId') membershipId: string) {
+    return this.users.resetPassword(tenantId, membershipId);
+  }
+
+  /** Desbloquea al usuario y lo obliga a cambiar la contraseña. */
+  @Post(':membershipId/unlock')
+  unlock(@CurrentTenant('tenantId') tenantId: string, @Param('membershipId') membershipId: string) {
+    return this.users.unlock(tenantId, membershipId);
+  }
 }

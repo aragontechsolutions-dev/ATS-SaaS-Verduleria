@@ -24,6 +24,17 @@ export class PlatformController {
     return this.platform.listTenants();
   }
 
+  /** Usuarios bloqueados por intentos fallidos (para desbloquear al admin). */
+  @Get('locked-users')
+  lockedUsers() {
+    return this.platform.lockedUsers();
+  }
+
+  @Post('users/:id/unlock')
+  unlockUser(@Param('id') id: string) {
+    return this.platform.unlockUser(id);
+  }
+
   @Post('tenants')
   createTenant(@Body() dto: CreateTenantDto) {
     return this.platform.createTenant(dto);
