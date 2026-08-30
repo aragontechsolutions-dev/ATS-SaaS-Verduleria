@@ -45,10 +45,18 @@ export interface MeResponse {
   tenantId: string;
   userId?: string;
   role?: string;
+  nombre?: string | null;
+  /** Primer acceso: hay que cambiar la contraseña temporal. */
+  mustChangePassword?: boolean;
 }
 
 export async function getMe(): Promise<MeResponse> {
   return ok(await fetch(`${API_BASE}/auth/me`, { headers: headers() }), 'me');
+}
+
+/** Marca en el backend que ya se cambió la contraseña temporal (limpia el flag). */
+export async function notifyPasswordChanged(): Promise<void> {
+  await ok(await fetch(`${API_BASE}/auth/password-changed`, { method: 'POST', headers: headers() }), 'password-changed');
 }
 
 // --- Catálogo ---------------------------------------------------------------

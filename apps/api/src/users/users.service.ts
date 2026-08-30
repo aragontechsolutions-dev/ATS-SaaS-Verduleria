@@ -46,7 +46,8 @@ export class UsersService {
     const user = await this.prisma.user.upsert({
       where: { email },
       update: { nombre: dto.nombre },
-      create: { email, nombre: dto.nombre },
+      // Primer acceso: se crea con contraseña temporal y se obliga a cambiarla.
+      create: { email, nombre: dto.nombre, mustChangePassword: true },
     });
 
     await this.prisma.membership.create({

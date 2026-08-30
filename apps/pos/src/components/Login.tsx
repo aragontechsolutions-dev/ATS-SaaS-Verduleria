@@ -3,9 +3,11 @@ import { supabase } from '../lib/supabase';
 
 interface Props {
   onLogged: () => void;
+  /** Mensaje inicial (ej. usuario inactivo o contraseña actualizada). */
+  initialMessage?: string | null;
 }
 
-export function Login({ onLogged }: Props) {
+export function Login({ onLogged, initialMessage }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +39,8 @@ export function Login({ onLogged }: Props) {
         <img className="login__logo" src="/icon.svg" alt="Aragon Tech Solutions" />
         <h1 className="login__title">ARAGON POS</h1>
         <p className="login__sub">Ingresá para operar la caja</p>
+
+        {initialMessage && !error && <p className="login__note">{initialMessage}</p>}
 
         <label className="field">
           Email

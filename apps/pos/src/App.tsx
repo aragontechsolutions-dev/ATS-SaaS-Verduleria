@@ -32,8 +32,9 @@ import { useScale } from './hooks/useScale';
 import { cartItemFromProduct, lineBruto, useCart, type ParkedTicket } from './state/cart';
 import { promosByProduct } from './lib/promo';
 import { parseScan } from './lib/barcode';
-import { getSucursales } from './lib/api';
+import { getMe, getSucursales } from './lib/api';
 import type { Sucursal } from './lib/api';
+import { ChangePassword } from './components/ChangePassword';
 import { supabase } from './lib/supabase';
 import { countParked, countPending, deleteParked, enqueueSale, getSale, parkTicket } from './lib/db';
 import { flushOutbox, onSyncChange, startAutoSync } from './lib/sync';
@@ -44,6 +45,11 @@ export default function App() {
   const [session, setSession] = useState<import('@supabase/supabase-js').Session | null | undefined>(
     undefined,
   );
+  // Puerta de acceso una vez logueado: loading → verificando; change → primer
+  // acceso (cambiar contraseña); ok → habilitado.
+  const [gate, setGate] = useState<'loading' | 'change' | 'ok'>('loading');
+  // Mensaje a mostrar en el login (usuario inactivo, contraseña actualizada…).
+  const [loginMsg, setLoginMsg] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -51,11 +57,34 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // Con sesión, validamos el acceso contra el backend: un usuario inactivo (o
+  // sin membership) no resuelve contexto → 401 → lo sacamos con un mensaje. Si
+  // es primer acceso, forzamos el cambio de contraseña.
+  useEffect(() => {
+    if (!session) { setGate('loading'); return; }
+    let alive = true;
+    setGate('loading');
+    getMe()
+      .then((me) => { if (alive) setGate(me.mustChangePassword ? 'change' : 'ok'); })
+      .catch(() => {
+        if (!alive) return;
+        setLoginMsg('Tu usuario está inactivo o no tiene acceso. Contactá al encargado.');
+        void supabase.auth.signOut();
+      });
+    return () => { alive = false; };
+  }, [session]);
+
   if (session === undefined) {
     return <div className="login"><p style={{ color: '#fff' }}>Cargando…</p></div>;
   }
   if (session === null) {
-    return <Login onLogged={() => { /* onAuthStateChange actualiza la sesión */ }} />;
+    return <Login initialMessage={loginMsg} onLogged={() => setLoginMsg(null)} />;
+  }
+  if (gate === 'loading') {
+    return <div className="login"><p style={{ color: '#fff' }}>Verificando acceso…</p></div>;
+  }
+  if (gate === 'change') {
+    return <ChangePassword email={session.user.email ?? ''} onDone={(msg) => setLoginMsg(msg)} />;
   }
 
   return <Pos userEmail={session.user.email ?? ''} onLogout={() => void supabase.auth.signOut()} />;

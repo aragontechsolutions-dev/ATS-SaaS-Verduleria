@@ -411,6 +411,8 @@ model User {
   /// Id externo del proveedor de auth (Supabase auth.users.id), opcional.
   authUserId String? @unique
   activo    Boolean  @default(true)
+  /// Primer acceso: obliga a cambiar la contraseña temporal en el POS.
+  mustChangePassword Boolean @default(false)
   /// Super-admin de la PLATAFORMA (Aragon), por encima de los tenants.
   isPlatformAdmin Boolean @default(false)
   createdAt DateTime @default(now())
