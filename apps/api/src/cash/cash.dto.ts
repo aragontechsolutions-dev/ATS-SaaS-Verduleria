@@ -1,8 +1,8 @@
 import { IsIn, IsNumber, IsObject, IsOptional, IsString, Min } from 'class-validator';
 
 export class CashMovementDto {
-  @IsIn(['INGRESO', 'EGRESO'])
-  tipo!: 'INGRESO' | 'EGRESO';
+  @IsIn(['INGRESO', 'EGRESO', 'SANGRIA'])
+  tipo!: 'INGRESO' | 'EGRESO' | 'SANGRIA';
 
   @IsNumber()
   @Min(0.01)

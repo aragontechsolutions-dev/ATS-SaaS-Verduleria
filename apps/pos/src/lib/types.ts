@@ -119,9 +119,12 @@ export interface CashSummary {
   montoApertura: number;
   ingresos: number;
   egresos: number;
+  sangrias: number;
+  limiteEfectivo: number | null;
+  superaLimite: boolean;
 }
 
-export type CashMovementTipo = 'INGRESO' | 'EGRESO';
+export type CashMovementTipo = 'INGRESO' | 'EGRESO' | 'SANGRIA';
 
 export interface ArqueoMedio {
   esperado: number;

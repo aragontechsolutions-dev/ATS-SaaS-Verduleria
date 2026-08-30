@@ -30,6 +30,7 @@ export class SettingsService {
       direccion: tenant.direccion,
       telefono: tenant.telefono,
       email: tenant.email,
+      limiteEfectivoCaja: tenant.limiteEfectivoCaja != null ? Number(tenant.limiteEfectivoCaja) : null,
       cfe: tenant.cfeConfig
         ? {
             provider: tenant.cfeConfig.provider,
@@ -59,6 +60,9 @@ export class SettingsService {
         direccion: dto.direccion,
         telefono: dto.telefono,
         email: dto.email,
+        ...(dto.limiteEfectivoCaja !== undefined
+          ? { limiteEfectivoCaja: dto.limiteEfectivoCaja && dto.limiteEfectivoCaja > 0 ? dto.limiteEfectivoCaja : null }
+          : {}),
       },
     });
 

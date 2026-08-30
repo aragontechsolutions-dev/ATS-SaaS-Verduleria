@@ -9,6 +9,8 @@ export interface CatalogState {
   promos: Promo[];
   listaPrecio: string | null;
   updatedAt: string | null;
+  /** Límite de efectivo en cajón (config del tenant; null = sin límite). */
+  limiteEfectivoCaja: number | null;
   loading: boolean;
   /** true si los datos vienen del cache local (sin conexión). */
   fromCache: boolean;
@@ -24,6 +26,7 @@ export function useCatalog(): CatalogState {
   const [promos, setPromos] = useState<Promo[]>([]);
   const [listaPrecio, setListaPrecio] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [limiteEfectivoCaja, setLimite] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [fromCache, setFromCache] = useState(true);
 
@@ -34,6 +37,7 @@ export function useCatalog(): CatalogState {
       setPromos(meta?.promos ?? []);
       setListaPrecio(meta?.listaPrecio ?? null);
       setUpdatedAt(meta?.updatedAt ?? null);
+      setLimite(meta?.limiteEfectivoCaja ?? null);
     }
   }, []);
 
@@ -41,11 +45,13 @@ export function useCatalog(): CatalogState {
     try {
       const remote = await fetchCatalog();
       const promosRemote = remote.promos ?? [];
-      await saveCatalog(remote.products, { updatedAt: remote.updatedAt, listaPrecio: remote.listaPrecio, promos: promosRemote });
+      const limite = remote.limiteEfectivoCaja ?? null;
+      await saveCatalog(remote.products, { updatedAt: remote.updatedAt, listaPrecio: remote.listaPrecio, promos: promosRemote, limiteEfectivoCaja: limite });
       setProducts(remote.products);
       setPromos(promosRemote);
       setListaPrecio(remote.listaPrecio);
       setUpdatedAt(remote.updatedAt);
+      setLimite(limite);
       setFromCache(false);
     } catch {
       setFromCache(true); // sin conexión: nos quedamos con el cache local
@@ -60,5 +66,5 @@ export function useCatalog(): CatalogState {
     })();
   }, [loadLocal, refresh]);
 
-  return { products, promos, listaPrecio, updatedAt, loading, fromCache, refresh };
+  return { products, promos, listaPrecio, updatedAt, limiteEfectivoCaja, loading, fromCache, refresh };
 }

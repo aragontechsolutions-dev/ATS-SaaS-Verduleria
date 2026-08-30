@@ -1,5 +1,5 @@
 import { RegimenFiscal } from '@ats/database';
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class UpdateSettingsDto {
   @IsOptional()
@@ -29,6 +29,12 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsString()
   email?: string;
+
+  /** Límite de efectivo en el cajón (0 o vacío = sin límite). */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  limiteEfectivoCaja?: number;
 
   // --- Facturación electrónica (CFE) ---
   @IsOptional()

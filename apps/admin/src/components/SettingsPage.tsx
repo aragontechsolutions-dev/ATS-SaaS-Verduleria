@@ -22,7 +22,7 @@ export function SettingsPage() {
   const [f, setF] = useState({
     nombre: '', razonSocial: '', rut: '', regimenFiscal: 'LITERAL_E' as RegimenFiscal,
     direccion: '', telefono: '', email: '', cfeAmbiente: 'test' as 'test' | 'produccion',
-    emisorRut: '', sucursalDefault: 1,
+    emisorRut: '', sucursalDefault: 1, limiteEfectivoCaja: '',
   });
 
   useEffect(() => {
@@ -40,6 +40,7 @@ export function SettingsPage() {
           cfeAmbiente: data.cfe?.ambiente ?? 'test',
           emisorRut: data.cfe?.emisorRut ?? '',
           sucursalDefault: data.cfe?.sucursalDefault ?? 1,
+          limiteEfectivoCaja: data.limiteEfectivoCaja != null ? String(data.limiteEfectivoCaja) : '',
         });
       })
       .catch((e) => { const m = e instanceof Error ? e.message : String(e); setError(m); toast.error(m); });
@@ -50,7 +51,12 @@ export function SettingsPage() {
     setSaving(true);
     setError(null);
     try {
-      const data = await updateSettings({ ...f, sucursalDefault: Number(f.sucursalDefault) });
+      const { limiteEfectivoCaja, ...rest } = f;
+      const data = await updateSettings({
+        ...rest,
+        sucursalDefault: Number(f.sucursalDefault),
+        limiteEfectivoCaja: limiteEfectivoCaja.trim() ? Number(limiteEfectivoCaja.replace(',', '.')) : 0,
+      });
       setS(data);
       toast.success('Cambios guardados correctamente');
     } catch (err) {
@@ -97,6 +103,23 @@ export function SettingsPage() {
             <input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
           </label>
         </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel__head"><h2>Caja</h2></div>
+        <div className="form-grid">
+          <label className="field">Límite de efectivo en caja
+            <input
+              type="number"
+              min={0}
+              step="1"
+              value={f.limiteEfectivoCaja}
+              onChange={(e) => setF({ ...f, limiteEfectivoCaja: e.target.value })}
+              placeholder="0 = sin límite"
+            />
+          </label>
+        </div>
+        <p className="hint">Cuando el efectivo en el cajón supera este monto, el POS le sugiere al cajero hacer una sangría (retiro a la caja fuerte). Dejalo en 0 para no controlar el límite.</p>
       </section>
 
       <section className="panel">

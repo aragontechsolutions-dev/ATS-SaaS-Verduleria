@@ -37,6 +37,7 @@ export function corteHtml(c: Corte): string {
     <div class="row"><span>Ventas (${c.ventas})</span><span>${money.format(c.totalVendido)}</span></div>
     ${c.ingresos > 0 ? `<div class="row"><span>Ingresos</span><span>+${money.format(c.ingresos)}</span></div>` : ''}
     ${c.egresos > 0 ? `<div class="row"><span>Egresos</span><span>−${money.format(c.egresos)}</span></div>` : ''}
+    ${c.sangrias > 0 ? `<div class="row"><span>Sangrías</span><span>−${money.format(c.sangrias)}</span></div>` : ''}
   </div>
   <div class="sec">
     <div class="tit">Por medio de pago</div>

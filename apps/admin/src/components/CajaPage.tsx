@@ -12,11 +12,12 @@ const TIPO_META: Record<string, { label: string; cls: string; signo: number }> =
   VENTA: { label: 'Venta', cls: 'op--venta', signo: 1 },
   INGRESO: { label: 'Ingreso', cls: 'op--ingreso', signo: 1 },
   EGRESO: { label: 'Egreso', cls: 'op--egreso', signo: -1 },
+  SANGRIA: { label: 'Sangría', cls: 'op--egreso', signo: -1 },
   APERTURA: { label: 'Apertura', cls: 'op--apertura', signo: 0 },
   CIERRE: { label: 'Cierre', cls: 'op--cierre', signo: 0 },
 };
 
-const TIPOS = ['', 'VENTA', 'INGRESO', 'EGRESO', 'APERTURA', 'CIERRE'];
+const TIPOS = ['', 'VENTA', 'INGRESO', 'EGRESO', 'SANGRIA', 'APERTURA', 'CIERRE'];
 const REFRESH_MS = 12_000;
 
 function hoyISO(): string {

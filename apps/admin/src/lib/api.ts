@@ -579,6 +579,7 @@ export interface Settings {
   direccion: string | null;
   telefono: string | null;
   email: string | null;
+  limiteEfectivoCaja: number | null;
   cfe: {
     provider: string;
     ambiente: 'test' | 'produccion';
@@ -596,6 +597,7 @@ export interface SettingsInput {
   direccion?: string;
   telefono?: string;
   email?: string;
+  limiteEfectivoCaja?: number;
   cfeAmbiente?: 'test' | 'produccion';
   emisorRut?: string;
   sucursalDefault?: number;
@@ -615,7 +617,7 @@ export const updateSettings = async (input: SettingsInput) =>
 export interface CashOperation {
   id: string;
   fecha: string;
-  tipo: 'APERTURA' | 'CIERRE' | 'VENTA' | 'INGRESO' | 'EGRESO';
+  tipo: 'APERTURA' | 'CIERRE' | 'VENTA' | 'INGRESO' | 'EGRESO' | 'SANGRIA';
   descripcion: string;
   monto: number;
   medio?: string | null;
@@ -683,6 +685,7 @@ export interface Corte {
   montoApertura: number;
   ingresos: number;
   egresos: number;
+  sangrias: number;
   ventas: number;
   totalVendido: number;
   porMedio: Record<string, number>;

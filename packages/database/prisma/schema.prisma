@@ -230,6 +230,10 @@ model Tenant {
   telefono      String?
   email         String?
 
+  /// Límite de efectivo en el cajón: al superarlo, el POS sugiere una sangría.
+  /// null o 0 = sin límite.
+  limiteEfectivoCaja Decimal? @db.Decimal(14, 2)
+
   // Config de facturación (adaptador CFE)
   cfeConfig CfeTenantConfig?
 
@@ -872,6 +876,7 @@ model TerminalOperador {
 enum CashMovementTipo {
   INGRESO
   EGRESO
+  SANGRIA // retiro de efectivo del cajón hacia la caja fuerte (por seguridad)
 }
 
 model CashMovement {
