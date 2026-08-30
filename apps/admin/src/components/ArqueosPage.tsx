@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getArqueos, getTerminals, getUsers } from '../lib/api';
-import type { ArqueoTurno, TenantUser, Terminal } from '../lib/api';
+import { getArqueos, getCorte, getTerminals, getUsers } from '../lib/api';
+import type { ArqueoTurno, Corte, TenantUser, Terminal } from '../lib/api';
+import { printCorte } from '../lib/corte';
 import { SkeletonRows } from './Skeleton';
 import { useToast } from '../lib/toast';
 
@@ -26,6 +27,15 @@ export function ArqueosView() {
   const [to, setTo] = useState(hoyISO());
   const [terminalId, setTerminalId] = useState('');
   const [userId, setUserId] = useState('');
+  const [corte, setCorte] = useState<Corte | null>(null);
+
+  const verCorte = useCallback(async (sessionId: string) => {
+    try {
+      setCorte(await getCorte(sessionId));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo cargar el corte');
+    }
+  }, [toast]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,7 +114,7 @@ export function ArqueosView() {
                 <tr>
                   <th>Apertura</th><th>Cierre</th><th>Caja</th><th>Cajero</th>
                   <th className="num">Fondo</th><th className="num">Ventas</th><th className="num">Vendido</th>
-                  <th className="num">Cierre</th><th className="num">Diferencia</th>
+                  <th className="num">Cierre</th><th className="num">Diferencia</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -127,15 +137,64 @@ export function ArqueosView() {
                         </span>
                       )}
                     </td>
+                    <td><button className="btn btn--sm btn--ghost" onClick={() => void verCorte(r.sessionId)}>Corte {r.abierta ? 'X' : 'Z'}</button></td>
                   </tr>
                 ))}
-                {rows.length === 0 && <tr><td colSpan={9} className="muted">Sin arqueos en el rango.</td></tr>}
+                {rows.length === 0 && <tr><td colSpan={10} className="muted">Sin arqueos en el rango.</td></tr>}
               </tbody>
             </table>
           </div>
         )}
         <p className="hint">Un renglón por turno de caja. La diferencia es la del arqueo de efectivo al cierre (contado − esperado).</p>
       </section>
+
+      {corte && <CorteModal corte={corte} onClose={() => setCorte(null)} />}
     </>
+  );
+}
+
+function CorteModal({ corte, onClose }: { corte: Corte; onClose: () => void }) {
+  const medios = Object.keys(corte.porMedio);
+  const dif = corte.diferencia ?? 0;
+  const row = (l: string, r: string, strong = false) => (
+    <div className="row" style={strong ? { fontWeight: 700 } : undefined}><span>{l}</span><span>{r}</span></div>
+  );
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h3>Corte {corte.tipo} · {corte.tipo === 'Z' ? 'cierre' : 'parcial'}</h3>
+        <p className="modal__sub">
+          {corte.terminal ?? 'Caja'}{corte.sucursalNombre ? ` · ${corte.sucursalNombre}` : ''}{corte.userNombre ? ` · ${corte.userNombre}` : ''}
+        </p>
+
+        <div className="corte-detalle">
+          {row('Apertura', new Date(corte.aperturaAt).toLocaleString('es-UY'))}
+          {corte.tipo === 'Z' && corte.cierreAt && row('Cierre', new Date(corte.cierreAt).toLocaleString('es-UY'))}
+          <hr />
+          {row('Fondo de apertura', money.format(corte.montoApertura))}
+          {row(`Ventas (${corte.ventas})`, money.format(corte.totalVendido))}
+          {corte.ingresos > 0 && row('Ingresos', `+${money.format(corte.ingresos)}`)}
+          {corte.egresos > 0 && row('Egresos', `−${money.format(corte.egresos)}`)}
+          <hr />
+          <div className="corte-tit">Por medio de pago</div>
+          {medios.length === 0 && <div className="row muted"><span>Sin ventas</span><span /></div>}
+          {medios.map((m) => row(m.toLowerCase().replace(/_/g, ' '), money.format(corte.porMedio[m])))}
+          <hr />
+          {row('Efectivo esperado', money.format(corte.efectivoEsperado), true)}
+          {corte.tipo === 'Z' && corte.montoCierre != null && (
+            <>
+              {row('Efectivo contado', money.format(corte.montoCierre))}
+              {row('Diferencia', `${dif > 0 ? '+' : ''}${money.format(dif)}`, true)}
+            </>
+          )}
+        </div>
+
+        <div className="modal__actions">
+          <button className="btn btn--ghost" onClick={onClose}>Cerrar</button>
+          <button className="btn btn--primary" onClick={() => printCorte(corte)}>🖨 Imprimir</button>
+        </div>
+      </div>
+    </div>
   );
 }

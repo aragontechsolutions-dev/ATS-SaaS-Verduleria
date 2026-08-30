@@ -8,6 +8,7 @@ import { WeighModal } from './components/WeighModal';
 import { PaymentModal } from './components/PaymentModal';
 import { OpenCashModal } from './components/OpenCashModal';
 import { CloseCashModal } from './components/CloseCashModal';
+import { CorteModal } from './components/CorteModal';
 import { TicketModal } from './components/TicketModal';
 import { ScaleSettingsModal } from './components/ScaleSettingsModal';
 import { OperationsModal } from './components/OperationsModal';
@@ -33,8 +34,8 @@ import { useScale } from './hooks/useScale';
 import { cartItemFromProduct, lineBruto, useCart, type ParkedTicket } from './state/cart';
 import { promosByProduct } from './lib/promo';
 import { parseScan } from './lib/barcode';
-import { getMe, getMyTerminals, getSucursales, postAuditEvent } from './lib/api';
-import type { Sucursal } from './lib/api';
+import { getCorte, getMe, getMyTerminals, getSucursales, postAuditEvent } from './lib/api';
+import type { Corte, Sucursal } from './lib/api';
 import { ChangePassword } from './components/ChangePassword';
 import { supabase } from './lib/supabase';
 import { countParked, countPending, deleteParked, enqueueSale, getSale, parkTicket } from './lib/db';
@@ -132,6 +133,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const [paying, setPaying] = useState(false);
   const [openingCash, setOpeningCash] = useState(false);
   const [closingCash, setClosingCash] = useState(false);
+  const [corte, setCorte] = useState<Corte | null>(null);
   const [scaleOpen, setScaleOpen] = useState(false);
   const [opsOpen, setOpsOpen] = useState(false);
   const [movingCash, setMovingCash] = useState(false);
@@ -405,12 +407,21 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     [cart, cash.session?.id],
   );
 
+  // Corte X: resumen parcial del turno sin cerrar la caja.
+  const onCorteX = useCallback(() => {
+    if (!cash.session) return;
+    void getCorte(cash.session.id)
+      .then(setCorte)
+      .catch((e) => showToast(e instanceof Error ? e.message : 'No se pudo generar el corte'));
+  }, [cash.session, showToast]);
+
   const anyModalOpen =
-    paying || openingCash || closingCash || scaleOpen || opsOpen || movingCash ||
+    paying || openingCash || closingCash || scaleOpen || opsOpen || movingCash || !!corte ||
     customerOpen || !!discountTarget || priceTarget != null || !!ticket || !!weighing || parkedOpen || priceCheckOpen || cobranzaOpen || printerOpen;
 
   // Cierra el modal de nivel superior con Escape. Devuelve true si cerró alguno.
   const closeTopModal = useCallback((): boolean => {
+    if (corte) return setCorte(null), true;
     if (ticket) return setTicket(null), true;
     if (printerOpen) return setPrinterOpen(false), true;
     if (cobranzaOpen) return setCobranzaOpen(false), true;
@@ -427,7 +438,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     if (opsOpen) return setOpsOpen(false), true;
     if (weighing) return setWeighing(null), true;
     return false;
-  }, [ticket, printerOpen, cobranzaOpen, priceCheckOpen, parkedOpen, discountTarget, priceTarget, customerOpen, paying, movingCash, closingCash, openingCash, scaleOpen, opsOpen, weighing]);
+  }, [corte, ticket, printerOpen, cobranzaOpen, priceCheckOpen, parkedOpen, discountTarget, priceTarget, customerOpen, paying, movingCash, closingCash, openingCash, scaleOpen, opsOpen, weighing]);
 
   const openPriceCheck = useCallback(() => { setCheckedProduct(null); setPriceCheckOpen(true); }, []);
 
@@ -518,6 +529,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         onCobranza={() => setCobranzaOpen(true)}
         onOpenSecurity={security.openSettings}
         onMovimiento={cash.session ? () => setMovingCash(true) : undefined}
+        onCorteX={cash.session ? onCorteX : undefined}
         onLogout={onLogout}
       />
       <main className="main">
@@ -675,13 +687,18 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         <CloseCashModal
           sessionId={cash.session.id}
           onClosed={() => {
+            const cerradaId = cash.session?.id;
             cash.clear();
             setClosingCash(false);
             toast.success('Caja cerrada', 'Arqueo registrado');
+            // Ofrecer el corte Z del turno recién cerrado.
+            if (cerradaId) void getCorte(cerradaId).then(setCorte).catch(() => {});
           }}
           onCancel={() => setClosingCash(false)}
         />
       )}
+
+      {corte && <CorteModal corte={corte} onClose={() => setCorte(null)} />}
 
       {ticket && <TicketModal sale={ticket} onClose={() => setTicket(null)} />}
 

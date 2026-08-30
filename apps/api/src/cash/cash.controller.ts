@@ -68,6 +68,12 @@ export class CashController {
     return this.cash.summary(tenantId, id);
   }
 
+  /** Corte X (caja abierta) o Z (caja cerrada) del turno. */
+  @Get(':id/corte')
+  async corte(@CurrentTenant('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.cash.corte(tenantId, id);
+  }
+
   @Post(':id/close')
   async close(
     @CurrentTenant('tenantId') tenantId: string,

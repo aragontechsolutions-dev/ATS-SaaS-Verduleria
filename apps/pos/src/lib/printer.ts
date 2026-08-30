@@ -8,8 +8,10 @@
 // ============================================================================
 
 import type { OutboxSale } from './types';
-import { buildReceipt, drawerKick } from './escpos';
+import type { Corte } from './api';
+import { buildCorte, buildReceipt, drawerKick } from './escpos';
 import { printBoleta } from './boleta';
+import { printCorteBrowser } from './corte';
 
 export type PrinterMode = 'browser' | 'usb' | 'serial';
 
@@ -189,6 +191,22 @@ export async function printSale(sale: OutboxSale, cfg: PrinterConfig): Promise<v
     }
   }
   printBoleta(sale);
+}
+
+/**
+ * Imprime un corte de caja X/Z. Con impresora ESC/POS conectada envía los bytes;
+ * si no, cae a la impresión del navegador (80mm).
+ */
+export async function printCorte(corte: Corte, cfg: PrinterConfig): Promise<void> {
+  if (cfg.mode !== 'browser' && isConnected(cfg.mode)) {
+    try {
+      await sendBytes(cfg.mode, buildCorte(corte, { width: widthChars(cfg.width) }));
+      return;
+    } catch {
+      // Falló el envío ESC/POS: caemos a la impresión del navegador.
+    }
+  }
+  printCorteBrowser(corte);
 }
 
 /** Abre el cajón tras una venta en efectivo, si está configurado y conectado. */

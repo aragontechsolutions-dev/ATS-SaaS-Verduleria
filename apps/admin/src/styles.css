@@ -184,6 +184,14 @@ code { font-family: ui-monospace, monospace; }
 .seg--on { background: var(--primary); color: #fff; }
 .modal__sub { color: var(--muted); margin: 0 0 6px; }
 
+/* Corte X/Z: detalle en el modal */
+.corte-detalle { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; font-size: 14px; }
+.corte-detalle .row { display: flex; justify-content: space-between; gap: 12px; }
+.corte-detalle .row span:last-child { text-align: right; white-space: nowrap; }
+.corte-detalle .row.muted { color: var(--muted); }
+.corte-detalle hr { border: none; border-top: 1px dashed var(--border); margin: 5px 0; width: 100%; }
+.corte-tit { font-weight: 700; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+
 /* Cajas: acciones de fila y asignación de operadores */
 .row-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .oper-list { display: flex; flex-direction: column; gap: 4px; max-height: 46vh; overflow-y: auto; margin: 4px 0; }
