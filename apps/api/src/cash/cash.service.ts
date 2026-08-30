@@ -37,22 +37,25 @@ export class CashService {
     });
     if (abierta) throw new ConflictException('Ya tenés una caja abierta');
 
+    const terminal = dto.terminal?.trim() || undefined;
     const sesion = await this.prisma.cashSession.create({
       data: {
         tenantId,
         userId,
         sucursalId: dto.sucursalId,
+        terminal,
         status: CashSessionStatus.ABIERTA,
         montoApertura: new Prisma.Decimal(dto.montoApertura ?? 0),
       },
     });
     await this.audit.log({
       tipo: AuditEventTipo.CAJA_ABIERTA,
-      descripcion: 'Apertura de caja',
+      descripcion: terminal ? `Apertura de caja · ${terminal}` : 'Apertura de caja',
       monto: dto.montoApertura ?? 0,
       cashSessionId: sesion.id,
       sucursalId: dto.sucursalId,
       refId: sesion.id,
+      meta: terminal ? { terminal } : undefined,
     });
     return sesion;
   }
@@ -190,12 +193,12 @@ export class CashService {
     });
     await this.audit.log({
       tipo: AuditEventTipo.CAJA_CERRADA,
-      descripcion: `Cierre de caja · diferencia ${diferencia >= 0 ? '+' : ''}${diferencia.toFixed(2)}`,
+      descripcion: `Cierre de caja${session.terminal ? ` · ${session.terminal}` : ''} · diferencia ${diferencia >= 0 ? '+' : ''}${diferencia.toFixed(2)}`,
       monto: dto.montoCierre ?? 0,
       cashSessionId: sessionId,
       sucursalId: session.sucursalId ?? undefined,
       refId: sessionId,
-      meta: { diferencia, esperado: resumen.efectivoEsperado, notas: dto.notas ?? null },
+      meta: { diferencia, esperado: resumen.efectivoEsperado, notas: dto.notas ?? null, terminal: session.terminal ?? null },
     });
     return { session: cerrada, resumen, diferencia, arqueoDetalle };
   }
@@ -229,7 +232,12 @@ export class CashService {
           ...(filtros.userId ? { cajeroId: filtros.userId } : {}),
           ...(filtros.sucursalId ? { sucursalId: filtros.sucursalId } : {}),
         },
-        include: { payments: true, cajero: { select: { nombre: true } }, cfeDocument: { select: { serie: true, numero: true } } },
+        include: {
+          payments: true,
+          cajero: { select: { nombre: true } },
+          cfeDocument: { select: { serie: true, numero: true } },
+          cashSession: { select: { terminal: true } },
+        },
         orderBy: { fecha: 'desc' },
         take: limit,
       }),
@@ -250,7 +258,7 @@ export class CashService {
           ...(filtros.userId ? { userId: filtros.userId } : {}),
           ...(rango ? { createdAt: rango } : {}),
         },
-        include: { user: { select: { nombre: true } } },
+        include: { user: { select: { nombre: true } }, cashSession: { select: { terminal: true } } },
         orderBy: { createdAt: 'desc' },
         take: limit,
       }),
@@ -271,6 +279,7 @@ export class CashService {
         userId: s.cajeroId,
         userNombre: s.cajero?.nombre ?? null,
         sessionId: s.cashSessionId,
+        terminal: s.cashSession?.terminal ?? null,
         comprobante: comp,
       });
     }
@@ -285,6 +294,7 @@ export class CashService {
         userId: c.userId,
         userNombre: c.user?.nombre ?? null,
         sessionId: c.id,
+        terminal: c.terminal ?? null,
       });
       if (c.status === CashSessionStatus.CERRADA && c.cierreAt) {
         ops.push({
@@ -296,6 +306,7 @@ export class CashService {
           userId: c.userId,
           userNombre: c.user?.nombre ?? null,
           sessionId: c.id,
+          terminal: c.terminal ?? null,
         });
       }
     }
@@ -310,6 +321,7 @@ export class CashService {
         userId: m.userId,
         userNombre: m.user?.nombre ?? null,
         sessionId: m.cashSessionId,
+        terminal: m.cashSession?.terminal ?? null,
       });
     }
 
@@ -328,5 +340,6 @@ export interface OperacionCaja {
   userId?: string | null;
   userNombre?: string | null;
   sessionId?: string | null;
+  terminal?: string | null;
   comprobante?: string | null;
 }

@@ -4,16 +4,25 @@ import type { Sucursal } from '../lib/api';
 import { DenominationCounter } from './DenominationCounter';
 
 interface Props {
-  onConfirm: (montoApertura: number, sucursalId?: string) => void;
+  onConfirm: (montoApertura: number, sucursalId?: string, terminal?: string) => void;
   onCancel: () => void;
   loading?: boolean;
 }
 
 const STORE_KEY = 'ats.pos.sucursal';
+const TERMINAL_KEY = 'ats.pos.terminal';
 
 function loadSaved(): string {
   try {
     return localStorage.getItem(STORE_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function loadTerminal(): string {
+  try {
+    return localStorage.getItem(TERMINAL_KEY) ?? '';
   } catch {
     return '';
   }
@@ -24,6 +33,8 @@ export function OpenCashModal({ onConfirm, onCancel, loading }: Props) {
   const [valor, setValor] = useState('');
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [sucursalId, setSucursalId] = useState('');
+  // Caja física / terminal (por dispositivo). Se recuerda para la próxima apertura.
+  const [terminal, setTerminal] = useState(() => loadTerminal());
   // Modo de conteo: total directo o desglose por denominación.
   const [porDenom, setPorDenom] = useState(false);
   const [denomTotal, setDenomTotal] = useState(0);
@@ -58,7 +69,14 @@ export function OpenCashModal({ onConfirm, onCancel, loading }: Props) {
         // localStorage no disponible: no es crítico.
       }
     }
-    onConfirm(monto, elegida);
+    const term = terminal.trim();
+    try {
+      if (term) localStorage.setItem(TERMINAL_KEY, term);
+      else localStorage.removeItem(TERMINAL_KEY);
+    } catch {
+      // localStorage no disponible: no es crítico.
+    }
+    onConfirm(monto, elegida, term || undefined);
   }
 
   return (
@@ -79,6 +97,17 @@ export function OpenCashModal({ onConfirm, onCancel, loading }: Props) {
             </select>
           </label>
         )}
+
+        <label className="field">
+          Caja / terminal (opcional)
+          <input
+            type="text"
+            value={terminal}
+            onChange={(e) => setTerminal(e.target.value)}
+            placeholder="ej. Caja 1"
+            maxLength={40}
+          />
+        </label>
 
         <div className="seg">
           <button type="button" className={`seg__btn ${!porDenom ? 'is-on' : ''}`} onClick={() => setPorDenom(false)}>Total</button>

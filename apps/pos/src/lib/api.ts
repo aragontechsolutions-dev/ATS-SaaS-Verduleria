@@ -249,12 +249,12 @@ export async function getSucursales(): Promise<Sucursal[]> {
 
 // --- Caja / arqueo ----------------------------------------------------------
 
-export async function openCash(montoApertura: number, sucursalId?: string): Promise<CashSession> {
+export async function openCash(montoApertura: number, sucursalId?: string, terminal?: string): Promise<CashSession> {
   return ok(
     await fetch(`${API_BASE}/cash-sessions/open`, {
       method: 'POST',
       headers: headers(),
-      body: JSON.stringify({ montoApertura, sucursalId }),
+      body: JSON.stringify({ montoApertura, sucursalId, terminal }),
     }),
     'cash-open',
   );
