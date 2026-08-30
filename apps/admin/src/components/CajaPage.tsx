@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getCashOperations, getUsers } from '../lib/api';
-import type { CashOperation, TenantUser } from '../lib/api';
+import { getCashOperations, getTerminals, getUsers } from '../lib/api';
+import type { CashOperation, TenantUser, Terminal } from '../lib/api';
 import { SkeletonRows } from './Skeleton';
+import { CajasManager } from './CajasPage';
+import { ArqueosView } from './ArqueosPage';
 import { useToast } from '../lib/toast';
 
 const money = new Intl.NumberFormat('es-UY', { style: 'currency', currency: 'UYU', maximumFractionDigits: 0 });
@@ -29,9 +31,13 @@ export function CajaPage() {
   const [from, setFrom] = useState(hoyISO());
   const [to, setTo] = useState(hoyISO());
   const [userId, setUserId] = useState('');
+  const [terminalId, setTerminalId] = useState('');
+  const [terminals, setTerminals] = useState<Terminal[]>([]);
   const [tipo, setTipo] = useState('');
   const [live, setLive] = useState(true);
   const [ultima, setUltima] = useState<Date | null>(null);
+  // Sub-vista del módulo: histórico, arqueos por caja o gestión de cajas.
+  const [vista, setVista] = useState<'operaciones' | 'arqueos' | 'cajas'>('operaciones');
 
   const load = useCallback(
     async (silent = false) => {
@@ -41,6 +47,7 @@ export function CajaPage() {
           from: from ? `${from}T00:00:00` : undefined,
           to: to ? `${to}T23:59:59` : undefined,
           userId: userId || undefined,
+          terminalId: terminalId || undefined,
         });
         setOps(data);
         setUltima(new Date());
@@ -50,23 +57,24 @@ export function CajaPage() {
         setLoading(false);
       }
     },
-    [from, to, userId, toast],
+    [from, to, userId, terminalId, toast],
   );
 
   useEffect(() => {
     getUsers().then(setUsers).catch(() => {});
+    getTerminals().then(setTerminals).catch(() => {});
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  // Tiempo real: refresca en segundo plano cada pocos segundos.
+  // Tiempo real: refresca en segundo plano cada pocos segundos (solo en el histórico).
   useEffect(() => {
-    if (!live) return;
+    if (!live || vista !== 'operaciones') return;
     const t = window.setInterval(() => void load(true), REFRESH_MS);
     return () => window.clearInterval(t);
-  }, [live, load]);
+  }, [live, vista, load]);
 
   const filtradas = useMemo(() => (tipo ? ops.filter((o) => o.tipo === tipo) : ops), [ops, tipo]);
 
@@ -84,6 +92,18 @@ export function CajaPage() {
 
   return (
     <>
+      <div className="segmented">
+        <button className={`seg ${vista === 'operaciones' ? 'seg--on' : ''}`} onClick={() => setVista('operaciones')}>Operaciones</button>
+        <button className={`seg ${vista === 'arqueos' ? 'seg--on' : ''}`} onClick={() => setVista('arqueos')}>Arqueos</button>
+        <button className={`seg ${vista === 'cajas' ? 'seg--on' : ''}`} onClick={() => setVista('cajas')}>Cajas</button>
+      </div>
+
+      {vista === 'cajas' ? (
+        <CajasManager />
+      ) : vista === 'arqueos' ? (
+        <ArqueosView />
+      ) : (
+        <>
       <section className="tiles">
         <div className="tile"><span className="tile__label">Ventas</span><span className="tile__value">{money.format(totales.ventas)}</span></div>
         <div className="tile"><span className="tile__label">Ingresos de caja</span><span className="tile__value">{money.format(totales.ingresos)}</span></div>
@@ -110,6 +130,14 @@ export function CajaPage() {
               {users.map((u) => <option key={u.userId} value={u.userId}>{u.nombre}</option>)}
             </select>
           </label>
+          {terminals.length > 0 && (
+            <label className="field">Caja
+              <select value={terminalId} onChange={(e) => setTerminalId(e.target.value)}>
+                <option value="">Todas</option>
+                {terminals.map((t) => <option key={t.id} value={t.id}>{t.nombre} · {t.sucursalNombre}</option>)}
+              </select>
+            </label>
+          )}
           <label className="field">Tipo
             <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
               {TIPOS.map((t) => <option key={t} value={t}>{t ? TIPO_META[t].label : 'Todos'}</option>)}
@@ -151,6 +179,8 @@ export function CajaPage() {
         )}
         <p className="hint">Incluye ventas, aperturas/cierres de caja e ingresos/egresos de efectivo. Se actualiza en vivo mientras el turno opera.</p>
       </section>
+        </>
+      )}
     </>
   );
 }

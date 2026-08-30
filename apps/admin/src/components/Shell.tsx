@@ -6,7 +6,6 @@ import { ComprasPage } from './ComprasPage';
 import { StockPage } from './StockPage';
 import { CajaPage } from './CajaPage';
 import { SucursalesPage } from './SucursalesPage';
-import { CajasPage } from './CajasPage';
 import { MayoristasPage } from './MayoristasPage';
 import { LandingPage } from './LandingPage';
 import { UsersPage } from './UsersPage';
@@ -14,7 +13,7 @@ import { AuditoriaPage } from './AuditoriaPage';
 import { ReportsPage } from './ReportsPage';
 import { SettingsPage } from './SettingsPage';
 
-type Tab = 'reportes' | 'productos' | 'categorias' | 'promos' | 'compras' | 'stock' | 'caja' | 'sucursales' | 'cajas' | 'mayoristas' | 'miweb' | 'usuarios' | 'auditoria' | 'config';
+type Tab = 'reportes' | 'productos' | 'categorias' | 'promos' | 'compras' | 'stock' | 'caja' | 'sucursales' | 'mayoristas' | 'miweb' | 'usuarios' | 'auditoria' | 'config';
 
 const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'reportes', label: 'Reportes', icon: '📊' },
@@ -25,7 +24,6 @@ const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'stock', label: 'Stock', icon: '📦' },
   { id: 'caja', label: 'Caja', icon: '💰' },
   { id: 'sucursales', label: 'Sucursales', icon: '🏬' },
-  { id: 'cajas', label: 'Cajas', icon: '🖥️' },
   { id: 'mayoristas', label: 'Mayoristas', icon: '🤝' },
   { id: 'miweb', label: 'Mi web', icon: '🌐' },
   { id: 'usuarios', label: 'Usuarios', icon: '👥' },
@@ -42,7 +40,6 @@ const PAGES: Record<Tab, JSX.Element> = {
   stock: <StockPage />,
   caja: <CajaPage />,
   sucursales: <SucursalesPage />,
-  cajas: <CajasPage />,
   mayoristas: <MayoristasPage />,
   miweb: <LandingPage />,
   usuarios: <UsersPage />,

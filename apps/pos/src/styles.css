@@ -373,8 +373,14 @@ button { font: inherit; cursor: pointer; }
 .concil { display: grid; grid-template-columns: 1fr 130px 92px; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .concil__head { display: flex; flex-direction: column; gap: 2px; font-weight: 600; }
 .concil__head .muted { font-weight: 400; font-size: 12px; }
-.concil__input { padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 15px; text-align: right; }
+.concil__input { width: 100%; min-width: 0; box-sizing: border-box; padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 15px; text-align: right; }
 .concil__input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(18,140,126,.15); }
+/* Efectivo en el arqueo: bloque vertical de ancho completo (evita que el input
+   o el conteo por denominación se salgan del card). */
+.arqueo-ef { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.arqueo-ef__head { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; }
+.arqueo-ef__head .muted { font-weight: 400; font-size: 12px; }
+.arqueo-ef__input { width: 100%; box-sizing: border-box; }
 .concil__dif { text-align: right; font-weight: 700; font-size: 13px; }
 .concil__dif.ok { color: #1b7a3e; }
 .concil__dif.warn { color: var(--warn); }
