@@ -1,8 +1,10 @@
 import { Body, Controller, Get, HttpException, HttpStatus, Post, UnauthorizedException } from '@nestjs/common';
+import { AuditEventTipo } from '@ats/database';
 import { CurrentTenant } from '../tenant/current-tenant.decorator';
 import { getTenantContext } from '../tenant/tenant-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
+import { AuditService } from '../audit/audit.service';
 import { LoginDto } from './auth.dto';
 
 /** Intentos fallidos consecutivos antes de bloquear al usuario. */
@@ -13,6 +15,7 @@ export class AuthController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auth: AuthService,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -26,10 +29,18 @@ export class AuthController {
     const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email },
-      select: { id: true, bloqueado: true, failedLoginAttempts: true, isPlatformAdmin: true },
+      select: {
+        id: true,
+        bloqueado: true,
+        failedLoginAttempts: true,
+        isPlatformAdmin: true,
+        memberships: { select: { tenantId: true }, take: 1 },
+      },
     });
+    const tenantId = user?.memberships[0]?.tenantId;
 
     if (user?.bloqueado) {
+      await this.audit.log({ tipo: AuditEventTipo.LOGIN_FALLIDO, descripcion: 'Intento con cuenta bloqueada', tenantId, userId: user.id, usuario: email });
       throw new HttpException(
         { code: 'LOCKED', message: 'Usuario bloqueado por intentos fallidos. Pedí que te desbloqueen.' },
         HttpStatus.LOCKED,
@@ -50,6 +61,13 @@ export class AuthController {
           data: { failedLoginAttempts: attempts, bloqueado: locked ? true : undefined },
         });
         remaining = user.isPlatformAdmin ? null : Math.max(0, MAX_LOGIN_ATTEMPTS - attempts);
+        await this.audit.log({
+          tipo: locked ? AuditEventTipo.USUARIO_BLOQUEADO : AuditEventTipo.LOGIN_FALLIDO,
+          descripcion: locked ? 'Usuario bloqueado por 3 intentos fallidos' : 'Credenciales inválidas',
+          tenantId,
+          userId: user.id,
+          usuario: email,
+        });
       }
       throw new HttpException(
         locked
@@ -63,6 +81,7 @@ export class AuthController {
     if (user && user.failedLoginAttempts > 0) {
       await this.prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0 } });
     }
+    await this.audit.log({ tipo: AuditEventTipo.LOGIN, descripcion: 'Inicio de sesión', tenantId, userId: user?.id, usuario: email });
     return tokens;
   }
 

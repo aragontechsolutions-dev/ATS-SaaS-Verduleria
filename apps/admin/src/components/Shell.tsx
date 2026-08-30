@@ -9,10 +9,11 @@ import { SucursalesPage } from './SucursalesPage';
 import { MayoristasPage } from './MayoristasPage';
 import { LandingPage } from './LandingPage';
 import { UsersPage } from './UsersPage';
+import { AuditoriaPage } from './AuditoriaPage';
 import { ReportsPage } from './ReportsPage';
 import { SettingsPage } from './SettingsPage';
 
-type Tab = 'reportes' | 'productos' | 'categorias' | 'promos' | 'compras' | 'stock' | 'caja' | 'sucursales' | 'mayoristas' | 'miweb' | 'usuarios' | 'config';
+type Tab = 'reportes' | 'productos' | 'categorias' | 'promos' | 'compras' | 'stock' | 'caja' | 'sucursales' | 'mayoristas' | 'miweb' | 'usuarios' | 'auditoria' | 'config';
 
 const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'reportes', label: 'Reportes', icon: '📊' },
@@ -26,6 +27,7 @@ const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'mayoristas', label: 'Mayoristas', icon: '🤝' },
   { id: 'miweb', label: 'Mi web', icon: '🌐' },
   { id: 'usuarios', label: 'Usuarios', icon: '👥' },
+  { id: 'auditoria', label: 'Auditoría', icon: '📋' },
   { id: 'config', label: 'Configuración', icon: '⚙️' },
 ];
 
@@ -41,6 +43,7 @@ const PAGES: Record<Tab, JSX.Element> = {
   mayoristas: <MayoristasPage />,
   miweb: <LandingPage />,
   usuarios: <UsersPage />,
+  auditoria: <AuditoriaPage />,
   config: <SettingsPage />,
 };
 

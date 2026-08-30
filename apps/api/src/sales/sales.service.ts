@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { IvaIndicador, MedioPago, Prisma, SaleStatus, StockMovementType } from '@ats/database';
+import { AuditEventTipo, IvaIndicador, MedioPago, Prisma, SaleStatus, StockMovementType } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { getTenantContext } from '../tenant/tenant-context';
 import type { CreateDevolucionDto, CreateSaleDto } from './sales.dto';
 
@@ -16,7 +17,10 @@ const num = (v: Prisma.Decimal | number | null | undefined): number => (v == nul
 
 @Injectable()
 export class SalesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   /**
    * Crea una venta de forma IDEMPOTENTE por idempotencyKey. Si el POS reintenta
@@ -92,7 +96,7 @@ export class SalesService {
       referencia: p.referencia,
     }));
 
-    return this.prisma.$transaction(async (tx) => {
+    const creada = await this.prisma.$transaction(async (tx) => {
       const sale = await tx.sale.create({
         data: {
           tenantId,
@@ -165,6 +169,16 @@ export class SalesService {
 
       return sale;
     });
+
+    await this.audit.log({
+      tipo: AuditEventTipo.VENTA,
+      descripcion: 'Venta',
+      monto: Number(creada.total),
+      cashSessionId: creada.cashSessionId ?? undefined,
+      sucursalId: creada.sucursalId ?? undefined,
+      refId: creada.id,
+    });
+    return creada;
   }
 
   /**
@@ -262,7 +276,7 @@ export class SalesService {
       for (const s of stocks) stockByProduct.set(s.productId, { id: s.id, cantidad: num(s.cantidad), costo: num(s.costoPromedio) });
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const devuelta = await this.prisma.$transaction(async (tx) => {
       const devolucion = await tx.sale.create({
         data: {
           tenantId,
@@ -328,6 +342,17 @@ export class SalesService {
 
       return devolucion;
     });
+
+    await this.audit.log({
+      tipo: AuditEventTipo.DEVOLUCION,
+      descripcion: `Devolución${dto.motivo ? ` · ${dto.motivo}` : ''}`,
+      monto: Math.abs(Number(devuelta.total)),
+      cashSessionId: devuelta.cashSessionId ?? undefined,
+      sucursalId: devuelta.sucursalId ?? undefined,
+      refId: devuelta.id,
+      meta: { originalSaleId: dto.originalSaleId, medio: dto.medio },
+    });
+    return devuelta;
   }
 
   /**

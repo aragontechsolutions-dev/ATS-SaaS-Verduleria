@@ -13,6 +13,7 @@ import {
   type PrinterConfig,
   type PrinterMode,
 } from '../lib/printer';
+import { postAuditEvent } from '../lib/api';
 
 interface Props {
   onClose: () => void;
@@ -119,7 +120,10 @@ export function PrinterSettingsModal({ onClose }: Props) {
               <button className="btn btn--ghost" disabled={ocupado || !conectada} onClick={() => void accion(() => printTest(config), 'No se pudo imprimir la prueba.')}>
                 Imprimir prueba
               </button>
-              <button className="btn btn--ghost" disabled={ocupado || !conectada} onClick={() => void accion(() => openDrawer(config), 'No se pudo abrir el cajón.')}>
+              <button className="btn btn--ghost" disabled={ocupado || !conectada} onClick={() => void accion(async () => {
+                await openDrawer(config);
+                void postAuditEvent('CAJON_ABIERTO', { descripcion: 'Apertura manual del cajón (sin venta)' });
+              }, 'No se pudo abrir el cajón.')}>
                 Abrir cajón
               </button>
             </div>

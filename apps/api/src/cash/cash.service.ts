@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { CashSessionStatus, MedioPago, Prisma } from '@ats/database';
+import { AuditEventTipo, CashSessionStatus, MedioPago, Prisma } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import type { CloseCashDto, OpenCashDto } from './cash.dto';
 
 export interface CashSummary {
@@ -22,7 +23,10 @@ export interface ArqueoMedio {
 
 @Injectable()
 export class CashService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   /** Abre una caja. Falla si ya hay una abierta para ese cajero. */
   async open(tenantId: string, userId: string | undefined, dto: OpenCashDto) {
@@ -33,7 +37,7 @@ export class CashService {
     });
     if (abierta) throw new ConflictException('Ya tenés una caja abierta');
 
-    return this.prisma.cashSession.create({
+    const sesion = await this.prisma.cashSession.create({
       data: {
         tenantId,
         userId,
@@ -42,6 +46,15 @@ export class CashService {
         montoApertura: new Prisma.Decimal(dto.montoApertura ?? 0),
       },
     });
+    await this.audit.log({
+      tipo: AuditEventTipo.CAJA_ABIERTA,
+      descripcion: 'Apertura de caja',
+      monto: dto.montoApertura ?? 0,
+      cashSessionId: sesion.id,
+      sucursalId: dto.sucursalId,
+      refId: sesion.id,
+    });
+    return sesion;
   }
 
   /** Caja abierta actual del cajero (o null). */
@@ -106,7 +119,7 @@ export class CashService {
     if (session.status === CashSessionStatus.CERRADA) throw new ConflictException('La caja ya está cerrada');
     if (!(dto.monto > 0)) throw new BadRequestException('El monto debe ser mayor a 0');
 
-    return this.prisma.cashMovement.create({
+    const mov = await this.prisma.cashMovement.create({
       data: {
         tenantId,
         cashSessionId: sessionId,
@@ -116,6 +129,15 @@ export class CashService {
         motivo: dto.motivo,
       },
     });
+    await this.audit.log({
+      tipo: dto.tipo === 'INGRESO' ? AuditEventTipo.MOV_INGRESO : AuditEventTipo.MOV_EGRESO,
+      descripcion: `${dto.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'} de efectivo${dto.motivo ? ` · ${dto.motivo}` : ''}`,
+      monto: dto.monto,
+      cashSessionId: sessionId,
+      sucursalId: session.sucursalId ?? undefined,
+      refId: mov.id,
+    });
+    return mov;
   }
 
   /** Movimientos (ingresos/egresos) de un turno. */
@@ -165,6 +187,15 @@ export class CashService {
         arqueoDetalle: arqueoDetalle as unknown as Prisma.InputJsonValue,
         notas: dto.notas,
       },
+    });
+    await this.audit.log({
+      tipo: AuditEventTipo.CAJA_CERRADA,
+      descripcion: `Cierre de caja · diferencia ${diferencia >= 0 ? '+' : ''}${diferencia.toFixed(2)}`,
+      monto: dto.montoCierre ?? 0,
+      cashSessionId: sessionId,
+      sucursalId: session.sucursalId ?? undefined,
+      refId: sessionId,
+      meta: { diferencia, esperado: resumen.efectivoEsperado, notas: dto.notas ?? null },
     });
     return { session: cerrada, resumen, diferencia, arqueoDetalle };
   }
