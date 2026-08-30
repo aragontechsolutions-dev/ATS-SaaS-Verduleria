@@ -33,7 +33,7 @@ import { useScale } from './hooks/useScale';
 import { cartItemFromProduct, lineBruto, useCart, type ParkedTicket } from './state/cart';
 import { promosByProduct } from './lib/promo';
 import { parseScan } from './lib/barcode';
-import { getMe, getSucursales, postAuditEvent } from './lib/api';
+import { getMe, getMyTerminals, getSucursales, postAuditEvent } from './lib/api';
 import type { Sucursal } from './lib/api';
 import { ChangePassword } from './components/ChangePassword';
 import { supabase } from './lib/supabase';
@@ -47,8 +47,8 @@ export default function App() {
     undefined,
   );
   // Puerta de acceso una vez logueado: loading → verificando; change → primer
-  // acceso (cambiar contraseña); ok → habilitado.
-  const [gate, setGate] = useState<'loading' | 'change' | 'ok'>('loading');
+  // acceso (cambiar contraseña); sincaja → sin caja habilitada; ok → habilitado.
+  const [gate, setGate] = useState<'loading' | 'change' | 'sincaja' | 'ok'>('loading');
   // Mensaje a mostrar en el login (usuario inactivo, contraseña actualizada…).
   const [loginMsg, setLoginMsg] = useState<string | null>(null);
 
@@ -66,7 +66,19 @@ export default function App() {
     let alive = true;
     setGate('loading');
     getMe()
-      .then((me) => { if (alive) setGate(me.mustChangePassword ? 'change' : 'ok'); })
+      .then(async (me) => {
+        if (!alive) return;
+        if (me.mustChangePassword) { setGate('change'); return; }
+        // Control de acceso por caja: si el comercio ya definió cajas y este
+        // usuario no tiene ninguna habilitada, se le bloquea el ingreso. Offline
+        // (o error) no bloquea: la apertura de caja igual lo valida en el backend.
+        try {
+          const { terminals, hayCajas } = await getMyTerminals();
+          if (alive) setGate(hayCajas && terminals.length === 0 ? 'sincaja' : 'ok');
+        } catch {
+          if (alive) setGate('ok');
+        }
+      })
       .catch(() => {
         if (!alive) return;
         setLoginMsg('Tu usuario está inactivo o no tiene acceso. Contactá al encargado.');
@@ -86,6 +98,22 @@ export default function App() {
   }
   if (gate === 'change') {
     return <ChangePassword email={session.user.email ?? ''} onDone={(msg) => setLoginMsg(msg)} />;
+  }
+  if (gate === 'sincaja') {
+    return (
+      <div className="login">
+        <div className="login__card">
+          <img className="login__logo" src="/icon.svg" alt="Aragon Tech Solutions" />
+          <h1 className="login__title">Sin caja asignada</h1>
+          <p className="login__note">
+            {session.user.email} no tiene ninguna caja habilitada para operar.
+            Pedile al administrador que te asigne una desde el Panel (Caja → Cajas).
+          </p>
+          <button className="btn btn--primary login__btn" onClick={() => void supabase.auth.signOut()}>Salir</button>
+        </div>
+        <p className="login__foot">Aragon Tech Solutions · Technology for smarter fresh produce businesses</p>
+      </div>
+    );
   }
 
   return <Pos userEmail={session.user.email ?? ''} onLogout={() => void supabase.auth.signOut()} />;
