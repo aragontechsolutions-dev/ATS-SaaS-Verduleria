@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getSucursales } from '../lib/api';
 import type { Sucursal } from '../lib/api';
+import { DenominationCounter } from './DenominationCounter';
 
 interface Props {
   onConfirm: (montoApertura: number, sucursalId?: string) => void;
@@ -23,8 +24,11 @@ export function OpenCashModal({ onConfirm, onCancel, loading }: Props) {
   const [valor, setValor] = useState('');
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [sucursalId, setSucursalId] = useState('');
+  // Modo de conteo: total directo o desglose por denominación.
+  const [porDenom, setPorDenom] = useState(false);
+  const [denomTotal, setDenomTotal] = useState(0);
 
-  const monto = parseFloat(valor.replace(',', '.')) || 0;
+  const monto = porDenom ? denomTotal : parseFloat(valor.replace(',', '.')) || 0;
 
   useEffect(() => {
     let vivo = true;
@@ -76,20 +80,32 @@ export function OpenCashModal({ onConfirm, onCancel, loading }: Props) {
           </label>
         )}
 
-        <label className="field">
-          Fondo de apertura ($)
-          <input
-            type="number"
-            inputMode="decimal"
-            value={valor}
-            onChange={(e) => setValor(e.target.value)}
-            placeholder="0"
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') confirm();
-            }}
-          />
-        </label>
+        <div className="seg">
+          <button type="button" className={`seg__btn ${!porDenom ? 'is-on' : ''}`} onClick={() => setPorDenom(false)}>Total</button>
+          <button type="button" className={`seg__btn ${porDenom ? 'is-on' : ''}`} onClick={() => setPorDenom(true)}>Por denominación</button>
+        </div>
+
+        {porDenom ? (
+          <>
+            <p className="modal__sub">Contá los billetes y monedas del fondo inicial.</p>
+            <DenominationCounter onTotal={setDenomTotal} />
+          </>
+        ) : (
+          <label className="field">
+            Fondo de apertura ($)
+            <input
+              type="number"
+              inputMode="decimal"
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              placeholder="0"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') confirm();
+              }}
+            />
+          </label>
+        )}
         <div className="modal__actions">
           <button className="btn btn--ghost" onClick={onCancel} disabled={loading}>
             Cancelar

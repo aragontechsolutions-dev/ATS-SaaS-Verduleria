@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { cashSummary, closeCash } from '../lib/api';
 import { formatMoney } from '../lib/format';
 import type { CashSummary } from '../lib/types';
+import { DenominationCounter } from './DenominationCounter';
 
 interface Props {
   sessionId: string;
@@ -29,6 +30,8 @@ const parse = (v: string) => parseFloat(v.replace(',', '.')) || 0;
 export function CloseCashModal({ sessionId, onClosed, onCancel }: Props) {
   const [resumen, setResumen] = useState<CashSummary | null>(null);
   const [efectivo, setEfectivo] = useState('');
+  // Conteo de efectivo por denominación (billetes/monedas) en vez del total directo.
+  const [porDenom, setPorDenom] = useState(false);
   // Conteo/liquidación por medio electrónico (texto por input).
   const [conteos, setConteos] = useState<Record<string, string>>({});
   const [notas, setNotas] = useState('');
@@ -126,15 +129,23 @@ export function CloseCashModal({ sessionId, onClosed, onCancel }: Props) {
                 <span>{label('EFECTIVO')}</span>
                 <span className="muted">esperado {formatMoney(efectivoEsperado)}</span>
               </div>
-              <input
-                className="concil__input"
-                type="number"
-                inputMode="decimal"
-                placeholder="Contado en caja"
-                value={efectivo}
-                onChange={(e) => setEfectivo(e.target.value)}
-                autoFocus
-              />
+              <div className="seg seg--sm">
+                <button type="button" className={`seg__btn ${!porDenom ? 'is-on' : ''}`} onClick={() => setPorDenom(false)}>Total</button>
+                <button type="button" className={`seg__btn ${porDenom ? 'is-on' : ''}`} onClick={() => setPorDenom(true)}>Por denominación</button>
+              </div>
+              {porDenom ? (
+                <DenominationCounter onTotal={(t) => setEfectivo(String(t))} />
+              ) : (
+                <input
+                  className="concil__input"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="Contado en caja"
+                  value={efectivo}
+                  onChange={(e) => setEfectivo(e.target.value)}
+                  autoFocus
+                />
+              )}
               <span className={`concil__dif ${difEfectivo === 0 ? '' : difEfectivo > 0 ? 'ok' : 'warn'}`}>
                 {difEfectivo === 0 ? 'OK' : `${difEfectivo > 0 ? 'sobra' : 'falta'} ${formatMoney(Math.abs(difEfectivo))}`}
               </span>
