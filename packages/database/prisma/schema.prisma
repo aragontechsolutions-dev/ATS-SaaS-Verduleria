@@ -796,6 +796,9 @@ model CashSession {
   tenantId   String            @db.Uuid
   sucursalId String?           @db.Uuid
   userId     String            @db.Uuid // cajero que abre
+  /// Identificador de la caja física / terminal donde se opera (ej. "Caja 1").
+  /// Se configura por dispositivo en el POS. Permite arquear por terminal.
+  terminal   String?
   status     CashSessionStatus @default(ABIERTA)
   aperturaAt DateTime          @default(now())
   cierreAt   DateTime?
@@ -815,6 +818,7 @@ model CashSession {
 
   @@index([tenantId])
   @@index([tenantId, status])
+  @@index([tenantId, terminal])
 }
 
 /// Movimiento de caja que NO es una venta: ingreso (aporte de efectivo) o egreso

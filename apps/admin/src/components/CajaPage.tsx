@@ -123,7 +123,7 @@ export function CajaPage() {
           <div className="table-wrap">
             <table className="table">
               <thead>
-                <tr><th>Fecha y hora</th><th>Tipo</th><th>Detalle</th><th>Usuario</th><th>Medio</th><th className="num">Monto</th></tr>
+                <tr><th>Fecha y hora</th><th>Tipo</th><th>Detalle</th><th>Caja</th><th>Usuario</th><th>Medio</th><th className="num">Monto</th></tr>
               </thead>
               <tbody>
                 {filtradas.map((o) => {
@@ -133,6 +133,7 @@ export function CajaPage() {
                       <td>{new Date(o.fecha).toLocaleString('es-UY')}</td>
                       <td><span className={`op ${meta.cls}`}>{meta.label}</span></td>
                       <td>{o.descripcion}</td>
+                      <td>{o.terminal ?? '—'}</td>
                       <td>{o.userNombre ?? '—'}</td>
                       <td>{o.medio ? o.medio.toLowerCase().replace(/_/g, ' ') : '—'}</td>
                       <td className="num">
@@ -143,7 +144,7 @@ export function CajaPage() {
                     </tr>
                   );
                 })}
-                {filtradas.length === 0 && <tr><td colSpan={6} className="muted">Sin operaciones en el rango.</td></tr>}
+                {filtradas.length === 0 && <tr><td colSpan={7} className="muted">Sin operaciones en el rango.</td></tr>}
               </tbody>
             </table>
           </div>

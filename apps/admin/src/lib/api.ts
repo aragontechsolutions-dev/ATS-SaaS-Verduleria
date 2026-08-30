@@ -564,6 +564,7 @@ export interface CashOperation {
   userId?: string | null;
   userNombre?: string | null;
   sessionId?: string | null;
+  terminal?: string | null;
   comprobante?: string | null;
 }
 

@@ -108,6 +108,7 @@ export interface CashSession {
   montoApertura: string | number;
   aperturaAt: string;
   sucursalId?: string | null;
+  terminal?: string | null;
 }
 
 export interface CashSummary {
