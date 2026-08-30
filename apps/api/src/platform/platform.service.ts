@@ -27,6 +27,33 @@ export class PlatformService {
     return { tenants, activos, suscripcionesPorEstado: porPlan };
   }
 
+  /** Usuarios bloqueados (por intentos fallidos) de todos los tenants. */
+  async lockedUsers() {
+    const users = await this.prisma.user.findMany({
+      where: { bloqueado: true },
+      include: { memberships: { include: { tenant: { select: { nombre: true } } } } },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return users.map((u) => ({
+      id: u.id,
+      email: u.email,
+      nombre: u.nombre,
+      tenants: u.memberships.map((m) => m.tenant.nombre),
+      roles: [...new Set(u.memberships.map((m) => m.role))],
+    }));
+  }
+
+  /** Desbloquea a un usuario (cualquier tenant) y lo obliga a cambiar la clave. */
+  async unlockUser(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { bloqueado: false, failedLoginAttempts: 0, mustChangePassword: true },
+    });
+    return { ok: true };
+  }
+
   async listPlans() {
     return this.prisma.plan.findMany({ where: { activo: true }, orderBy: { orden: 'asc' } });
   }

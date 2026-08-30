@@ -110,6 +110,39 @@ export class AuthService {
     return this.resolveContext(sup);
   }
 
+  /**
+   * Login server-side contra Supabase (password grant). Devuelve los tokens si
+   * las credenciales son válidas, o null si no. Permite contar los fallos en el
+   * backend (para el bloqueo por intentos) sin depender del cliente.
+   */
+  async passwordGrant(
+    email: string,
+    password: string,
+  ): Promise<{ access_token: string; refresh_token: string; expires_in?: number; expires_at?: number; token_type?: string } | null> {
+    const { url, anonKey } = this.config.get('supabase', { infer: true });
+    if (!url || !anonKey) throw new UnauthorizedException('Supabase no configurado en el backend');
+    const res = await fetch(`${url}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { apikey: anonKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as { access_token: string; refresh_token: string };
+  }
+
+  /** Fija una contraseña nueva en Supabase (Admin API). Para reset del admin. */
+  async setSupabasePassword(authUserId: string | null | undefined, password: string): Promise<boolean> {
+    const { url, serviceRoleKey } = this.config.get('supabase', { infer: true });
+    if (!url || !serviceRoleKey || !authUserId) return false;
+    const res = await fetch(`${url}/auth/v1/admin/users/${authUserId}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) this.logger.warn(`No se pudo fijar la contraseña en Supabase (${res.status})`);
+    return res.ok;
+  }
+
   /** ¿Está configurada la Admin API (service-role) para crear usuarios? */
   canProvisionUsers(): boolean {
     const s = this.config.get('supabase', { infer: true });

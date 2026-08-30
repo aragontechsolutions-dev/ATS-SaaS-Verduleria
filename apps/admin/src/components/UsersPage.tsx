@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getUsers, updateUser } from '../lib/api';
+import { getUsers, resetUserPassword, unlockUser, updateUser } from '../lib/api';
 import type { Role, TenantUser } from '../lib/api';
 import { UserModal } from './UserModal';
 import { SkeletonRows } from './Skeleton';
@@ -45,6 +45,25 @@ export function UsersPage() {
     }
     void load();
   }
+  async function resetear(u: TenantUser) {
+    if (!window.confirm(`¿Resetear la contraseña de ${u.nombre}? Se generará una temporal y deberá cambiarla al entrar.`)) return;
+    try {
+      const { password } = await resetUserPassword(u.membershipId);
+      window.alert(`Contraseña temporal de ${u.email}:\n\n${password}\n\nCompartila con el usuario. Deberá cambiarla al iniciar sesión.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo resetear');
+    }
+    void load();
+  }
+  async function desbloquear(u: TenantUser) {
+    try {
+      await unlockUser(u.membershipId);
+      toast.success(`${u.nombre} desbloqueado. Deberá cambiar su contraseña al entrar.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo desbloquear');
+    }
+    void load();
+  }
 
   return (
     <>
@@ -64,7 +83,9 @@ export function UsersPage() {
                   <th>Nombre</th>
                   <th>Email</th>
                   <th>Rol</th>
+                  <th>Estado</th>
                   <th>Activo</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -77,7 +98,20 @@ export function UsersPage() {
                         {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                       </select>
                     </td>
+                    <td>
+                      {u.bloqueado
+                        ? <span className="badge badge--suspendida">🔒 Bloqueado</span>
+                        : u.mustChangePassword
+                          ? <span className="badge badge--trial">Cambio pendiente</span>
+                          : <span className="badge badge--activa">OK</span>}
+                    </td>
                     <td><input type="checkbox" checked={u.activo} onChange={() => toggleActivo(u)} /></td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {u.bloqueado && <button className="btn btn--ghost btn--sm" onClick={() => desbloquear(u)}>Desbloquear</button>}
+                        <button className="btn btn--ghost btn--sm" onClick={() => resetear(u)}>Resetear clave</button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
