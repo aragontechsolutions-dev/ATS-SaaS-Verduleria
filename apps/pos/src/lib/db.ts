@@ -11,6 +11,7 @@ export interface CatalogMeta {
   updatedAt: string;
   listaPrecio: string | null;
   promos?: Promo[];
+  limiteEfectivoCaja?: number | null;
 }
 
 class PosDatabase extends Dexie {
@@ -40,7 +41,7 @@ export const db = new PosDatabase();
 
 export async function saveCatalog(
   products: CatalogProduct[],
-  meta: { updatedAt: string; listaPrecio: string | null; promos?: Promo[] },
+  meta: { updatedAt: string; listaPrecio: string | null; promos?: Promo[]; limiteEfectivoCaja?: number | null },
 ): Promise<void> {
   await db.transaction('rw', db.catalog, db.meta, async () => {
     await db.catalog.clear();

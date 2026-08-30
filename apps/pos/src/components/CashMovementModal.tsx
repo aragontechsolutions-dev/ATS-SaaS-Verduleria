@@ -4,13 +4,15 @@ import type { CashMovementTipo } from '../lib/types';
 
 interface Props {
   sessionId: string;
+  /** Tipo inicial (ej. abrir directo en modo Sangría). */
+  initialTipo?: CashMovementTipo;
   onDone: (tipo: CashMovementTipo, monto: number, motivo: string) => void;
   onCancel: () => void;
 }
 
-/** Ingreso o egreso de efectivo de la caja que NO es una venta (aporte/retiro). */
-export function CashMovementModal({ sessionId, onDone, onCancel }: Props) {
-  const [tipo, setTipo] = useState<CashMovementTipo>('EGRESO');
+/** Ingreso, egreso o sangría de efectivo de la caja (no es una venta). */
+export function CashMovementModal({ sessionId, initialTipo = 'EGRESO', onDone, onCancel }: Props) {
+  const [tipo, setTipo] = useState<CashMovementTipo>(initialTipo);
   const [monto, setMonto] = useState('');
   const [motivo, setMotivo] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -34,15 +36,22 @@ export function CashMovementModal({ sessionId, onDone, onCancel }: Props) {
   return (
     <div className="modal-backdrop">
       <div className="modal">
-        <h3>Movimiento de caja</h3>
-        <p className="modal__sub">Registrá dinero que entra o sale de la caja sin ser una venta.</p>
+        <h3>{tipo === 'SANGRIA' ? 'Sangría de caja' : 'Movimiento de caja'}</h3>
+        <p className="modal__sub">
+          {tipo === 'SANGRIA'
+            ? 'Retiro de efectivo del cajón hacia la caja fuerte (por seguridad). Queda registrado.'
+            : 'Registrá dinero que entra o sale de la caja sin ser una venta.'}
+        </p>
 
         <div className="medios">
           <button className={`medio ${tipo === 'INGRESO' ? 'medio--on' : ''}`} onClick={() => setTipo('INGRESO')}>
-            ➕ Ingreso (aporte)
+            ➕ Ingreso
           </button>
           <button className={`medio ${tipo === 'EGRESO' ? 'medio--on' : ''}`} onClick={() => setTipo('EGRESO')}>
-            ➖ Egreso (retiro/pago)
+            ➖ Egreso
+          </button>
+          <button className={`medio ${tipo === 'SANGRIA' ? 'medio--on' : ''}`} onClick={() => setTipo('SANGRIA')}>
+            🔻 Sangría
           </button>
         </div>
 
@@ -59,7 +68,7 @@ export function CashMovementModal({ sessionId, onDone, onCancel }: Props) {
         </label>
         <label className="field">
           Motivo
-          <input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="ej. pago a proveedor, retiro, vuelto inicial…" />
+          <input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder={tipo === 'SANGRIA' ? 'ej. retiro a caja fuerte, depósito bancario…' : 'ej. pago a proveedor, retiro, vuelto inicial…'} />
         </label>
 
         {error && <p className="modal__err">{error}</p>}

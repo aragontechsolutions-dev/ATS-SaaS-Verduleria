@@ -20,7 +20,7 @@ import { ParkedModal } from './components/ParkedModal';
 import { PriceCheckModal } from './components/PriceCheckModal';
 import { CobranzaModal } from './components/CobranzaModal';
 import { PrinterSettingsModal } from './components/PrinterSettingsModal';
-import { loadPrinterConfig, maybeOpenDrawer, tryReconnect } from './lib/printer';
+import { loadPrinterConfig, maybeOpenDrawer, openDrawer, tryReconnect } from './lib/printer';
 import { requiereIdentificacion } from './lib/fiscal';
 import { discountMoney, type DiscountSpec } from './lib/discount';
 import { useToast } from './lib/toast';
@@ -34,7 +34,7 @@ import { useScale } from './hooks/useScale';
 import { cartItemFromProduct, lineBruto, useCart, type ParkedTicket } from './state/cart';
 import { promosByProduct } from './lib/promo';
 import { parseScan } from './lib/barcode';
-import { getCorte, getMe, getMyTerminals, getSucursales, postAuditEvent } from './lib/api';
+import { cashSummary, getCorte, getMe, getMyTerminals, getSucursales, postAuditEvent } from './lib/api';
 import type { Corte, Sucursal } from './lib/api';
 import { ChangePassword } from './components/ChangePassword';
 import { supabase } from './lib/supabase';
@@ -124,7 +124,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const toast = useToast();
   const security = useSecurity();
   const online = useOnline();
-  const { products, promos, listaPrecio, loading, fromCache } = useCatalog();
+  const { products, promos, listaPrecio, limiteEfectivoCaja, loading, fromCache } = useCatalog();
   const promosMap = useMemo(() => promosByProduct(promos), [promos]);
   const cash = useCash();
   const cart = useCart(promosMap);
@@ -137,6 +137,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const [scaleOpen, setScaleOpen] = useState(false);
   const [opsOpen, setOpsOpen] = useState(false);
   const [movingCash, setMovingCash] = useState(false);
+  const [movementInitial, setMovementInitial] = useState<'INGRESO' | 'EGRESO' | 'SANGRIA'>('EGRESO');
   const [customer, setCustomer] = useState<PosCustomer | null>(null);
   const [customerOpen, setCustomerOpen] = useState(false);
   // Descuento: null = cerrado; {kind:'line', index} o {kind:'global'}.
@@ -304,8 +305,19 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
       const detalle = vuelto > 0 ? `${medios} · vuelto ${formatMoney(vuelto)} — ${comp}` : `${medios} — ${comp}`;
       toast.success(`Venta cobrada · ${formatMoney(total)}`, detalle);
       void countPending().then(setPendientes);
+      // Límite de efectivo: si tras cobrar en efectivo el cajón supera el límite,
+      // sugerimos una sangría (best-effort, solo si hay límite configurado).
+      if (cash.session && limiteEfectivoCaja && payments.some((p) => p.medio === 'EFECTIVO')) {
+        void cashSummary(cash.session.id)
+          .then((s) => {
+            if (s.superaLimite && s.limiteEfectivo != null) {
+              toast.info('Conviene hacer una sangría', `Hay ${formatMoney(s.efectivoEsperado)} en el cajón (límite ${formatMoney(s.limiteEfectivo)})`);
+            }
+          })
+          .catch(() => {});
+      }
     },
-    [cart, cash.session, customer, toast],
+    [cart, cash.session, customer, limiteEfectivoCaja, toast],
   );
 
   const sinCaja = !cash.session;
@@ -528,7 +540,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         onOpenPrice={openPriceCheck}
         onCobranza={() => setCobranzaOpen(true)}
         onOpenSecurity={security.openSettings}
-        onMovimiento={cash.session ? () => setMovingCash(true) : undefined}
+        onMovimiento={cash.session ? () => { setMovementInitial('EGRESO'); setMovingCash(true); } : undefined}
+        onSangria={cash.session ? () => { setMovementInitial('SANGRIA'); setMovingCash(true); } : undefined}
         onCorteX={cash.session ? onCorteX : undefined}
         onLogout={onLogout}
       />
@@ -707,12 +720,13 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
       {movingCash && cash.session && (
         <CashMovementModal
           sessionId={cash.session.id}
+          initialTipo={movementInitial}
           onDone={(tipo, monto, motivo) => {
             setMovingCash(false);
-            toast.success(
-              `${tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'} registrado · ${formatMoney(monto)}`,
-              motivo || 'Movimiento de caja',
-            );
+            const label = tipo === 'INGRESO' ? 'Ingreso' : tipo === 'SANGRIA' ? 'Sangría' : 'Egreso';
+            toast.success(`${label} · ${formatMoney(monto)}`, motivo || 'Movimiento de caja');
+            // La sangría saca efectivo del cajón: abrimos el cajón para retirarlo.
+            if (tipo === 'SANGRIA') void openDrawer(loadPrinterConfig()).catch(() => {});
           }}
           onCancel={() => setMovingCash(false)}
         />

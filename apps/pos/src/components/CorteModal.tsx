@@ -44,6 +44,7 @@ export function CorteModal({ corte, onClose }: Props) {
           <div className="corte__row"><span>Ventas ({corte.ventas})</span><span>{formatMoney(corte.totalVendido)}</span></div>
           {corte.ingresos > 0 && <div className="corte__row"><span>Ingresos</span><span>+{formatMoney(corte.ingresos)}</span></div>}
           {corte.egresos > 0 && <div className="corte__row"><span>Egresos</span><span>−{formatMoney(corte.egresos)}</span></div>}
+          {corte.sangrias > 0 && <div className="corte__row"><span>Sangrías</span><span>−{formatMoney(corte.sangrias)}</span></div>}
 
           <div className="corte__sep" />
           <div className="corte__tit">Por medio de pago</div>

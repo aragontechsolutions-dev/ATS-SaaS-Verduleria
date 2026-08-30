@@ -121,6 +121,11 @@ export function CloseCashModal({ sessionId, onClosed, onCancel }: Props) {
                   <span>Egresos de efectivo</span><span>−{formatMoney(resumen.egresos)}</span>
                 </div>
               )}
+              {resumen.sangrias > 0 && (
+                <div className="arqueo__row arqueo__row--sub">
+                  <span>Sangrías</span><span>−{formatMoney(resumen.sangrias)}</span>
+                </div>
+              )}
             </div>
 
             {/* Efectivo: conteo físico (bloque vertical de ancho completo) */}

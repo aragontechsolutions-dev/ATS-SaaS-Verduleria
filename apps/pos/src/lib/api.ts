@@ -93,6 +93,7 @@ export interface CatalogApiResponse {
   listaPrecio: string | null;
   products: import('./types').CatalogProduct[];
   promos?: import('./promo').Promo[];
+  limiteEfectivoCaja?: number | null;
 }
 
 export async function fetchCatalog(): Promise<CatalogApiResponse> {
@@ -305,6 +306,7 @@ export interface Corte {
   montoApertura: number;
   ingresos: number;
   egresos: number;
+  sangrias: number;
   ventas: number;
   totalVendido: number;
   porMedio: Record<string, number>;
@@ -344,7 +346,7 @@ export async function closeCash(
 
 export async function addCashMovement(
   sessionId: string,
-  tipo: 'INGRESO' | 'EGRESO',
+  tipo: 'INGRESO' | 'EGRESO' | 'SANGRIA',
   monto: number,
   motivo?: string,
 ): Promise<unknown> {

@@ -33,6 +33,8 @@ export interface CatalogResponse {
   listaPrecio: string | null;
   products: CatalogProduct[];
   promos: CatalogPromo[];
+  /** Límite de efectivo en cajón (config del tenant; null = sin límite). */
+  limiteEfectivoCaja: number | null;
 }
 
 /**
@@ -44,10 +46,13 @@ export class CatalogService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getCatalog(tenantId: string): Promise<CatalogResponse> {
-    const lista = await this.prisma.priceList.findFirst({
-      where: { tenantId, tipo: TipoListaPrecio.MOSTRADOR, activo: true },
-      orderBy: { createdAt: 'asc' },
-    });
+    const [lista, tenant] = await Promise.all([
+      this.prisma.priceList.findFirst({
+        where: { tenantId, tipo: TipoListaPrecio.MOSTRADOR, activo: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { limiteEfectivoCaja: true } }),
+    ]);
 
     const productos = await this.prisma.product.findMany({
       where: { tenantId, activo: true },
@@ -108,6 +113,7 @@ export class CatalogService {
       listaPrecio: lista?.nombre ?? null,
       products,
       promos,
+      limiteEfectivoCaja: tenant?.limiteEfectivoCaja != null ? Number(tenant.limiteEfectivoCaja) : null,
     };
   }
 }

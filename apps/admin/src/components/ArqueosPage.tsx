@@ -176,6 +176,7 @@ function CorteModal({ corte, onClose }: { corte: Corte; onClose: () => void }) {
           {row(`Ventas (${corte.ventas})`, money.format(corte.totalVendido))}
           {corte.ingresos > 0 && row('Ingresos', `+${money.format(corte.ingresos)}`)}
           {corte.egresos > 0 && row('Egresos', `−${money.format(corte.egresos)}`)}
+          {corte.sangrias > 0 && row('Sangrías', `−${money.format(corte.sangrias)}`)}
           <hr />
           <div className="corte-tit">Por medio de pago</div>
           {medios.length === 0 && <div className="row muted"><span>Sin ventas</span><span /></div>}

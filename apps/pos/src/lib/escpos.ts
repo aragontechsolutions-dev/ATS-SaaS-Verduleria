@@ -139,6 +139,7 @@ export interface CorteTicket {
   montoApertura: number;
   ingresos: number;
   egresos: number;
+  sangrias: number;
   ventas: number;
   totalVendido: number;
   porMedio: Record<string, number>;
@@ -171,6 +172,7 @@ export function buildCorte(c: CorteTicket, opts: { width?: number } = {}): Uint8
   b.cols(`Ventas (${c.ventas})`, formatMoney(c.totalVendido));
   if (c.ingresos > 0) b.cols('Ingresos', `+${formatMoney(c.ingresos)}`);
   if (c.egresos > 0) b.cols('Egresos', `-${formatMoney(c.egresos)}`);
+  if (c.sangrias > 0) b.cols('Sangrias', `-${formatMoney(c.sangrias)}`);
   b.sep();
 
   b.bold(true).line('Por medio de pago').bold(false);

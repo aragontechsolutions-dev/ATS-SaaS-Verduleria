@@ -9,10 +9,16 @@ export interface CashSummary {
   ventas: number;
   totalVendido: number;
   porMedio: Record<string, number>;
-  efectivoEsperado: number; // apertura + ventas efectivo + ingresos − egresos
+  efectivoEsperado: number; // apertura + ventas efectivo + ingresos − egresos − sangrías
   montoApertura: number;
   ingresos: number;
   egresos: number;
+  /** Total retirado por sangrías en el turno. */
+  sangrias: number;
+  /** Límite de efectivo en cajón (config del tenant; null = sin límite). */
+  limiteEfectivo: number | null;
+  /** true si el efectivo esperado supera el límite (conviene una sangría). */
+  superaLimite: boolean;
 }
 
 /** Conciliación de un medio de pago: lo esperado vs lo contado/liquidado. */
@@ -93,12 +99,13 @@ export class CashService {
     const session = await this.prisma.cashSession.findFirst({ where: { id: sessionId, tenantId } });
     if (!session) throw new NotFoundException('Caja no encontrada');
 
-    const [sales, movimientos] = await Promise.all([
+    const [sales, movimientos, tenant] = await Promise.all([
       this.prisma.sale.findMany({
         where: { tenantId, cashSessionId: sessionId, status: { not: 'ANULADA' } },
         include: { payments: true },
       }),
       this.prisma.cashMovement.findMany({ where: { tenantId, cashSessionId: sessionId } }),
+      this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { limiteEfectivoCaja: true } }),
     ]);
 
     const porMedio: Record<string, number> = {};
@@ -113,19 +120,27 @@ export class CashService {
 
     let ingresos = 0;
     let egresos = 0;
+    let sangrias = 0;
     for (const m of movimientos) {
       if (m.tipo === 'INGRESO') ingresos += Number(m.monto);
+      else if (m.tipo === 'SANGRIA') sangrias += Number(m.monto);
       else egresos += Number(m.monto);
     }
+
+    const efectivoEsperado = Number(session.montoApertura) + efectivoVentas + ingresos - egresos - sangrias;
+    const limiteEfectivo = tenant?.limiteEfectivoCaja != null ? Number(tenant.limiteEfectivoCaja) : null;
 
     return {
       ventas: sales.length,
       totalVendido,
       porMedio,
-      efectivoEsperado: Number(session.montoApertura) + efectivoVentas + ingresos - egresos,
+      efectivoEsperado,
       montoApertura: Number(session.montoApertura),
       ingresos,
       egresos,
+      sangrias,
+      limiteEfectivo,
+      superaLimite: limiteEfectivo != null && limiteEfectivo > 0 && efectivoEsperado > limiteEfectivo,
     };
   }
 
@@ -134,7 +149,7 @@ export class CashService {
     tenantId: string,
     userId: string | undefined,
     sessionId: string,
-    dto: { tipo: 'INGRESO' | 'EGRESO'; monto: number; motivo?: string },
+    dto: { tipo: 'INGRESO' | 'EGRESO' | 'SANGRIA'; monto: number; motivo?: string },
   ) {
     const session = await this.prisma.cashSession.findFirst({ where: { id: sessionId, tenantId } });
     if (!session) throw new NotFoundException('Caja no encontrada');
@@ -151,9 +166,12 @@ export class CashService {
         motivo: dto.motivo,
       },
     });
+    // La sangría es un egreso de efectivo (sale del cajón hacia la caja fuerte).
+    const esIngreso = dto.tipo === 'INGRESO';
+    const label = dto.tipo === 'INGRESO' ? 'Ingreso' : dto.tipo === 'SANGRIA' ? 'Sangría (retiro a caja fuerte)' : 'Egreso';
     await this.audit.log({
-      tipo: dto.tipo === 'INGRESO' ? AuditEventTipo.MOV_INGRESO : AuditEventTipo.MOV_EGRESO,
-      descripcion: `${dto.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'} de efectivo${dto.motivo ? ` · ${dto.motivo}` : ''}`,
+      tipo: esIngreso ? AuditEventTipo.MOV_INGRESO : AuditEventTipo.MOV_EGRESO,
+      descripcion: `${label} de efectivo${dto.motivo ? ` · ${dto.motivo}` : ''}`,
       monto: dto.monto,
       cashSessionId: sessionId,
       sucursalId: session.sucursalId ?? undefined,
@@ -254,6 +272,7 @@ export class CashService {
       montoApertura: resumen.montoApertura,
       ingresos: resumen.ingresos,
       egresos: resumen.egresos,
+      sangrias: resumen.sangrias,
       ventas: resumen.ventas,
       totalVendido: resumen.totalVendido,
       porMedio: resumen.porMedio,
@@ -375,7 +394,7 @@ export class CashService {
         id: `mov-${m.id}`,
         fecha: m.createdAt.toISOString(),
         tipo: m.tipo,
-        descripcion: m.motivo ?? (m.tipo === 'INGRESO' ? 'Ingreso de efectivo' : 'Egreso de efectivo'),
+        descripcion: m.motivo ?? (m.tipo === 'INGRESO' ? 'Ingreso de efectivo' : m.tipo === 'SANGRIA' ? 'Sangría (retiro a caja fuerte)' : 'Egreso de efectivo'),
         monto: Number(m.monto),
         userId: m.userId,
         userNombre: m.user?.nombre ?? null,
@@ -461,6 +480,7 @@ export interface CortePayload {
   montoApertura: number;
   ingresos: number;
   egresos: number;
+  sangrias: number;
   ventas: number;
   totalVendido: number;
   porMedio: Record<string, number>;
@@ -489,7 +509,7 @@ export interface ArqueoTurno {
 export interface OperacionCaja {
   id: string;
   fecha: string;
-  tipo: 'APERTURA' | 'CIERRE' | 'VENTA' | 'INGRESO' | 'EGRESO';
+  tipo: 'APERTURA' | 'CIERRE' | 'VENTA' | 'INGRESO' | 'EGRESO' | 'SANGRIA';
   descripcion: string;
   monto: number;
   medio?: string | null;
