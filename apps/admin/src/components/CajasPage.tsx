@@ -15,7 +15,9 @@ import { useToast } from '../lib/toast';
 // Roles que operan el POS y por lo tanto pueden asignarse a una caja.
 const ROLES_OPERADOR = new Set(['CAJERO', 'ENCARGADO', 'ADMIN']);
 
-export function CajasPage() {
+/** Gestión de cajas por sucursal + asignación de cajeros. Se muestra dentro del
+ *  módulo "Caja" del panel (sub-pestaña "Cajas"). */
+export function CajasManager() {
   const toast = useToast();
   const [terminals, setTerminals] = useState<Terminal[]>([]);
   const [sucs, setSucs] = useState<Sucursal[]>([]);

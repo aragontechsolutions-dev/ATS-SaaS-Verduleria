@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getCashOperations, getUsers } from '../lib/api';
 import type { CashOperation, TenantUser } from '../lib/api';
 import { SkeletonRows } from './Skeleton';
+import { CajasManager } from './CajasPage';
 import { useToast } from '../lib/toast';
 
 const money = new Intl.NumberFormat('es-UY', { style: 'currency', currency: 'UYU', maximumFractionDigits: 0 });
@@ -32,6 +33,8 @@ export function CajaPage() {
   const [tipo, setTipo] = useState('');
   const [live, setLive] = useState(true);
   const [ultima, setUltima] = useState<Date | null>(null);
+  // Sub-vista del módulo: histórico de operaciones o gestión de cajas.
+  const [vista, setVista] = useState<'operaciones' | 'cajas'>('operaciones');
 
   const load = useCallback(
     async (silent = false) => {
@@ -61,12 +64,12 @@ export function CajaPage() {
     void load();
   }, [load]);
 
-  // Tiempo real: refresca en segundo plano cada pocos segundos.
+  // Tiempo real: refresca en segundo plano cada pocos segundos (solo en el histórico).
   useEffect(() => {
-    if (!live) return;
+    if (!live || vista !== 'operaciones') return;
     const t = window.setInterval(() => void load(true), REFRESH_MS);
     return () => window.clearInterval(t);
-  }, [live, load]);
+  }, [live, vista, load]);
 
   const filtradas = useMemo(() => (tipo ? ops.filter((o) => o.tipo === tipo) : ops), [ops, tipo]);
 
@@ -84,6 +87,15 @@ export function CajaPage() {
 
   return (
     <>
+      <div className="segmented">
+        <button className={`seg ${vista === 'operaciones' ? 'seg--on' : ''}`} onClick={() => setVista('operaciones')}>Operaciones</button>
+        <button className={`seg ${vista === 'cajas' ? 'seg--on' : ''}`} onClick={() => setVista('cajas')}>Cajas</button>
+      </div>
+
+      {vista === 'cajas' ? (
+        <CajasManager />
+      ) : (
+        <>
       <section className="tiles">
         <div className="tile"><span className="tile__label">Ventas</span><span className="tile__value">{money.format(totales.ventas)}</span></div>
         <div className="tile"><span className="tile__label">Ingresos de caja</span><span className="tile__value">{money.format(totales.ingresos)}</span></div>
@@ -151,6 +163,8 @@ export function CajaPage() {
         )}
         <p className="hint">Incluye ventas, aperturas/cierres de caja e ingresos/egresos de efectivo. Se actualiza en vivo mientras el turno opera.</p>
       </section>
+        </>
+      )}
     </>
   );
 }

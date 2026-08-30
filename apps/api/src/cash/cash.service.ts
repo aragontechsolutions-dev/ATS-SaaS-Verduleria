@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditEventTipo, CashSessionStatus, MedioPago, Prisma } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -48,6 +48,11 @@ export class CashService {
       terminalId = t.id;
       terminal = t.nombre;
     } else {
+      // Si el comercio ya definió cajas, no se permite abrir "sin caja": el
+      // cajero debe abrir en una caja que tenga habilitada.
+      if (await this.terminals.hasActiveTerminals(tenantId, dto.sucursalId)) {
+        throw new ForbiddenException('No tenés una caja asignada. Pedile al administrador que te habilite una.');
+      }
       terminal = dto.terminal?.trim() || undefined;
     }
 

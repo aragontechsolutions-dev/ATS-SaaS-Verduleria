@@ -36,6 +36,8 @@ export function OpenCashModal({ onConfirm, onCancel, loading }: Props) {
   // Cajas gestionadas que este cajero puede operar (según la sucursal elegida).
   const [terminals, setTerminals] = useState<PosTerminal[]>([]);
   const [terminalId, setTerminalId] = useState('');
+  // El comercio tiene cajas definidas (aunque este cajero no tenga ninguna).
+  const [hayCajas, setHayCajas] = useState(false);
   // Modo de conteo: total directo o desglose por denominación.
   const [porDenom, setPorDenom] = useState(false);
   const [denomTotal, setDenomTotal] = useState(0);
@@ -65,25 +67,29 @@ export function OpenCashModal({ onConfirm, onCancel, loading }: Props) {
   useEffect(() => {
     let vivo = true;
     void getMyTerminals(sucursalId || undefined)
-      .then((list) => {
+      .then((res) => {
         if (!vivo) return;
-        setTerminals(list);
+        setTerminals(res.terminals);
+        setHayCajas(res.hayCajas);
         const saved = loadTerminal();
-        setTerminalId(list.find((t) => t.id === saved)?.id ?? list[0]?.id ?? '');
+        setTerminalId(res.terminals.find((t) => t.id === saved)?.id ?? res.terminals[0]?.id ?? '');
       })
       .catch(() => {
-        if (vivo) setTerminals([]);
+        if (vivo) { setTerminals([]); setHayCajas(false); }
       });
     return () => {
       vivo = false;
     };
   }, [sucursalId]);
 
+  // El comercio tiene cajas pero este cajero no puede operar ninguna → bloqueado.
+  const sinCajaHabilitada = hayCajas && terminals.length === 0;
   // Si hay cajas para operar, elegir una es obligatorio.
   const faltaCaja = terminals.length > 0 && !terminalId;
+  const bloqueado = sinCajaHabilitada || faltaCaja;
 
   function confirm() {
-    if (faltaCaja) return;
+    if (bloqueado) return;
     const elegida = sucursales.length > 1 ? sucursalId : undefined;
     if (elegida) {
       try {
@@ -134,6 +140,12 @@ export function OpenCashModal({ onConfirm, onCancel, loading }: Props) {
           </label>
         )}
 
+        {sinCajaHabilitada ? (
+          <p className="modal__hint modal__hint--warn">
+            No tenés una caja asignada para operar. Pedile al administrador que te habilite una desde el Panel (Caja → Cajas).
+          </p>
+        ) : (
+        <>
         <div className="seg">
           <button type="button" className={`seg__btn ${!porDenom ? 'is-on' : ''}`} onClick={() => setPorDenom(false)}>Total</button>
           <button type="button" className={`seg__btn ${porDenom ? 'is-on' : ''}`} onClick={() => setPorDenom(true)}>Por denominación</button>
@@ -160,13 +172,17 @@ export function OpenCashModal({ onConfirm, onCancel, loading }: Props) {
             />
           </label>
         )}
+        </>
+        )}
         <div className="modal__actions">
           <button className="btn btn--ghost" onClick={onCancel} disabled={loading}>
             Cancelar
           </button>
-          <button className="btn btn--primary" onClick={confirm} disabled={loading || faltaCaja}>
-            {loading ? 'Abriendo…' : 'Abrir caja'}
-          </button>
+          {!sinCajaHabilitada && (
+            <button className="btn btn--primary" onClick={confirm} disabled={loading || bloqueado}>
+              {loading ? 'Abriendo…' : 'Abrir caja'}
+            </button>
+          )}
         </div>
       </div>
     </div>

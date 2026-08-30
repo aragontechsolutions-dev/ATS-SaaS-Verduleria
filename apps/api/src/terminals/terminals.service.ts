@@ -108,8 +108,8 @@ export class TerminalsService {
    * operadores, solo los asignados (los supervisores pueden operar todas).
    */
   async mine(tenantId: string, userId: string | undefined, role: string | undefined, sucursalId?: string) {
-    if (!userId) return [];
-    const terminals = await this.prisma.terminal.findMany({
+    if (!userId) return { terminals: [], hayCajas: false };
+    const all = await this.prisma.terminal.findMany({
       where: { tenantId, activo: true, ...(sucursalId ? { sucursalId } : {}) },
       orderBy: [{ sucursal: { codigo: 'asc' } }, { nombre: 'asc' }],
       include: {
@@ -118,9 +118,20 @@ export class TerminalsService {
       },
     });
     const esSupervisor = role != null && SUPERVISORES.includes(role);
-    return terminals
+    const terminals = all
       .filter((t) => esSupervisor || t.operadores.length === 0 || t.operadores.some((o) => o.userId === userId))
       .map((t) => ({ id: t.id, nombre: t.nombre, sucursalId: t.sucursalId, sucursalNombre: t.sucursal.nombre }));
+    // hayCajas: existen cajas activas en el alcance (aunque este cajero no pueda
+    // operar ninguna). Sirve para bloquear la apertura "sin caja" en el POS.
+    return { terminals, hayCajas: all.length > 0 };
+  }
+
+  /** ¿Hay cajas activas en el tenant (opcionalmente en una sucursal)? */
+  async hasActiveTerminals(tenantId: string, sucursalId?: string): Promise<boolean> {
+    const n = await this.prisma.terminal.count({
+      where: { tenantId, activo: true, ...(sucursalId ? { sucursalId } : {}) },
+    });
+    return n > 0;
   }
 
   /**

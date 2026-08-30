@@ -123,9 +123,9 @@ export function CloseCashModal({ sessionId, onClosed, onCancel }: Props) {
               )}
             </div>
 
-            {/* Efectivo: conteo físico */}
-            <div className="concil">
-              <div className="concil__head">
+            {/* Efectivo: conteo físico (bloque vertical de ancho completo) */}
+            <div className="arqueo-ef">
+              <div className="arqueo-ef__head">
                 <span>{label('EFECTIVO')}</span>
                 <span className="muted">esperado {formatMoney(efectivoEsperado)}</span>
               </div>
@@ -137,7 +137,7 @@ export function CloseCashModal({ sessionId, onClosed, onCancel }: Props) {
                 <DenominationCounter onTotal={(t) => setEfectivo(String(t))} />
               ) : (
                 <input
-                  className="concil__input"
+                  className="concil__input arqueo-ef__input"
                   type="number"
                   inputMode="decimal"
                   placeholder="Contado en caja"

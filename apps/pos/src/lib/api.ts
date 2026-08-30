@@ -273,8 +273,15 @@ export interface PosTerminal {
   sucursalNombre: string;
 }
 
+export interface MyTerminals {
+  /** Cajas que este cajero puede operar. */
+  terminals: PosTerminal[];
+  /** Si el comercio ya definió cajas (aunque este cajero no tenga ninguna). */
+  hayCajas: boolean;
+}
+
 /** Cajas gestionadas que el cajero actual puede operar (para elegir al abrir). */
-export async function getMyTerminals(sucursalId?: string): Promise<PosTerminal[]> {
+export async function getMyTerminals(sucursalId?: string): Promise<MyTerminals> {
   const qs = sucursalId ? `?sucursalId=${encodeURIComponent(sucursalId)}` : '';
   return ok(await fetch(`${API_BASE}/terminals/mine${qs}`, { headers: headers() }), 'terminals-mine');
 }
