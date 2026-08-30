@@ -19,6 +19,7 @@ import { IvaModule } from './iva/iva.module';
 import { ProductsModule } from './products/products.module';
 import { PurchasesModule } from './purchases/purchases.module';
 import { SucursalesModule } from './sucursales/sucursales.module';
+import { TerminalsModule } from './terminals/terminals.module';
 import { UsersModule } from './users/users.module';
 import { ReportsModule } from './reports/reports.module';
 import { SettingsModule } from './settings/settings.module';
@@ -45,6 +46,7 @@ import { HealthController } from './health/health.controller';
     ProductsModule,
     PurchasesModule,
     SucursalesModule,
+    TerminalsModule,
     UsersModule,
     ReportsModule,
     SettingsModule,

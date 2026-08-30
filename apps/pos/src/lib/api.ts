@@ -249,15 +249,34 @@ export async function getSucursales(): Promise<Sucursal[]> {
 
 // --- Caja / arqueo ----------------------------------------------------------
 
-export async function openCash(montoApertura: number, sucursalId?: string, terminal?: string): Promise<CashSession> {
+export async function openCash(
+  montoApertura: number,
+  sucursalId?: string,
+  terminalId?: string,
+): Promise<CashSession> {
   return ok(
     await fetch(`${API_BASE}/cash-sessions/open`, {
       method: 'POST',
       headers: headers(),
-      body: JSON.stringify({ montoApertura, sucursalId, terminal }),
+      body: JSON.stringify({ montoApertura, sucursalId, terminalId }),
     }),
     'cash-open',
   );
+}
+
+// --- Cajas / terminales (las que puede operar el cajero) ---------------------
+
+export interface PosTerminal {
+  id: string;
+  nombre: string;
+  sucursalId: string;
+  sucursalNombre: string;
+}
+
+/** Cajas gestionadas que el cajero actual puede operar (para elegir al abrir). */
+export async function getMyTerminals(sucursalId?: string): Promise<PosTerminal[]> {
+  const qs = sucursalId ? `?sucursalId=${encodeURIComponent(sucursalId)}` : '';
+  return ok(await fetch(`${API_BASE}/terminals/mine${qs}`, { headers: headers() }), 'terminals-mine');
 }
 
 export async function currentCash(): Promise<CashSession | null> {

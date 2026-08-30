@@ -33,9 +33,10 @@ export class CashController {
   async open(
     @CurrentTenant('tenantId') tenantId: string,
     @CurrentTenant('userId') userId: string | undefined,
+    @CurrentTenant('role') role: string | undefined,
     @Body() dto: OpenCashDto,
   ) {
-    return this.cash.open(tenantId, userId, dto);
+    return this.cash.open(tenantId, userId, role, dto);
   }
 
   @Get('current')

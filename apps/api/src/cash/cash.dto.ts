@@ -18,7 +18,12 @@ export class OpenCashDto {
   @IsString()
   sucursalId?: string;
 
-  /** Caja física / terminal donde se abre el turno (ej. "Caja 1"). */
+  /** Caja física / terminal gestionada donde se abre el turno (id). */
+  @IsOptional()
+  @IsString()
+  terminalId?: string;
+
+  /** Nombre libre de caja (compatibilidad; se ignora si viene terminalId). */
   @IsOptional()
   @IsString()
   terminal?: string;

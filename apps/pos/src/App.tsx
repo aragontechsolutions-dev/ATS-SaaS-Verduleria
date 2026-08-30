@@ -634,10 +634,10 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
       {openingCash && (
         <OpenCashModal
           loading={cash.loading}
-          onConfirm={async (monto, sucursalId, terminal) => {
-            await cash.open(monto, sucursalId, terminal);
+          onConfirm={async (monto, sucursalId, terminalId) => {
+            await cash.open(monto, sucursalId, terminalId);
             setOpeningCash(false);
-            toast.success('Caja abierta', terminal ? `${terminal} · ${formatMoney(monto)}` : `Fondo inicial: ${formatMoney(monto)}`);
+            toast.success('Caja abierta', `Fondo inicial: ${formatMoney(monto)}`);
           }}
           onCancel={() => setOpeningCash(false)}
         />

@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { AuditEventTipo, CashSessionStatus, MedioPago, Prisma } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { TerminalsService } from '../terminals/terminals.service';
 import type { CloseCashDto, OpenCashDto } from './cash.dto';
 
 export interface CashSummary {
@@ -26,10 +27,11 @@ export class CashService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly terminals: TerminalsService,
   ) {}
 
   /** Abre una caja. Falla si ya hay una abierta para ese cajero. */
-  async open(tenantId: string, userId: string | undefined, dto: OpenCashDto) {
+  async open(tenantId: string, userId: string | undefined, role: string | undefined, dto: OpenCashDto) {
     if (!userId) throw new BadRequestException('Falta el usuario (x-user-id) para abrir caja');
 
     const abierta = await this.prisma.cashSession.findFirst({
@@ -37,13 +39,25 @@ export class CashService {
     });
     if (abierta) throw new ConflictException('Ya tenés una caja abierta');
 
-    const terminal = dto.terminal?.trim() || undefined;
+    // Caja gestionada (terminalId): valida permiso y toma el nombre como snapshot.
+    // Sin terminalId, se admite un nombre libre (compatibilidad).
+    let terminalId: string | undefined;
+    let terminal: string | undefined;
+    if (dto.terminalId) {
+      const t = await this.terminals.resolveForOpen(tenantId, userId, role, dto.terminalId, dto.sucursalId);
+      terminalId = t.id;
+      terminal = t.nombre;
+    } else {
+      terminal = dto.terminal?.trim() || undefined;
+    }
+
     const sesion = await this.prisma.cashSession.create({
       data: {
         tenantId,
         userId,
         sucursalId: dto.sucursalId,
         terminal,
+        terminalId,
         status: CashSessionStatus.ABIERTA,
         montoApertura: new Prisma.Decimal(dto.montoApertura ?? 0),
       },
