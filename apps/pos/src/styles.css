@@ -375,6 +375,16 @@ button { font: inherit; cursor: pointer; }
 .concil__head .muted { font-weight: 400; font-size: 12px; }
 .concil__input { width: 100%; min-width: 0; box-sizing: border-box; padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 15px; text-align: right; }
 .concil__input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(18,140,126,.15); }
+/* Corte X/Z: resumen del turno en el modal */
+.corte { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; font-size: 14px; }
+.corte__row { display: flex; justify-content: space-between; gap: 12px; }
+.corte__row span:last-child { text-align: right; white-space: nowrap; }
+.corte__row--muted { color: var(--muted); }
+.corte__row--strong { font-weight: 700; }
+.corte__row--bad span:last-child { color: var(--warn); }
+.corte__tit { font-weight: 700; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-top: 2px; }
+.corte__sep { border-top: 1px dashed var(--border); margin: 5px 0; }
+
 /* Efectivo en el arqueo: bloque vertical de ancho completo (evita que el input
    o el conteo por denominación se salgan del card). */
 .arqueo-ef { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border); }

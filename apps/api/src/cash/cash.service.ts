@@ -229,6 +229,43 @@ export class CashService {
   }
 
   /**
+   * Corte de caja X (parcial, con la caja abierta) o Z (definitivo, con la caja
+   * cerrada). Es el resumen del turno por cajero/caja: fondo, ventas, desglose
+   * por medio de pago, ingresos/egresos y —si cerró— cierre y diferencia.
+   */
+  async corte(tenantId: string, sessionId: string): Promise<CortePayload> {
+    const session = await this.prisma.cashSession.findFirst({
+      where: { id: sessionId, tenantId },
+      include: { user: { select: { nombre: true } }, sucursal: { select: { nombre: true } } },
+    });
+    if (!session) throw new NotFoundException('Caja no encontrada');
+
+    const resumen = await this.summary(tenantId, sessionId);
+    const cerrada = session.status === CashSessionStatus.CERRADA;
+
+    return {
+      tipo: cerrada ? 'Z' : 'X',
+      sessionId: session.id,
+      terminal: session.terminal ?? null,
+      sucursalNombre: session.sucursal?.nombre ?? null,
+      userNombre: session.user?.nombre ?? null,
+      aperturaAt: session.aperturaAt.toISOString(),
+      cierreAt: session.cierreAt?.toISOString() ?? null,
+      montoApertura: resumen.montoApertura,
+      ingresos: resumen.ingresos,
+      egresos: resumen.egresos,
+      ventas: resumen.ventas,
+      totalVendido: resumen.totalVendido,
+      porMedio: resumen.porMedio,
+      efectivoEsperado: resumen.efectivoEsperado,
+      montoCierre: session.montoCierre != null ? Number(session.montoCierre) : null,
+      diferencia: session.diferencia != null ? Number(session.diferencia) : null,
+      arqueoDetalle: (session.arqueoDetalle as Record<string, ArqueoMedio> | null) ?? null,
+      generadoAt: new Date().toISOString(),
+    };
+  }
+
+  /**
    * Feed unificado de operaciones de caja para el Panel: aperturas, cierres,
    * ventas y movimientos (ingresos/egresos), con el usuario que la realizó.
    * Filtros: rango de fechas, usuario y sucursal. Ordenado del más nuevo al viejo.
@@ -411,6 +448,27 @@ export class CashService {
       };
     });
   }
+}
+
+export interface CortePayload {
+  tipo: 'X' | 'Z';
+  sessionId: string;
+  terminal: string | null;
+  sucursalNombre: string | null;
+  userNombre: string | null;
+  aperturaAt: string;
+  cierreAt: string | null;
+  montoApertura: number;
+  ingresos: number;
+  egresos: number;
+  ventas: number;
+  totalVendido: number;
+  porMedio: Record<string, number>;
+  efectivoEsperado: number;
+  montoCierre: number | null;
+  diferencia: number | null;
+  arqueoDetalle: Record<string, ArqueoMedio> | null;
+  generadoAt: string;
 }
 
 export interface ArqueoTurno {

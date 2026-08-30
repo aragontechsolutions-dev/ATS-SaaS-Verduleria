@@ -128,6 +128,70 @@ export function buildReceipt(sale: OutboxSale, opts: { width?: number; openDrawe
   return b.build();
 }
 
+/** Datos mínimos de un corte X/Z para imprimir (subset de la respuesta del API). */
+export interface CorteTicket {
+  tipo: 'X' | 'Z';
+  terminal: string | null;
+  sucursalNombre: string | null;
+  userNombre: string | null;
+  aperturaAt: string;
+  cierreAt: string | null;
+  montoApertura: number;
+  ingresos: number;
+  egresos: number;
+  ventas: number;
+  totalVendido: number;
+  porMedio: Record<string, number>;
+  efectivoEsperado: number;
+  montoCierre: number | null;
+  diferencia: number | null;
+  generadoAt: string;
+}
+
+/** Arma el ticket ESC/POS de un corte de caja X o Z. */
+export function buildCorte(c: CorteTicket, opts: { width?: number } = {}): Uint8Array {
+  const width = opts.width ?? 48;
+  const b = new Builder(width);
+
+  b.init().align('c').bold(true).size(true);
+  b.line('ATS SISGESVER');
+  b.size(false);
+  b.line(c.tipo === 'Z' ? 'CORTE Z (CIERRE)' : 'CORTE X (PARCIAL)');
+  b.bold(false);
+  if (c.terminal) b.line(c.terminal + (c.sucursalNombre ? ` - ${c.sucursalNombre}` : ''));
+  else if (c.sucursalNombre) b.line(c.sucursalNombre);
+  if (c.userNombre) b.line(`Cajero: ${c.userNombre}`);
+  b.align('l').sep();
+
+  b.line(`Apertura: ${new Date(c.aperturaAt).toLocaleString('es-UY')}`);
+  b.line(`${c.tipo === 'Z' && c.cierreAt ? 'Cierre' : 'Emitido'}: ${new Date(c.cierreAt ?? c.generadoAt).toLocaleString('es-UY')}`);
+  b.sep();
+
+  b.cols('Fondo de apertura', formatMoney(c.montoApertura));
+  b.cols(`Ventas (${c.ventas})`, formatMoney(c.totalVendido));
+  if (c.ingresos > 0) b.cols('Ingresos', `+${formatMoney(c.ingresos)}`);
+  if (c.egresos > 0) b.cols('Egresos', `-${formatMoney(c.egresos)}`);
+  b.sep();
+
+  b.bold(true).line('Por medio de pago').bold(false);
+  const medios = Object.keys(c.porMedio);
+  if (medios.length === 0) b.line('  (sin ventas)');
+  for (const m of medios) b.cols(`  ${MEDIO_LABEL[m] ?? m}`, formatMoney(c.porMedio[m]));
+  b.sep();
+
+  b.bold(true).cols('Efectivo esperado', formatMoney(c.efectivoEsperado)).bold(false);
+  if (c.tipo === 'Z' && c.montoCierre != null) {
+    b.cols('Efectivo contado', formatMoney(c.montoCierre));
+    const dif = c.diferencia ?? 0;
+    b.bold(true).cols('Diferencia', `${dif > 0 ? '+' : ''}${formatMoney(dif)}`).bold(false);
+  }
+
+  b.sep().align('c');
+  b.line(c.tipo === 'Z' ? 'Turno cerrado' : 'Corte parcial - la caja sigue abierta');
+  b.feed(3).cut();
+  return b.build();
+}
+
 // IVA incluido (evita importar format.ivaIncluido para no acoplar más de lo necesario).
 const TASA: Record<string, number> = { EXENTO: 0, MINIMA: 0.1, BASICA: 0.22, SUSPENSO: 0 };
 function ivaIncluidoLocal(totalConIva: number, indicador: string): number {

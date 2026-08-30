@@ -653,6 +653,30 @@ export const getArqueos = async (f: CashOpsFilters = {}) =>
     'cash-arqueos',
   );
 
+export interface Corte {
+  tipo: 'X' | 'Z';
+  sessionId: string;
+  terminal: string | null;
+  sucursalNombre: string | null;
+  userNombre: string | null;
+  aperturaAt: string;
+  cierreAt: string | null;
+  montoApertura: number;
+  ingresos: number;
+  egresos: number;
+  ventas: number;
+  totalVendido: number;
+  porMedio: Record<string, number>;
+  efectivoEsperado: number;
+  montoCierre: number | null;
+  diferencia: number | null;
+  arqueoDetalle: Record<string, { esperado: number; contado: number; diferencia: number }> | null;
+  generadoAt: string;
+}
+
+export const getCorte = async (sessionId: string) =>
+  ok<Corte>(await fetch(`${API_BASE}/cash-sessions/${sessionId}/corte`, { headers: headers() }), 'cash-corte');
+
 // --- Promociones ------------------------------------------------------------
 
 export type PromoTipo = 'NXM' | 'CANTIDAD';

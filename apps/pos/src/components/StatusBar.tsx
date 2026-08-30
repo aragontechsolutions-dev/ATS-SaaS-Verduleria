@@ -20,6 +20,7 @@ interface Props {
   onCobranza?: () => void;
   onOpenSecurity?: () => void;
   onMovimiento?: () => void;
+  onCorteX?: () => void;
   onLogout: () => void;
 }
 
@@ -42,6 +43,7 @@ export function StatusBar({
   onCobranza,
   onOpenSecurity,
   onMovimiento,
+  onCorteX,
   onLogout,
 }: Props) {
   return (
@@ -69,6 +71,9 @@ export function StatusBar({
         )}
         {cash && onMovimiento && (
           <button className="sbtn" onClick={onMovimiento} title="Ingreso / egreso de efectivo">➕➖ Movimiento</button>
+        )}
+        {cash && onCorteX && (
+          <button className="sbtn" onClick={onCorteX} title="Corte X (resumen parcial del turno)">✂️ Corte X</button>
         )}
         {onOpenPrice && (
           <button className="sbtn" onClick={onOpenPrice} title="Consultar precio (F3)">🔎 Precio</button>

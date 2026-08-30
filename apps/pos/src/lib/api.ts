@@ -294,6 +294,32 @@ export async function cashSummary(sessionId: string): Promise<CashSummary> {
   return ok(await fetch(`${API_BASE}/cash-sessions/${sessionId}/summary`, { headers: headers() }), 'cash-summary');
 }
 
+export interface Corte {
+  tipo: 'X' | 'Z';
+  sessionId: string;
+  terminal: string | null;
+  sucursalNombre: string | null;
+  userNombre: string | null;
+  aperturaAt: string;
+  cierreAt: string | null;
+  montoApertura: number;
+  ingresos: number;
+  egresos: number;
+  ventas: number;
+  totalVendido: number;
+  porMedio: Record<string, number>;
+  efectivoEsperado: number;
+  montoCierre: number | null;
+  diferencia: number | null;
+  arqueoDetalle: Record<string, { esperado: number; contado: number; diferencia: number }> | null;
+  generadoAt: string;
+}
+
+/** Corte X (caja abierta) o Z (caja cerrada) del turno actual o de una sesión. */
+export async function getCorte(sessionId: string): Promise<Corte> {
+  return ok(await fetch(`${API_BASE}/cash-sessions/${sessionId}/corte`, { headers: headers() }), 'cash-corte');
+}
+
 export interface CloseCashResult {
   resumen: CashSummary;
   diferencia: number;
