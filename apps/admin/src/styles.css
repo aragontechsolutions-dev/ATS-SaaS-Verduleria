@@ -184,6 +184,12 @@ code { font-family: ui-monospace, monospace; }
 .seg--on { background: var(--primary); color: #fff; }
 .modal__sub { color: var(--muted); margin: 0 0 6px; }
 
+/* Cajas: acciones de fila y asignación de operadores */
+.row-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.oper-list { display: flex; flex-direction: column; gap: 4px; max-height: 46vh; overflow-y: auto; margin: 4px 0; }
+.chk-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+.chk-row input { width: 18px; height: 18px; }
+
 /* Compras / Stock */
 .btn--danger { background: var(--warn); color: #fff; }
 .btn--danger:disabled { background: #d98a8a; }

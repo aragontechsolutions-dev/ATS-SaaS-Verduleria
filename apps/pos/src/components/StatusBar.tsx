@@ -56,6 +56,7 @@ export function StatusBar({
         </span>
         {pendientes > 0 && <span className="pill pill--info">↻ {pendientes} por sincronizar</span>}
         {sucursalNombre && <span className="pill pill--info">🏪 {sucursalNombre}</span>}
+        {cash?.terminal && <span className="pill pill--info">🖥️ {cash.terminal}</span>}
         {fromCache && <span className="pill pill--muted">catálogo local</span>}
         {listaPrecio && <span className="pill pill--muted">{listaPrecio}</span>}
       </div>

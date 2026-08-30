@@ -289,6 +289,45 @@ export const transferStock = async (input: TransferInput) =>
     'transferStock',
   );
 
+// --- Cajas / terminales ------------------------------------------------------
+
+export interface Terminal {
+  id: string;
+  nombre: string;
+  activo: boolean;
+  sucursalId: string;
+  sucursalNombre: string;
+  /** Cajeros habilitados; vacío = la puede operar cualquiera. */
+  operadorIds: string[];
+}
+
+export const getTerminals = async () =>
+  ok<Terminal[]>(await fetch(`${API_BASE}/terminals`, { headers: headers() }), 'terminals');
+
+export const createTerminal = async (input: { sucursalId: string; nombre: string }) =>
+  ok<Terminal>(
+    await fetch(`${API_BASE}/terminals`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
+    'createTerminal',
+  );
+
+export const updateTerminal = async (id: string, patch: { nombre?: string; activo?: boolean }) =>
+  ok<Terminal>(
+    await fetch(`${API_BASE}/terminals/${id}`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) }),
+    'updateTerminal',
+  );
+
+export const deleteTerminal = async (id: string) =>
+  ok<{ deleted: boolean; deactivated: boolean }>(
+    await fetch(`${API_BASE}/terminals/${id}`, { method: 'DELETE', headers: headers() }),
+    'deleteTerminal',
+  );
+
+export const setTerminalOperadores = async (id: string, userIds: string[]) =>
+  ok<{ terminalId: string; operadorIds: string[] }>(
+    await fetch(`${API_BASE}/terminals/${id}/operadores`, { method: 'PUT', headers: headers(), body: JSON.stringify({ userIds }) }),
+    'setTerminalOperadores',
+  );
+
 // --- Mayoristas / cuenta corriente ------------------------------------------
 
 export type TipoDocumento = 'NIE' | 'RUC' | 'CI' | 'OTROS' | 'PASAPORTE' | 'DNI' | 'NIFE';

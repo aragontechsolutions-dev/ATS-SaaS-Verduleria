@@ -258,6 +258,7 @@ model Tenant {
   routes        Route[]
   accounts      AccountReceivable[]
   landing       TenantLanding?
+  terminals     Terminal[]
 
   @@index([activo])
 }
@@ -430,6 +431,7 @@ model User {
   cashSessions CashSession[]
   salesAsCajero Sale[] @relation("SaleCajero")
   cashMovements CashMovement[]
+  terminalOperadores TerminalOperador[]
 }
 
 /// Relación usuario ↔ tenant con rol. Un usuario puede pertenecer a varios tenants.
@@ -462,6 +464,7 @@ model Sucursal {
   cashSessions CashSession[]
   sales        Sale[]
   stockItems   Stock[]
+  terminals    Terminal[]
 
   @@unique([tenantId, codigo])
   @@index([tenantId])
@@ -796,9 +799,11 @@ model CashSession {
   tenantId   String            @db.Uuid
   sucursalId String?           @db.Uuid
   userId     String            @db.Uuid // cajero que abre
-  /// Identificador de la caja física / terminal donde se opera (ej. "Caja 1").
-  /// Se configura por dispositivo en el POS. Permite arquear por terminal.
+  /// Nombre de la caja física / terminal donde se opera (ej. "Caja 1").
+  /// Snapshot del nombre al abrir; se conserva aunque la caja se renombre/elimine.
   terminal   String?
+  /// Caja gestionada desde el Panel (opcional; null en aperturas sin caja asignada).
+  terminalId String?           @db.Uuid
   status     CashSessionStatus @default(ABIERTA)
   aperturaAt DateTime          @default(now())
   cierreAt   DateTime?
@@ -813,12 +818,53 @@ model CashSession {
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sucursal Sucursal? @relation(fields: [sucursalId], references: [id])
   user     User      @relation(fields: [userId], references: [id])
+  terminalRef Terminal? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
   sales    Sale[]
   movements CashMovement[]
 
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([tenantId, terminal])
+  @@index([terminalId])
+}
+
+/// Caja física / terminal de una sucursal, gestionada desde el Panel. Define el
+/// puesto de trabajo donde un cajero abre turno; opcionalmente restringe qué
+/// cajeros pueden operarla (ver TerminalOperador).
+model Terminal {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @db.Uuid
+  sucursalId String   @db.Uuid
+  nombre     String
+  activo     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sucursal   Sucursal           @relation(fields: [sucursalId], references: [id], onDelete: Cascade)
+  operadores TerminalOperador[]
+  sessions   CashSession[]
+
+  @@unique([tenantId, sucursalId, nombre])
+  @@index([tenantId])
+  @@index([tenantId, sucursalId])
+}
+
+/// Asignación cajero ↔ caja: qué usuarios pueden abrir turno en una terminal.
+/// Si una terminal no tiene operadores asignados, la puede operar cualquiera.
+model TerminalOperador {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @db.Uuid
+  terminalId String   @db.Uuid
+  userId     String   @db.Uuid
+  createdAt  DateTime @default(now())
+
+  terminal Terminal @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([terminalId, userId])
+  @@index([tenantId])
+  @@index([userId])
 }
 
 /// Movimiento de caja que NO es una venta: ingreso (aporte de efectivo) o egreso

@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
-import { getSucursales } from '../lib/api';
-import type { Sucursal } from '../lib/api';
+import { getMyTerminals, getSucursales } from '../lib/api';
+import type { PosTerminal, Sucursal } from '../lib/api';
 import { DenominationCounter } from './DenominationCounter';
 
 interface Props {
-  onConfirm: (montoApertura: number, sucursalId?: string, terminal?: string) => void;
+  onConfirm: (montoApertura: number, sucursalId?: string, terminalId?: string) => void;
   onCancel: () => void;
   loading?: boolean;
 }
 
 const STORE_KEY = 'ats.pos.sucursal';
-const TERMINAL_KEY = 'ats.pos.terminal';
+const TERMINAL_KEY = 'ats.pos.terminalId';
 
 function loadSaved(): string {
   try {
@@ -28,13 +28,14 @@ function loadTerminal(): string {
   }
 }
 
-/** Apertura de caja: fondo inicial y sucursal donde se va a operar el turno. */
+/** Apertura de caja: fondo inicial, sucursal y caja donde se opera el turno. */
 export function OpenCashModal({ onConfirm, onCancel, loading }: Props) {
   const [valor, setValor] = useState('');
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [sucursalId, setSucursalId] = useState('');
-  // Caja física / terminal (por dispositivo). Se recuerda para la próxima apertura.
-  const [terminal, setTerminal] = useState(() => loadTerminal());
+  // Cajas gestionadas que este cajero puede operar (según la sucursal elegida).
+  const [terminals, setTerminals] = useState<PosTerminal[]>([]);
+  const [terminalId, setTerminalId] = useState('');
   // Modo de conteo: total directo o desglose por denominación.
   const [porDenom, setPorDenom] = useState(false);
   const [denomTotal, setDenomTotal] = useState(0);
@@ -60,7 +61,29 @@ export function OpenCashModal({ onConfirm, onCancel, loading }: Props) {
     };
   }, []);
 
+  // Carga las cajas operables cuando cambia la sucursal (o al montar).
+  useEffect(() => {
+    let vivo = true;
+    void getMyTerminals(sucursalId || undefined)
+      .then((list) => {
+        if (!vivo) return;
+        setTerminals(list);
+        const saved = loadTerminal();
+        setTerminalId(list.find((t) => t.id === saved)?.id ?? list[0]?.id ?? '');
+      })
+      .catch(() => {
+        if (vivo) setTerminals([]);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [sucursalId]);
+
+  // Si hay cajas para operar, elegir una es obligatorio.
+  const faltaCaja = terminals.length > 0 && !terminalId;
+
   function confirm() {
+    if (faltaCaja) return;
     const elegida = sucursales.length > 1 ? sucursalId : undefined;
     if (elegida) {
       try {
@@ -69,10 +92,9 @@ export function OpenCashModal({ onConfirm, onCancel, loading }: Props) {
         // localStorage no disponible: no es crítico.
       }
     }
-    const term = terminal.trim();
+    const term = terminals.length > 0 ? terminalId : '';
     try {
       if (term) localStorage.setItem(TERMINAL_KEY, term);
-      else localStorage.removeItem(TERMINAL_KEY);
     } catch {
       // localStorage no disponible: no es crítico.
     }
@@ -98,16 +120,19 @@ export function OpenCashModal({ onConfirm, onCancel, loading }: Props) {
           </label>
         )}
 
-        <label className="field">
-          Caja / terminal (opcional)
-          <input
-            type="text"
-            value={terminal}
-            onChange={(e) => setTerminal(e.target.value)}
-            placeholder="ej. Caja 1"
-            maxLength={40}
-          />
-        </label>
+        {terminals.length > 0 && (
+          <label className="field">
+            Caja
+            <select value={terminalId} onChange={(e) => setTerminalId(e.target.value)}>
+              {terminals.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.nombre}
+                  {sucursales.length > 1 ? ` · ${t.sucursalNombre}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <div className="seg">
           <button type="button" className={`seg__btn ${!porDenom ? 'is-on' : ''}`} onClick={() => setPorDenom(false)}>Total</button>
@@ -139,7 +164,7 @@ export function OpenCashModal({ onConfirm, onCancel, loading }: Props) {
           <button className="btn btn--ghost" onClick={onCancel} disabled={loading}>
             Cancelar
           </button>
-          <button className="btn btn--primary" onClick={confirm} disabled={loading}>
+          <button className="btn btn--primary" onClick={confirm} disabled={loading || faltaCaja}>
             {loading ? 'Abriendo…' : 'Abrir caja'}
           </button>
         </div>
