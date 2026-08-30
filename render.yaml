@@ -8,15 +8,15 @@ services:
     region: oregon
     branch: main
     # Instala el monorepo y compila solo lo que el backend necesita, en orden:
-    # database (genera el cliente Prisma) → intenta aplicar el schema a la base
-    # (prisma db push, vía DIRECT_URL) → cfe → api.
-    # IMPORTANTE: el `db push` es BEST-EFFORT (|| true): si DIRECT_URL está mal
-    # configurada o el push falla, el deploy CONTINÚA igual y no tumba el
-    # backend. Cuando DIRECT_URL esté bien, aplica solo los cambios aditivos;
-    # mientras tanto, el schema se aplica a mano (SQL de Supabase o shell).
+    # database (genera el cliente Prisma) → cfe → api.
+    # NOTA: el schema se aplica A MANO (SQL en Supabase, o `npm run db:push` con
+    # una DIRECT_URL válida). No se corre `prisma db push` en el build porque una
+    # DIRECT_URL mal configurada tumbaba todo el deploy (P1013). Si algún día se
+    # quiere reactivar el push automático, primero arreglar DIRECT_URL y hacerlo
+    # best-effort (`|| true`) para no bloquear el deploy.
     # --include=dev fuerza las devDependencies (nest CLI, tsc, prisma) que el
     # build necesita; Render/Vercel instalan en modo producción y las omitirían.
-    buildCommand: npm install --include=dev && npm run build -w @ats/database && (npm run push -w @ats/database || echo "WARN: prisma db push falló (revisá DIRECT_URL); el deploy continúa.") && npm run build -w @ats/cfe && npm run build -w @ats/api
+    buildCommand: npm install --include=dev && npm run build -w @ats/database && npm run build -w @ats/cfe && npm run build -w @ats/api
     startCommand: node apps/api/dist/main.js
     healthCheckPath: /api/health
     envVars:
