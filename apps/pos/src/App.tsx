@@ -14,6 +14,7 @@ import { OperationsModal } from './components/OperationsModal';
 import { CashMovementModal } from './components/CashMovementModal';
 import { CustomerPickerModal } from './components/CustomerPickerModal';
 import { DiscountModal } from './components/DiscountModal';
+import { PriceOverrideModal } from './components/PriceOverrideModal';
 import { ParkedModal } from './components/ParkedModal';
 import { PriceCheckModal } from './components/PriceCheckModal';
 import { CobranzaModal } from './components/CobranzaModal';
@@ -32,7 +33,7 @@ import { useScale } from './hooks/useScale';
 import { cartItemFromProduct, lineBruto, useCart, type ParkedTicket } from './state/cart';
 import { promosByProduct } from './lib/promo';
 import { parseScan } from './lib/barcode';
-import { getMe, getSucursales } from './lib/api';
+import { getMe, getSucursales, postAuditEvent } from './lib/api';
 import type { Sucursal } from './lib/api';
 import { ChangePassword } from './components/ChangePassword';
 import { supabase } from './lib/supabase';
@@ -110,6 +111,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const [customerOpen, setCustomerOpen] = useState(false);
   // Descuento: null = cerrado; {kind:'line', index} o {kind:'global'}.
   const [discountTarget, setDiscountTarget] = useState<{ kind: 'line'; index: number } | { kind: 'global' } | null>(null);
+  // Cambio de precio de una línea (índice) o null si está cerrado.
+  const [priceTarget, setPriceTarget] = useState<number | null>(null);
   // Multiplicador de cantidad: teclear «3 *» agrega 3 unidades al próximo producto.
   const [multiplier, setMultiplier] = useState<number | null>(null);
   const [parkedOpen, setParkedOpen] = useState(false);
@@ -339,9 +342,44 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     [cart, customer, parkedLabel, refreshParked, toast],
   );
 
+  // Quitar una línea del carrito. Se registra en la auditoría (anti-fraude):
+  // "descuentos" por anulación de líneas ya escaneadas son un patrón clásico.
+  const onRemoveLine = useCallback(
+    (index: number) => {
+      const it = cart.items[index];
+      if (it) {
+        void postAuditEvent('ANULACION_LINEA', {
+          descripcion: `Se quitó ${it.concepto} del ticket`,
+          monto: it.cantidad * it.precioUnit,
+          cashSessionId: cash.session?.id,
+          meta: { concepto: it.concepto, cantidad: it.cantidad, precioUnit: it.precioUnit, unidad: it.unidad },
+        });
+      }
+      cart.remove(index);
+    },
+    [cart, cash.session?.id],
+  );
+
+  // Confirmar el cambio de precio de una línea (ya autorizado por PIN).
+  const onConfirmPrice = useCallback(
+    (index: number, precioUnit: number) => {
+      const it = cart.items[index];
+      setPriceTarget(null);
+      if (!it) return;
+      cart.setPrecio(index, precioUnit);
+      void postAuditEvent('PRECIO_MODIFICADO', {
+        descripcion: `${it.concepto}: ${formatMoney(it.precioUnit)} → ${formatMoney(precioUnit)}`,
+        monto: precioUnit,
+        cashSessionId: cash.session?.id,
+        meta: { concepto: it.concepto, anterior: it.precioUnit, nuevo: precioUnit, unidad: it.unidad },
+      });
+    },
+    [cart, cash.session?.id],
+  );
+
   const anyModalOpen =
     paying || openingCash || closingCash || scaleOpen || opsOpen || movingCash ||
-    customerOpen || !!discountTarget || !!ticket || !!weighing || parkedOpen || priceCheckOpen || cobranzaOpen || printerOpen;
+    customerOpen || !!discountTarget || priceTarget != null || !!ticket || !!weighing || parkedOpen || priceCheckOpen || cobranzaOpen || printerOpen;
 
   // Cierra el modal de nivel superior con Escape. Devuelve true si cerró alguno.
   const closeTopModal = useCallback((): boolean => {
@@ -351,6 +389,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     if (priceCheckOpen) return setPriceCheckOpen(false), true;
     if (parkedOpen) return setParkedOpen(false), true;
     if (discountTarget) return setDiscountTarget(null), true;
+    if (priceTarget != null) return setPriceTarget(null), true;
     if (customerOpen) return setCustomerOpen(false), true;
     if (paying) return setPaying(false), true;
     if (movingCash) return setMovingCash(false), true;
@@ -360,7 +399,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     if (opsOpen) return setOpsOpen(false), true;
     if (weighing) return setWeighing(null), true;
     return false;
-  }, [ticket, printerOpen, cobranzaOpen, priceCheckOpen, parkedOpen, discountTarget, customerOpen, paying, movingCash, closingCash, openingCash, scaleOpen, opsOpen, weighing]);
+  }, [ticket, printerOpen, cobranzaOpen, priceCheckOpen, parkedOpen, discountTarget, priceTarget, customerOpen, paying, movingCash, closingCash, openingCash, scaleOpen, opsOpen, weighing]);
 
   const openPriceCheck = useCallback(() => { setCheckedProduct(null); setPriceCheckOpen(true); }, []);
 
@@ -484,12 +523,13 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
           onIdentify={() => setCustomerOpen(true)}
           onClearCustomer={() => setCustomer(null)}
           onSetQty={cart.setQty}
+          onEditPrice={(index) => void security.requireAuth('price').then((ok) => ok && setPriceTarget(index))}
           onLineDiscount={(index) => void security.requireAuth('discount').then((ok) => ok && setDiscountTarget({ kind: 'line', index }))}
           onGlobalDiscount={() => void security.requireAuth('discount').then((ok) => ok && setDiscountTarget({ kind: 'global' }))}
           onSuspend={onSuspend}
           onOpenParked={() => setParkedOpen(true)}
           parkedCount={parkedCount}
-          onRemove={cart.remove}
+          onRemove={onRemoveLine}
           onClear={() => void security.requireAuth('void').then((ok) => ok && cart.clear())}
           onCheckout={onCheckout}
           onAbrirCaja={() => setOpeningCash(true)}
@@ -557,6 +597,17 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
             setDiscountTarget(null);
           }}
           onCancel={() => setDiscountTarget(null)}
+        />
+      )}
+
+      {priceTarget != null && cart.items[priceTarget] && (
+        <PriceOverrideModal
+          concepto={cart.items[priceTarget].concepto}
+          unidad={cart.items[priceTarget].unidad}
+          cantidad={cart.items[priceTarget].cantidad}
+          actual={cart.items[priceTarget].precioUnit}
+          onConfirm={(precioUnit) => onConfirmPrice(priceTarget, precioUnit)}
+          onCancel={() => setPriceTarget(null)}
         />
       )}
 

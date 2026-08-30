@@ -16,6 +16,7 @@ interface Props {
   onIdentify?: () => void;
   onClearCustomer?: () => void;
   onSetQty: (index: number, cantidad: number) => void;
+  onEditPrice?: (index: number) => void;
   onLineDiscount?: (index: number) => void;
   onGlobalDiscount?: () => void;
   onSuspend?: () => void;
@@ -38,6 +39,7 @@ export function Cart({
   onIdentify,
   onClearCustomer,
   onSetQty,
+  onEditPrice,
   onLineDiscount,
   onGlobalDiscount,
   onSuspend,
@@ -107,6 +109,9 @@ export function Cart({
                 {formatMoney(lineTotal(it))}
               </span>
               <div className="cart__lineactions">
+                {onEditPrice && (
+                  <button className="cart__disc" onClick={() => onEditPrice(i)} aria-label="Cambiar precio" title="Cambiar precio">💲</button>
+                )}
                 {onLineDiscount && (
                   <button className="cart__disc" onClick={() => onLineDiscount(i)} aria-label="Descuento" title="Descuento de línea">🏷</button>
                 )}

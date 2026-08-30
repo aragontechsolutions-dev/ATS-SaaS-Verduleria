@@ -24,6 +24,7 @@ export interface ParkedTicket {
 type Action =
   | { type: 'add'; item: CartItem }
   | { type: 'setQty'; index: number; cantidad: number }
+  | { type: 'setPrecio'; index: number; precioUnit: number }
   | { type: 'setDescuento'; index: number; descuento: number }
   | { type: 'setGlobalDiscount'; spec: DiscountSpec | null }
   | { type: 'load'; items: CartItem[]; globalDiscount?: DiscountSpec | null }
@@ -53,6 +54,16 @@ function reducer(state: CartState, action: Action): CartState {
       const descuento = it.descuento != null ? Math.min(it.descuento, nuevoBruto) : undefined;
       items[action.index] = { ...it, cantidad: Math.max(0, action.cantidad), descuento };
       return { ...state, items: items.filter((i) => i.cantidad > 0) };
+    }
+    case 'setPrecio': {
+      const items = state.items.slice();
+      const it = items[action.index];
+      const precioUnit = Math.max(0, round2(action.precioUnit));
+      // Al cambiar el precio, un descuento por línea mayor al nuevo bruto se acota.
+      const nuevoBruto = it.cantidad * precioUnit;
+      const descuento = it.descuento != null ? Math.min(it.descuento, nuevoBruto) : undefined;
+      items[action.index] = { ...it, precioUnit, descuento };
+      return { ...state, items };
     }
     case 'setDescuento': {
       const items = state.items.slice();
@@ -167,6 +178,7 @@ export function useCart(promos?: PromoMap) {
     total: totals.total,
     add: (item: CartItem) => dispatch({ type: 'add', item }),
     setQty: (index: number, cantidad: number) => dispatch({ type: 'setQty', index, cantidad }),
+    setPrecio: (index: number, precioUnit: number) => dispatch({ type: 'setPrecio', index, precioUnit }),
     setDescuento: (index: number, descuento: number) => dispatch({ type: 'setDescuento', index, descuento }),
     setGlobalDiscount: (spec: DiscountSpec | null) => dispatch({ type: 'setGlobalDiscount', spec }),
     load: (items: CartItem[], globalDiscount?: DiscountSpec | null) => dispatch({ type: 'load', items, globalDiscount }),
