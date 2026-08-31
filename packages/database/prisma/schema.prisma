@@ -258,6 +258,7 @@ model Tenant {
   stockItems    Stock[]
   stockMoves    StockMovement[]
   wastes        Waste[]
+  vencimientos  Vencimiento[]
   deliveryOrders DeliveryOrder[]
   routes        Route[]
   accounts      AccountReceivable[]
@@ -469,6 +470,7 @@ model Sucursal {
   sales        Sale[]
   stockItems   Stock[]
   terminals    Terminal[]
+  vencimientos Vencimiento[]
 
   @@unique([tenantId, codigo])
   @@index([tenantId])
@@ -550,6 +552,7 @@ model Product {
   stockItems  Stock[]
   stockMoves  StockMovement[]
   wastes      Waste[]
+  vencimientos Vencimiento[]
   deliveryItems DeliveryItem[]
 
   @@unique([tenantId, plu])
@@ -719,14 +722,27 @@ model StockMovement {
   @@index([createdAt])
 }
 
+/// Motivo estructurado de una merma (para reportes por causa).
+enum WasteMotivo {
+  PODRIDO
+  DANADO
+  VENCIDO
+  ROBO
+  DESCARTE
+  ERROR_PESO
+  OTRO
+}
+
 model Waste {
-  id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String   @db.Uuid
-  productId String   @db.Uuid
-  cantidad  Decimal  @db.Decimal(14, 3)
-  costoUnit Decimal? @db.Decimal(14, 4)
-  motivo    String? // pudrición, golpe, remarque, descarte
-  createdAt DateTime @default(now())
+  id        String       @id @default(uuid()) @db.Uuid
+  tenantId  String       @db.Uuid
+  productId String       @db.Uuid
+  cantidad  Decimal      @db.Decimal(14, 3)
+  costoUnit Decimal?     @db.Decimal(14, 4)
+  /// Motivo estructurado (para el reporte por causa). Null en mermas viejas.
+  tipo      WasteMotivo?
+  motivo    String? // detalle libre: pudrición, golpe, remarque, descarte
+  createdAt DateTime     @default(now())
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -734,6 +750,29 @@ model Waste {
   @@index([tenantId])
   @@index([tenantId, productId])
   @@index([createdAt])
+}
+
+/// Vencimiento próximo declarado por el encargado: qué producto y cuánto vence
+/// y cuándo. Sirve para alertar antes de que se pierda y, al vencer, pasar a merma.
+model Vencimiento {
+  id               String    @id @default(uuid()) @db.Uuid
+  tenantId         String    @db.Uuid
+  productId        String    @db.Uuid
+  sucursalId       String?   @db.Uuid
+  cantidad         Decimal   @db.Decimal(14, 3)
+  fechaVencimiento DateTime  @db.Date
+  nota             String?
+  /// true cuando ya se vendió/descartó (sale de las alertas).
+  resuelto         Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product  Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sucursal Sucursal? @relation(fields: [sucursalId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, resuelto, fechaVencimiento])
+  @@index([tenantId, productId])
 }
 
 // ============================================================================

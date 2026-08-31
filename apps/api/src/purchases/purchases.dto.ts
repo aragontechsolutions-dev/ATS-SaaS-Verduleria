@@ -1,6 +1,8 @@
 import {
   IsArray,
   IsBoolean,
+  IsDateString,
+  IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
@@ -11,6 +13,7 @@ import {
   ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { WasteMotivo } from '@ats/database';
 
 // --- Proveedores ------------------------------------------------------------
 
@@ -142,10 +145,43 @@ export class CreateWasteDto {
   @IsString()
   sucursalId?: string;
 
-  /** pudrición, golpe, remarque, descarte… */
+  /** Motivo estructurado (para el reporte por causa). */
+  @IsOptional()
+  @IsEnum(WasteMotivo)
+  tipo?: WasteMotivo;
+
+  /** Detalle libre adicional. */
   @IsOptional()
   @IsString()
   motivo?: string;
+}
+
+export class CreateVencimientoDto {
+  @IsString()
+  productId!: string;
+
+  @IsNumber()
+  @Min(0.001)
+  cantidad!: number;
+
+  /** Fecha de vencimiento (YYYY-MM-DD). */
+  @IsDateString()
+  fechaVencimiento!: string;
+
+  @IsOptional()
+  @IsString()
+  sucursalId?: string;
+
+  @IsOptional()
+  @IsString()
+  nota?: string;
+}
+
+export class ResolveVencimientoDto {
+  /** Si true, descarta lo que queda como merma (motivo VENCIDO). */
+  @IsOptional()
+  @IsBoolean()
+  comoMerma?: boolean;
 }
 
 export class ListQueryDto {
