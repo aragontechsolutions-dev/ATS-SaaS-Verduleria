@@ -1,12 +1,14 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, StockMovementType, TipoListaPrecio } from '@ats/database';
+import { Prisma, StockMovementType, TipoListaPrecio, WasteMotivo } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { costoUnitConMerma, margenPct, promedioPonderado } from '../common/money';
 import { normalizeUyPhone } from '../landing/landing.types';
 import type {
   CreatePurchaseDto,
   CreateSupplierDto,
+  CreateVencimientoDto,
   CreateWasteDto,
+  ResolveVencimientoDto,
   StockAdjustDto,
   UpdateSupplierDto,
 } from './purchases.dto';
@@ -294,6 +296,7 @@ export class PurchasesService {
       cantidad: num(w.cantidad),
       costoUnit: num(w.costoUnit),
       costoTotal: Number((num(w.cantidad) * num(w.costoUnit)).toFixed(2)),
+      tipo: w.tipo,
       motivo: w.motivo,
     }));
   }
@@ -322,6 +325,7 @@ export class PurchasesService {
           productId: dto.productId,
           cantidad: new Prisma.Decimal(dto.cantidad),
           costoUnit: new Prisma.Decimal(costoUnit),
+          tipo: dto.tipo,
           motivo: dto.motivo,
         },
       });
@@ -339,6 +343,159 @@ export class PurchasesService {
       });
       return { id: waste.id, costoTotal: Number((dto.cantidad * costoUnit).toFixed(2)) };
     });
+  }
+
+  // --- Vencimientos ---------------------------------------------------------
+
+  /**
+   * Vencimientos declarados. Filtro por estado: vigentes (no resueltos),
+   * por_vencer (vencen dentro de `dias`), vencidos (fecha ya pasó) o todos.
+   */
+  async listVencimientos(
+    tenantId: string,
+    filtros: { estado?: string; dias?: number } = {},
+  ) {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const dias = filtros.dias ?? 7;
+    const limite = new Date(hoy);
+    limite.setDate(limite.getDate() + dias);
+
+    const where: Prisma.VencimientoWhereInput = { tenantId };
+    if (filtros.estado === 'por_vencer') {
+      where.resuelto = false;
+      where.fechaVencimiento = { gte: hoy, lte: limite };
+    } else if (filtros.estado === 'vencidos') {
+      where.resuelto = false;
+      where.fechaVencimiento = { lt: hoy };
+    } else if (filtros.estado !== 'todos') {
+      // 'vigentes' (por defecto): pendientes de resolver.
+      where.resuelto = false;
+    }
+
+    const rows = await this.prisma.vencimiento.findMany({
+      where,
+      orderBy: [{ resuelto: 'asc' }, { fechaVencimiento: 'asc' }],
+      take: 500,
+      include: { product: { select: { nombre: true, unidadVenta: true } }, sucursal: { select: { nombre: true } } },
+    });
+    return rows.map((v) => {
+      const fv = new Date(v.fechaVencimiento);
+      fv.setHours(0, 0, 0, 0);
+      const diasRestantes = Math.round((fv.getTime() - hoy.getTime()) / 86_400_000);
+      return {
+        id: v.id,
+        productId: v.productId,
+        nombre: v.product.nombre,
+        unidadVenta: v.product.unidadVenta,
+        sucursalNombre: v.sucursal?.nombre ?? null,
+        cantidad: num(v.cantidad),
+        fechaVencimiento: v.fechaVencimiento.toISOString().slice(0, 10),
+        diasRestantes,
+        vencido: diasRestantes < 0,
+        nota: v.nota,
+        resuelto: v.resuelto,
+      };
+    });
+  }
+
+  async createVencimiento(tenantId: string, dto: CreateVencimientoDto) {
+    const prod = await this.prisma.product.findFirst({ where: { id: dto.productId, tenantId } });
+    if (!prod) throw new BadRequestException('Producto inexistente');
+    const sucursalId = dto.sucursalId
+      ? (await this.prisma.sucursal.findFirst({ where: { id: dto.sucursalId, tenantId } }))?.id
+      : undefined;
+    return this.prisma.vencimiento.create({
+      data: {
+        tenantId,
+        productId: dto.productId,
+        sucursalId,
+        cantidad: new Prisma.Decimal(dto.cantidad),
+        fechaVencimiento: new Date(dto.fechaVencimiento),
+        nota: dto.nota,
+      },
+    });
+  }
+
+  /** Marca un vencimiento como resuelto; opcionalmente descarta como merma. */
+  async resolveVencimiento(tenantId: string, id: string, dto: ResolveVencimientoDto) {
+    const v = await this.prisma.vencimiento.findFirst({ where: { id, tenantId } });
+    if (!v) throw new NotFoundException('Vencimiento no encontrado');
+    if (v.resuelto) return { id, resuelto: true, mermaId: null };
+
+    let mermaId: string | null = null;
+    if (dto.comoMerma) {
+      const merma = await this.createWaste(tenantId, {
+        productId: v.productId,
+        cantidad: num(v.cantidad),
+        sucursalId: v.sucursalId ?? undefined,
+        tipo: WasteMotivo.VENCIDO,
+        motivo: 'Vencido' + (v.nota ? ` · ${v.nota}` : ''),
+      });
+      mermaId = merma.id;
+    }
+    await this.prisma.vencimiento.update({ where: { id }, data: { resuelto: true } });
+    return { id, resuelto: true, mermaId };
+  }
+
+  async deleteVencimiento(tenantId: string, id: string) {
+    const v = await this.prisma.vencimiento.findFirst({ where: { id, tenantId } });
+    if (!v) throw new NotFoundException('Vencimiento no encontrado');
+    await this.prisma.vencimiento.delete({ where: { id } });
+    return { id, deleted: true };
+  }
+
+  /**
+   * Reporte de mermas por rango de fechas: total perdido ($), desglose por
+   * producto y por motivo. El $ usa el costo capturado al registrar la merma.
+   */
+  async mermaReport(tenantId: string, from?: string, to?: string) {
+    const desde = from ? new Date(from) : new Date();
+    desde.setHours(0, 0, 0, 0);
+    const hasta = to ? new Date(to) : new Date();
+    hasta.setHours(23, 59, 59, 999);
+
+    const wastes = await this.prisma.waste.findMany({
+      where: { tenantId, createdAt: { gte: desde, lte: hasta } },
+      include: { product: { select: { nombre: true, unidadVenta: true } } },
+    });
+
+    let totalCosto = 0;
+    const porProducto = new Map<string, { productId: string; nombre: string; unidadVenta: string; cantidad: number; costo: number; registros: number }>();
+    const porMotivo = new Map<string, { tipo: string; costo: number; registros: number }>();
+
+    for (const w of wastes) {
+      const cant = num(w.cantidad);
+      const costo = Number((cant * num(w.costoUnit)).toFixed(2));
+      totalCosto += costo;
+
+      const p = porProducto.get(w.productId) ?? {
+        productId: w.productId, nombre: w.product.nombre, unidadVenta: w.product.unidadVenta, cantidad: 0, costo: 0, registros: 0,
+      };
+      p.cantidad += cant;
+      p.costo += costo;
+      p.registros += 1;
+      porProducto.set(w.productId, p);
+
+      const tipo = w.tipo ?? 'OTRO';
+      const m = porMotivo.get(tipo) ?? { tipo, costo: 0, registros: 0 };
+      m.costo += costo;
+      m.registros += 1;
+      porMotivo.set(tipo, m);
+    }
+
+    return {
+      desde: desde.toISOString(),
+      hasta: hasta.toISOString(),
+      totalCosto: Number(totalCosto.toFixed(2)),
+      registros: wastes.length,
+      porProducto: [...porProducto.values()]
+        .map((p) => ({ ...p, cantidad: Number(p.cantidad.toFixed(3)), costo: Number(p.costo.toFixed(2)) }))
+        .sort((a, b) => b.costo - a.costo),
+      porMotivo: [...porMotivo.values()]
+        .map((m) => ({ ...m, costo: Number(m.costo.toFixed(2)) }))
+        .sort((a, b) => b.costo - a.costo),
+    };
   }
 
   // --- Helpers --------------------------------------------------------------

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { adjustStock, createWaste, getStock, getSucursales, getWaste } from '../lib/api';
-import type { StockRow, Sucursal, WasteRow } from '../lib/api';
+import type { StockRow, Sucursal, WasteMotivo, WasteRow } from '../lib/api';
+import { MOTIVO_LABEL, MOTIVO_MERMA } from './mermaMotivos';
 import { SkeletonRows } from './Skeleton';
 import { useToast } from '../lib/toast';
 
@@ -129,7 +130,7 @@ export function StockPage() {
                   <td>{w.nombre}</td>
                   <td className="num">{money(w.cantidad)} {w.unidadVenta.toLowerCase()}</td>
                   <td className="num">${money(w.costoTotal)}</td>
-                  <td>{w.motivo ?? '—'}</td>
+                  <td>{w.tipo ? MOTIVO_LABEL[w.tipo] : (w.motivo ?? '—')}{w.tipo && w.motivo ? ` · ${w.motivo}` : ''}</td>
                 </tr>
               ))}
               {waste.length === 0 && <tr><td colSpan={5} className="muted">Sin mermas registradas.</td></tr>}
@@ -171,6 +172,7 @@ function StockActionModal({
   onError: (m: string) => void;
 }) {
   const [cantidad, setCantidad] = useState('');
+  const [tipo, setTipo] = useState<WasteMotivo>('PODRIDO');
   const [motivo, setMotivo] = useState('');
   const [saving, setSaving] = useState(false);
   const esMerma = kind === 'merma';
@@ -182,7 +184,7 @@ function StockActionModal({
     setSaving(true);
     try {
       if (esMerma) {
-        const r = await createWaste({ productId: row.productId, cantidad: Math.abs(n), sucursalId, motivo: motivo || undefined });
+        const r = await createWaste({ productId: row.productId, cantidad: Math.abs(n), sucursalId, tipo, motivo: motivo || undefined });
         onDone(`Merma registrada: −$${money(r.costoTotal)} en ${row.nombre}.`);
       } else {
         const r = await adjustStock({ productId: row.productId, cantidad: n, sucursalId, motivo: motivo || undefined });
@@ -208,10 +210,18 @@ function StockActionModal({
           <input type="number" step="0.001" value={cantidad} onChange={(e) => setCantidad(e.target.value)}
             placeholder={esMerma ? 'ej. 2.5' : 'ej. -1.2 o 3'} autoFocus required />
         </label>
+        {esMerma && (
+          <label className="field">
+            Motivo
+            <select value={tipo} onChange={(e) => setTipo(e.target.value as WasteMotivo)}>
+              {MOTIVO_MERMA.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+          </label>
+        )}
         <label className="field">
-          Motivo
+          {esMerma ? 'Detalle (opcional)' : 'Motivo'}
           <input value={motivo} onChange={(e) => setMotivo(e.target.value)}
-            placeholder={esMerma ? 'pudrición, golpe, descarte…' : 'recuento, corrección…'} />
+            placeholder={esMerma ? 'ej. lote del lunes, cámara 2…' : 'recuento, corrección…'} />
         </label>
         <div className="modal__actions">
           <button type="button" className="btn btn--ghost" onClick={onClose} disabled={saving}>Cancelar</button>

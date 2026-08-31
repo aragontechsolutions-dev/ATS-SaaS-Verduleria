@@ -10,8 +10,10 @@ import { PurchasesService } from './purchases.service';
 import {
   CreatePurchaseDto,
   CreateSupplierDto,
+  CreateVencimientoDto,
   CreateWasteDto,
   ListQueryDto,
+  ResolveVencimientoDto,
   StockAdjustDto,
   StockQueryDto,
   UpdateSupplierDto,
@@ -92,5 +94,54 @@ export class PurchasesController {
   @Roles(Role.ADMIN, Role.ENCARGADO, Role.DEPOSITO)
   createWaste(@CurrentTenant('tenantId') tenantId: string, @Body() dto: CreateWasteDto) {
     return this.purchases.createWaste(tenantId, dto);
+  }
+
+  /** Reporte de mermas ($ perdido por producto y por motivo) en un rango. */
+  @Get('waste/report')
+  @RequiresModule('INVENTORY')
+  @Roles(Role.ADMIN, Role.ENCARGADO, Role.CONTADOR, Role.COMPRADOR)
+  mermaReport(
+    @CurrentTenant('tenantId') tenantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.purchases.mermaReport(tenantId, from, to);
+  }
+
+  // --- Vencimientos (INVENTORY) ---
+  @Get('vencimientos')
+  @RequiresModule('INVENTORY')
+  @Roles(Role.ADMIN, Role.ENCARGADO, Role.COMPRADOR, Role.DEPOSITO)
+  listVencimientos(
+    @CurrentTenant('tenantId') tenantId: string,
+    @Query('estado') estado?: string,
+    @Query('dias') dias?: string,
+  ) {
+    return this.purchases.listVencimientos(tenantId, { estado, dias: dias ? Number(dias) : undefined });
+  }
+
+  @Post('vencimientos')
+  @RequiresModule('INVENTORY')
+  @Roles(Role.ADMIN, Role.ENCARGADO, Role.DEPOSITO)
+  createVencimiento(@CurrentTenant('tenantId') tenantId: string, @Body() dto: CreateVencimientoDto) {
+    return this.purchases.createVencimiento(tenantId, dto);
+  }
+
+  @Post('vencimientos/:id/resolve')
+  @RequiresModule('INVENTORY')
+  @Roles(Role.ADMIN, Role.ENCARGADO, Role.DEPOSITO)
+  resolveVencimiento(
+    @CurrentTenant('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: ResolveVencimientoDto,
+  ) {
+    return this.purchases.resolveVencimiento(tenantId, id, dto);
+  }
+
+  @Post('vencimientos/:id/delete')
+  @RequiresModule('INVENTORY')
+  @Roles(Role.ADMIN, Role.ENCARGADO, Role.DEPOSITO)
+  deleteVencimiento(@CurrentTenant('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.purchases.deleteVencimiento(tenantId, id);
   }
 }

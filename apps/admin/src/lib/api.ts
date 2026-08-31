@@ -209,6 +209,8 @@ export interface StockRow {
   margenPct: number | null;
 }
 
+export type WasteMotivo = 'PODRIDO' | 'DANADO' | 'VENCIDO' | 'ROBO' | 'DESCARTE' | 'ERROR_PESO' | 'OTRO';
+
 export interface WasteRow {
   id: string;
   fecha: string;
@@ -218,7 +220,31 @@ export interface WasteRow {
   cantidad: number;
   costoUnit: number;
   costoTotal: number;
+  tipo: WasteMotivo | null;
   motivo: string | null;
+}
+
+export interface MermaReport {
+  desde: string;
+  hasta: string;
+  totalCosto: number;
+  registros: number;
+  porProducto: Array<{ productId: string; nombre: string; unidadVenta: string; cantidad: number; costo: number; registros: number }>;
+  porMotivo: Array<{ tipo: string; costo: number; registros: number }>;
+}
+
+export interface VencimientoRow {
+  id: string;
+  productId: string;
+  nombre: string;
+  unidadVenta: string;
+  sucursalNombre: string | null;
+  cantidad: number;
+  fechaVencimiento: string;
+  diasRestantes: number;
+  vencido: boolean;
+  nota: string | null;
+  resuelto: boolean;
 }
 
 export const getSuppliers = async () =>
@@ -260,10 +286,44 @@ export const adjustStock = async (input: { productId: string; cantidad: number; 
 export const getWaste = async () =>
   ok<WasteRow[]>(await fetch(`${API_BASE}/purchases/waste`, { headers: headers() }), 'waste');
 
-export const createWaste = async (input: { productId: string; cantidad: number; sucursalId?: string; motivo?: string }) =>
+export const createWaste = async (input: { productId: string; cantidad: number; sucursalId?: string; tipo?: WasteMotivo; motivo?: string }) =>
   ok<{ id: string; costoTotal: number }>(
     await fetch(`${API_BASE}/purchases/waste`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
     'createWaste',
+  );
+
+export const getMermaReport = async (qs: { from?: string; to?: string } = {}) => {
+  const p = new URLSearchParams();
+  if (qs.from) p.set('from', qs.from);
+  if (qs.to) p.set('to', qs.to);
+  const s = p.toString();
+  return ok<MermaReport>(await fetch(`${API_BASE}/purchases/waste/report${s ? `?${s}` : ''}`, { headers: headers() }), 'mermaReport');
+};
+
+// --- Vencimientos -----------------------------------------------------------
+
+export const getVencimientos = async (estado = 'vigentes', dias?: number) => {
+  const p = new URLSearchParams({ estado });
+  if (dias != null) p.set('dias', String(dias));
+  return ok<VencimientoRow[]>(await fetch(`${API_BASE}/purchases/vencimientos?${p.toString()}`, { headers: headers() }), 'vencimientos');
+};
+
+export const createVencimiento = async (input: { productId: string; cantidad: number; fechaVencimiento: string; sucursalId?: string; nota?: string }) =>
+  ok<{ id: string }>(
+    await fetch(`${API_BASE}/purchases/vencimientos`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
+    'createVencimiento',
+  );
+
+export const resolveVencimiento = async (id: string, comoMerma: boolean) =>
+  ok<{ id: string; resuelto: boolean; mermaId: string | null }>(
+    await fetch(`${API_BASE}/purchases/vencimientos/${id}/resolve`, { method: 'POST', headers: headers(), body: JSON.stringify({ comoMerma }) }),
+    'resolveVencimiento',
+  );
+
+export const deleteVencimiento = async (id: string) =>
+  ok<{ id: string; deleted: boolean }>(
+    await fetch(`${API_BASE}/purchases/vencimientos/${id}/delete`, { method: 'POST', headers: headers() }),
+    'deleteVencimiento',
   );
 
 // --- Sucursales -------------------------------------------------------------
