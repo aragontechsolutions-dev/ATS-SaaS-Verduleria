@@ -33,6 +33,21 @@ export class OpenCashDto {
   montoApertura!: number;
 }
 
+export class RelevoDto {
+  /** Cajero entrante que toma la caja. */
+  @IsString()
+  toUserId!: string;
+
+  /** Efectivo contado en el cajón al momento del relevo (arqueo ciego). */
+  @IsNumber()
+  @Min(0)
+  montoContado!: number;
+
+  @IsOptional()
+  @IsString()
+  notas?: string;
+}
+
 export class CloseCashDto {
   /** Efectivo contado en el arqueo. */
   @IsNumber()

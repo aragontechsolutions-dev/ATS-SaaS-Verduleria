@@ -164,4 +164,27 @@ export class TerminalsService {
   async count(tenantId: string): Promise<number> {
     return this.prisma.terminal.count({ where: { tenantId } });
   }
+
+  /**
+   * Cajeros elegibles para operar una caja (para el relevo). Si la caja tiene
+   * operadores asignados, son esos; si no, cualquier usuario con rol operativo.
+   */
+  async operadoresElegibles(tenantId: string, terminalId: string) {
+    const term = await this.prisma.terminal.findFirst({
+      where: { id: terminalId, tenantId },
+      include: { operadores: { select: { userId: true } } },
+    });
+    if (!term) throw new NotFoundException('Caja no encontrada');
+
+    const where = term.operadores.length
+      ? { tenantId, activo: true, userId: { in: term.operadores.map((o) => o.userId) }, user: { activo: true } }
+      : { tenantId, activo: true, role: { in: [Role.ADMIN, Role.ENCARGADO, Role.CAJERO] }, user: { activo: true } };
+
+    const memberships = await this.prisma.membership.findMany({
+      where,
+      include: { user: { select: { nombre: true } } },
+      orderBy: { user: { nombre: 'asc' } },
+    });
+    return memberships.map((m) => ({ userId: m.userId, nombre: m.user.nombre, role: m.role }));
+  }
 }

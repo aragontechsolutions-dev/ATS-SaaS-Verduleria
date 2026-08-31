@@ -7,7 +7,7 @@ import { Roles } from '../tenant/roles.decorator';
 import { EntitlementsGuard } from '../entitlements/entitlements.guard';
 import { RequiresModule } from '../entitlements/requires-module.decorator';
 import { CashService } from './cash.service';
-import { CashMovementDto, CloseCashDto, OpenCashDto } from './cash.dto';
+import { CashMovementDto, CloseCashDto, OpenCashDto, RelevoDto } from './cash.dto';
 
 @Controller('cash-sessions')
 @UseGuards(TenantGuard, EntitlementsGuard)
@@ -53,6 +53,17 @@ export class CashController {
     @Body() dto: OpenCashDto,
   ) {
     return this.cash.open(tenantId, userId, role, dto);
+  }
+
+  /** Relevo de cajero: cierra el turno del saliente y abre el del entrante. */
+  @Post('relevo')
+  async relevo(
+    @CurrentTenant('tenantId') tenantId: string,
+    @CurrentTenant('userId') userId: string | undefined,
+    @CurrentTenant('role') role: string | undefined,
+    @Body() dto: RelevoDto,
+  ) {
+    return this.cash.relevo(tenantId, userId, role, dto);
   }
 
   @Get('current')

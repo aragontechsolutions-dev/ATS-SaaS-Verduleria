@@ -13,6 +13,7 @@ import { TicketModal } from './components/TicketModal';
 import { ScaleSettingsModal } from './components/ScaleSettingsModal';
 import { OperationsModal } from './components/OperationsModal';
 import { CashMovementModal } from './components/CashMovementModal';
+import { RelevoModal } from './components/RelevoModal';
 import { CustomerPickerModal } from './components/CustomerPickerModal';
 import { DiscountModal } from './components/DiscountModal';
 import { PriceOverrideModal } from './components/PriceOverrideModal';
@@ -138,6 +139,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const [opsOpen, setOpsOpen] = useState(false);
   const [movingCash, setMovingCash] = useState(false);
   const [movementInitial, setMovementInitial] = useState<'INGRESO' | 'EGRESO' | 'SANGRIA'>('EGRESO');
+  const [relevoOpen, setRelevoOpen] = useState(false);
+  const [userId, setUserId] = useState<string | undefined>();
   const [customer, setCustomer] = useState<PosCustomer | null>(null);
   const [customerOpen, setCustomerOpen] = useState(false);
   // Descuento: null = cerrado; {kind:'line', index} o {kind:'global'}.
@@ -160,6 +163,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
 
   useEffect(() => {
     void getSucursales().then(setSucursales).catch(() => setSucursales([]));
+    void getMe().then((m) => setUserId(m.userId)).catch(() => {});
     // Reconecta a una impresora ESC/POS ya autorizada (sin re-pedir permiso).
     void tryReconnect(loadPrinterConfig());
   }, []);
@@ -428,7 +432,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   }, [cash.session, showToast]);
 
   const anyModalOpen =
-    paying || openingCash || closingCash || scaleOpen || opsOpen || movingCash || !!corte ||
+    paying || openingCash || closingCash || scaleOpen || opsOpen || movingCash || relevoOpen || !!corte ||
     customerOpen || !!discountTarget || priceTarget != null || !!ticket || !!weighing || parkedOpen || priceCheckOpen || cobranzaOpen || printerOpen;
 
   // Cierra el modal de nivel superior con Escape. Devuelve true si cerró alguno.
@@ -443,6 +447,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     if (priceTarget != null) return setPriceTarget(null), true;
     if (customerOpen) return setCustomerOpen(false), true;
     if (paying) return setPaying(false), true;
+    if (relevoOpen) return setRelevoOpen(false), true;
     if (movingCash) return setMovingCash(false), true;
     if (closingCash) return setClosingCash(false), true;
     if (openingCash) return setOpeningCash(false), true;
@@ -450,7 +455,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
     if (opsOpen) return setOpsOpen(false), true;
     if (weighing) return setWeighing(null), true;
     return false;
-  }, [corte, ticket, printerOpen, cobranzaOpen, priceCheckOpen, parkedOpen, discountTarget, priceTarget, customerOpen, paying, movingCash, closingCash, openingCash, scaleOpen, opsOpen, weighing]);
+  }, [corte, ticket, printerOpen, cobranzaOpen, priceCheckOpen, parkedOpen, discountTarget, priceTarget, customerOpen, paying, movingCash, relevoOpen, closingCash, openingCash, scaleOpen, opsOpen, weighing]);
 
   const openPriceCheck = useCallback(() => { setCheckedProduct(null); setPriceCheckOpen(true); }, []);
 
@@ -542,6 +547,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         onOpenSecurity={security.openSettings}
         onMovimiento={cash.session ? () => { setMovementInitial('EGRESO'); setMovingCash(true); } : undefined}
         onSangria={cash.session ? () => { setMovementInitial('SANGRIA'); setMovingCash(true); } : undefined}
+        onRelevo={cash.session?.terminalId ? () => setRelevoOpen(true) : undefined}
         onCorteX={cash.session ? onCorteX : undefined}
         onLogout={onLogout}
       />
@@ -729,6 +735,20 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
             if (tipo === 'SANGRIA') void openDrawer(loadPrinterConfig()).catch(() => {});
           }}
           onCancel={() => setMovingCash(false)}
+        />
+      )}
+
+      {relevoOpen && cash.session?.terminalId && (
+        <RelevoModal
+          terminalId={cash.session.terminalId}
+          terminalNombre={cash.session.terminal ?? null}
+          salienteUserId={userId}
+          onDone={(r) => {
+            setRelevoOpen(false);
+            cash.clear();
+            toast.success(`Caja entregada a ${r.entrante}`, 'Cerrá sesión para que inicie su turno.');
+          }}
+          onCancel={() => setRelevoOpen(false)}
         />
       )}
     </div>

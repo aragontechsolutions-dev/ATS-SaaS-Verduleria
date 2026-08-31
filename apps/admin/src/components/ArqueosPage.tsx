@@ -122,7 +122,7 @@ export function ArqueosView() {
                   <tr key={r.sessionId}>
                     <td>{fecha(r.fechaApertura)}</td>
                     <td>{r.abierta ? <span className="op op--apertura">Abierta</span> : fecha(r.fechaCierre)}</td>
-                    <td>{r.terminal ?? '—'}{r.sucursalNombre ? <span className="muted"> · {r.sucursalNombre}</span> : ''}</td>
+                    <td>{r.terminal ?? '—'}{r.sucursalNombre ? <span className="muted"> · {r.sucursalNombre}</span> : ''}{r.esRelevo && <span className="op op--apertura" style={{ marginLeft: 6 }}>relevo</span>}</td>
                     <td>{r.userNombre ?? '—'}</td>
                     <td className="num">{money.format(r.montoApertura)}</td>
                     <td className="num">{r.ventas}</td>

@@ -53,6 +53,13 @@ export class CashService {
       const t = await this.terminals.resolveForOpen(tenantId, userId, role, dto.terminalId, dto.sucursalId);
       terminalId = t.id;
       terminal = t.nombre;
+      // Una caja física no puede tener dos turnos abiertos a la vez.
+      const abiertaEnCaja = await this.prisma.cashSession.findFirst({
+        where: { tenantId, terminalId, status: CashSessionStatus.ABIERTA },
+      });
+      if (abiertaEnCaja) {
+        throw new ConflictException('Esa caja ya tiene un turno abierto. Usá el relevo para cambiar de cajero.');
+      }
     } else {
       // Si el comercio ya definió cajas, no se permite abrir "sin caja": el
       // cajero debe abrir en una caja que tenga habilitada.
@@ -244,6 +251,68 @@ export class CashService {
     const session = await this.prisma.cashSession.findFirst({ where: { id: sessionId, tenantId } });
     if (!session) throw new NotFoundException('Caja no encontrada');
     return session;
+  }
+
+  /**
+   * Relevo de cajero: cambio de turno SIN interrumpir la caja física. El cajero
+   * saliente cuenta el efectivo (arqueo ciego) y elige al entrante; el sistema
+   * cierra su turno con ese conteo y abre uno nuevo para el entrante en la misma
+   * caja, con el efectivo contado como fondo. Cada cajero queda con su arqueo.
+   */
+  async relevo(
+    tenantId: string,
+    fromUserId: string | undefined,
+    _fromRole: string | undefined,
+    dto: { toUserId: string; montoContado: number; notas?: string },
+  ) {
+    if (!fromUserId) throw new BadRequestException('Falta el usuario para el relevo');
+    if (!(dto.montoContado >= 0)) throw new BadRequestException('Ingresá el efectivo contado');
+
+    const prev = await this.prisma.cashSession.findFirst({
+      where: { tenantId, userId: fromUserId, status: CashSessionStatus.ABIERTA },
+      orderBy: { aperturaAt: 'desc' },
+    });
+    if (!prev) throw new NotFoundException('No tenés una caja abierta para relevar');
+    if (!prev.terminalId) {
+      throw new BadRequestException('El relevo requiere una caja gestionada. Cerrá la caja normalmente.');
+    }
+    if (dto.toUserId === fromUserId) throw new BadRequestException('Elegí un cajero distinto para el relevo');
+
+    // El entrante debe pertenecer al tenant, poder operar la caja y no tener otra abierta.
+    const memEntrante = await this.prisma.membership.findFirst({
+      where: { tenantId, userId: dto.toUserId, activo: true },
+      include: { user: { select: { nombre: true, activo: true } } },
+    });
+    if (!memEntrante || memEntrante.user.activo === false) {
+      throw new BadRequestException('El cajero entrante no es un usuario activo de la verdulería');
+    }
+    await this.terminals.resolveForOpen(tenantId, dto.toUserId, memEntrante.role, prev.terminalId, prev.sucursalId ?? undefined);
+    const yaAbierta = await this.prisma.cashSession.findFirst({
+      where: { tenantId, userId: dto.toUserId, status: CashSessionStatus.ABIERTA },
+    });
+    if (yaAbierta) throw new ConflictException('El cajero entrante ya tiene una caja abierta');
+
+    const saliente = await this.prisma.user.findUnique({ where: { id: fromUserId }, select: { nombre: true } });
+    const nombreSaliente = saliente?.nombre ?? 'cajero saliente';
+    const nombreEntrante = memEntrante.user.nombre;
+    const nota = `Relevo: ${nombreSaliente} → ${nombreEntrante}${dto.notas ? ` · ${dto.notas}` : ''}`;
+
+    // Cierre ciego del turno saliente (el conteo es el efectivo del cajón).
+    const cierre = await this.close(tenantId, prev.id, { montoCierre: dto.montoContado, notas: nota });
+    // Apertura del turno entrante en la misma caja, con el conteo como fondo.
+    const nueva = await this.open(tenantId, dto.toUserId, memEntrante.role, {
+      montoApertura: dto.montoContado,
+      sucursalId: prev.sucursalId ?? undefined,
+      terminalId: prev.terminalId,
+    });
+
+    return {
+      diferencia: cierre.diferencia,
+      terminal: prev.terminal,
+      entrante: nombreEntrante,
+      nuevaSessionId: nueva.id,
+      cerradaSessionId: prev.id,
+    };
   }
 
   /**
@@ -464,6 +533,7 @@ export class CashService {
         totalVendido: v?.total ?? 0,
         montoCierre: s.montoCierre != null ? Number(s.montoCierre) : null,
         diferencia: s.diferencia != null ? Number(s.diferencia) : null,
+        esRelevo: (s.notas ?? '').startsWith('Relevo:'),
       };
     });
   }
@@ -504,6 +574,7 @@ export interface ArqueoTurno {
   totalVendido: number;
   montoCierre: number | null;
   diferencia: number | null;
+  esRelevo: boolean;
 }
 
 export interface OperacionCaja {
