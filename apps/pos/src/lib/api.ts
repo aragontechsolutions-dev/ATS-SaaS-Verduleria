@@ -287,6 +287,32 @@ export async function getMyTerminals(sucursalId?: string): Promise<MyTerminals> 
   return ok(await fetch(`${API_BASE}/terminals/mine${qs}`, { headers: headers() }), 'terminals-mine');
 }
 
+export interface TerminalOperador {
+  userId: string;
+  nombre: string;
+  role: string;
+}
+
+/** Cajeros que pueden operar una caja (para el relevo de turno). */
+export async function getTerminalOperadores(terminalId: string): Promise<TerminalOperador[]> {
+  return ok(await fetch(`${API_BASE}/terminals/${terminalId}/operadores`, { headers: headers() }), 'terminal-operadores');
+}
+
+export interface RelevoResult {
+  diferencia: number;
+  terminal: string | null;
+  entrante: string;
+  nuevaSessionId: string;
+}
+
+/** Relevo de cajero: cierra el turno propio y abre el del entrante en la misma caja. */
+export async function postRelevo(payload: { toUserId: string; montoContado: number; notas?: string }): Promise<RelevoResult> {
+  return ok(
+    await fetch(`${API_BASE}/cash-sessions/relevo`, { method: 'POST', headers: headers(), body: JSON.stringify(payload) }),
+    'relevo',
+  );
+}
+
 export async function currentCash(): Promise<CashSession | null> {
   return ok(await fetch(`${API_BASE}/cash-sessions/current`, { headers: headers() }), 'cash-current');
 }

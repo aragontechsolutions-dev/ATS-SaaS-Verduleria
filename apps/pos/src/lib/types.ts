@@ -109,6 +109,7 @@ export interface CashSession {
   aperturaAt: string;
   sucursalId?: string | null;
   terminal?: string | null;
+  terminalId?: string | null;
 }
 
 export interface CashSummary {

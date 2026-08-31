@@ -666,6 +666,7 @@ export interface ArqueoTurno {
   totalVendido: number;
   montoCierre: number | null;
   diferencia: number | null;
+  esRelevo: boolean;
 }
 
 export const getArqueos = async (f: CashOpsFilters = {}) =>

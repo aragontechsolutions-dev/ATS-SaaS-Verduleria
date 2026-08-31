@@ -31,6 +31,12 @@ export class TerminalsController {
     return this.terminals.mine(tenantId, userId, role, sucursalId);
   }
 
+  /** Cajeros que pueden operar una caja (para el relevo). Cualquier miembro. */
+  @Get(':id/operadores')
+  operadores(@CurrentTenant('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.terminals.operadoresElegibles(tenantId, id);
+  }
+
   @Get()
   @Roles(Role.ADMIN, Role.ENCARGADO)
   list(@CurrentTenant('tenantId') tenantId: string) {
