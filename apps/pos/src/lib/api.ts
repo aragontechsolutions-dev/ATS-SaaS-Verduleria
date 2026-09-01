@@ -94,6 +94,7 @@ export interface CatalogApiResponse {
   products: import('./types').CatalogProduct[];
   promos?: import('./promo').Promo[];
   limiteEfectivoCaja?: number | null;
+  loyalty?: { activo: boolean; acumulaCada: number; valorPunto: number };
 }
 
 export async function fetchCatalog(): Promise<CatalogApiResponse> {

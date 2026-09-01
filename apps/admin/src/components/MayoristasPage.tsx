@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   addCustomerCharge,
   addCustomerPayment,
+  adjustCustomerLoyalty,
   createCustomer,
   getCustomerAccount,
+  getCustomerLoyalty,
   getCustomers,
 } from '../lib/api';
-import type { Customer, CustomerAccount } from '../lib/api';
+import type { Customer, CustomerAccount, CustomerLoyalty } from '../lib/api';
 import { SkeletonRows, Spinner } from './Skeleton';
 import { useToast } from '../lib/toast';
 
@@ -19,6 +21,7 @@ export function MayoristasPage() {
   const [locked, setLocked] = useState(false);
   const [creating, setCreating] = useState(false);
   const [selId, setSelId] = useState<string | null>(null);
+  const [selLoyaltyId, setSelLoyaltyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -70,6 +73,7 @@ export function MayoristasPage() {
                   <th>RUC / Doc.</th>
                   <th className="num">Saldo</th>
                   <th className="num">Límite</th>
+                  <th className="num">Puntos</th>
                   <th></th>
                 </tr>
               </thead>
@@ -80,10 +84,14 @@ export function MayoristasPage() {
                     <td>{c.documento ?? '—'}</td>
                     <td className="num"><span className={c.saldo > 0 ? 'mrg mrg--bad' : 'muted'}>{money.format(c.saldo)}</span></td>
                     <td className="num">{c.limiteCredito > 0 ? money.format(c.limiteCredito) : '—'}</td>
-                    <td className="num"><button className="btn btn--sm btn--ghost" onClick={() => setSelId(c.id)}>Cuenta</button></td>
+                    <td className="num">{c.puntos > 0 ? `⭐ ${c.puntos}` : '—'}</td>
+                    <td className="num row-actions">
+                      <button className="btn btn--sm btn--ghost" onClick={() => setSelLoyaltyId(c.id)}>Puntos</button>
+                      <button className="btn btn--sm btn--ghost" onClick={() => setSelId(c.id)}>Cuenta</button>
+                    </td>
                   </tr>
                 ))}
-                {rows.length === 0 && <tr><td colSpan={5} className="muted">Sin clientes mayoristas. Creá el primero.</td></tr>}
+                {rows.length === 0 && <tr><td colSpan={6} className="muted">Sin clientes mayoristas. Creá el primero.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -96,6 +104,13 @@ export function MayoristasPage() {
         <AccountModal
           customerId={selId}
           onClose={() => setSelId(null)}
+          onChanged={() => void load()}
+        />
+      )}
+      {selLoyaltyId && (
+        <LoyaltyModal
+          customerId={selLoyaltyId}
+          onClose={() => setSelLoyaltyId(null)}
           onChanged={() => void load()}
         />
       )}
@@ -262,6 +277,80 @@ function AccountModal({
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+const TIPO_PTS: Record<string, string> = { GANADOS: 'Ganados', CANJEADOS: 'Canjeados', AJUSTE: 'Ajuste' };
+
+function LoyaltyModal({ customerId, onClose, onChanged }: { customerId: string; onClose: () => void; onChanged: () => void }) {
+  const toast = useToast();
+  const [data, setData] = useState<CustomerLoyalty | null>(null);
+  const [puntos, setPuntos] = useState('');
+  const [nota, setNota] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    try { setData(await getCustomerLoyalty(customerId)); }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Error cargando puntos'); }
+  }, [customerId, toast]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function ajustar(e: React.FormEvent) {
+    e.preventDefault();
+    const n = parseInt(puntos, 10);
+    if (Number.isNaN(n) || n === 0) { toast.error('Ingresá una cantidad distinta de 0 (usá negativo para restar).'); return; }
+    setSaving(true);
+    try {
+      await adjustCustomerLoyalty(customerId, n, nota || undefined);
+      setPuntos(''); setNota('');
+      toast.success('Puntos ajustados');
+      await load();
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo ajustar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal modal--wide" onClick={(e) => e.stopPropagation()}>
+        <h3>Puntos {data ? `· ${data.nombre}` : ''}</h3>
+        <section className="tiles">
+          <div className="tile"><span className="tile__label">Saldo de puntos</span><span className="tile__value">⭐ {data?.puntos ?? 0}</span></div>
+        </section>
+
+        <form className="cat-new" onSubmit={ajustar}>
+          <input className="search" style={{ maxWidth: 140 }} type="number" step="1" placeholder="+/− puntos" value={puntos} onChange={(e) => setPuntos(e.target.value)} />
+          <input className="search" placeholder="Motivo del ajuste (opcional)" value={nota} onChange={(e) => setNota(e.target.value)} />
+          <button className="btn btn--primary" type="submit" disabled={saving}>Ajustar</button>
+        </form>
+
+        <div className="table-wrap">
+          <table className="table">
+            <thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th className="num">Puntos</th><th className="num">Saldo</th></tr></thead>
+            <tbody>
+              {(data?.movimientos ?? []).map((m) => (
+                <tr key={m.id}>
+                  <td>{new Date(m.fecha).toLocaleString('es-UY')}</td>
+                  <td>{TIPO_PTS[m.tipo] ?? m.tipo}</td>
+                  <td>{m.descripcion ?? '—'}</td>
+                  <td className="num"><span className={m.puntos < 0 ? 'mrg mrg--bad' : 'mrg mrg--ok'}>{m.puntos > 0 ? '+' : ''}{m.puntos}</span></td>
+                  <td className="num">{m.saldo}</td>
+                </tr>
+              ))}
+              {data && data.movimientos.length === 0 && <tr><td colSpan={5} className="muted">Sin movimientos de puntos.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="modal__actions">
+          <button className="btn btn--ghost" onClick={onClose}>Cerrar</button>
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { RegimenFiscal } from '@ats/database';
+import { Prisma, RegimenFiscal } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import type { UpdateSettingsDto } from './settings.dto';
 
@@ -31,6 +31,9 @@ export class SettingsService {
       telefono: tenant.telefono,
       email: tenant.email,
       limiteEfectivoCaja: tenant.limiteEfectivoCaja != null ? Number(tenant.limiteEfectivoCaja) : null,
+      loyaltyActivo: tenant.loyaltyActivo,
+      loyaltyAcumulaCada: Number(tenant.loyaltyAcumulaCada),
+      loyaltyValorPunto: Number(tenant.loyaltyValorPunto),
       cfe: tenant.cfeConfig
         ? {
             provider: tenant.cfeConfig.provider,
@@ -63,6 +66,9 @@ export class SettingsService {
         ...(dto.limiteEfectivoCaja !== undefined
           ? { limiteEfectivoCaja: dto.limiteEfectivoCaja && dto.limiteEfectivoCaja > 0 ? dto.limiteEfectivoCaja : null }
           : {}),
+        ...(dto.loyaltyActivo !== undefined ? { loyaltyActivo: dto.loyaltyActivo } : {}),
+        ...(dto.loyaltyAcumulaCada !== undefined ? { loyaltyAcumulaCada: new Prisma.Decimal(dto.loyaltyAcumulaCada) } : {}),
+        ...(dto.loyaltyValorPunto !== undefined ? { loyaltyValorPunto: new Prisma.Decimal(dto.loyaltyValorPunto) } : {}),
       },
     });
 

@@ -11,6 +11,8 @@ export interface CatalogState {
   updatedAt: string | null;
   /** Límite de efectivo en cajón (config del tenant; null = sin límite). */
   limiteEfectivoCaja: number | null;
+  /** Config de fidelización (puntos). */
+  loyalty: { activo: boolean; acumulaCada: number; valorPunto: number };
   loading: boolean;
   /** true si los datos vienen del cache local (sin conexión). */
   fromCache: boolean;
@@ -27,6 +29,7 @@ export function useCatalog(): CatalogState {
   const [listaPrecio, setListaPrecio] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [limiteEfectivoCaja, setLimite] = useState<number | null>(null);
+  const [loyalty, setLoyalty] = useState<{ activo: boolean; acumulaCada: number; valorPunto: number }>({ activo: false, acumulaCada: 0, valorPunto: 0 });
   const [loading, setLoading] = useState(true);
   const [fromCache, setFromCache] = useState(true);
 
@@ -52,6 +55,7 @@ export function useCatalog(): CatalogState {
       setListaPrecio(remote.listaPrecio);
       setUpdatedAt(remote.updatedAt);
       setLimite(limite);
+      setLoyalty(remote.loyalty ?? { activo: false, acumulaCada: 0, valorPunto: 0 });
       setFromCache(false);
     } catch {
       setFromCache(true); // sin conexión: nos quedamos con el cache local
@@ -66,5 +70,5 @@ export function useCatalog(): CatalogState {
     })();
   }, [loadLocal, refresh]);
 
-  return { products, promos, listaPrecio, updatedAt, limiteEfectivoCaja, loading, fromCache, refresh };
+  return { products, promos, listaPrecio, updatedAt, limiteEfectivoCaja, loyalty, loading, fromCache, refresh };
 }

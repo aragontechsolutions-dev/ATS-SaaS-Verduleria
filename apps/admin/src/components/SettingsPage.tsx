@@ -23,6 +23,7 @@ export function SettingsPage() {
     nombre: '', razonSocial: '', rut: '', regimenFiscal: 'LITERAL_E' as RegimenFiscal,
     direccion: '', telefono: '', email: '', cfeAmbiente: 'test' as 'test' | 'produccion',
     emisorRut: '', sucursalDefault: 1, limiteEfectivoCaja: '',
+    loyaltyActivo: false, loyaltyAcumulaCada: '', loyaltyValorPunto: '',
   });
 
   useEffect(() => {
@@ -41,6 +42,9 @@ export function SettingsPage() {
           emisorRut: data.cfe?.emisorRut ?? '',
           sucursalDefault: data.cfe?.sucursalDefault ?? 1,
           limiteEfectivoCaja: data.limiteEfectivoCaja != null ? String(data.limiteEfectivoCaja) : '',
+          loyaltyActivo: data.loyaltyActivo,
+          loyaltyAcumulaCada: data.loyaltyAcumulaCada ? String(data.loyaltyAcumulaCada) : '',
+          loyaltyValorPunto: data.loyaltyValorPunto ? String(data.loyaltyValorPunto) : '',
         });
       })
       .catch((e) => { const m = e instanceof Error ? e.message : String(e); setError(m); toast.error(m); });
@@ -51,11 +55,13 @@ export function SettingsPage() {
     setSaving(true);
     setError(null);
     try {
-      const { limiteEfectivoCaja, ...rest } = f;
+      const { limiteEfectivoCaja, loyaltyAcumulaCada, loyaltyValorPunto, ...rest } = f;
       const data = await updateSettings({
         ...rest,
         sucursalDefault: Number(f.sucursalDefault),
         limiteEfectivoCaja: limiteEfectivoCaja.trim() ? Number(limiteEfectivoCaja.replace(',', '.')) : 0,
+        loyaltyAcumulaCada: loyaltyAcumulaCada.trim() ? Number(loyaltyAcumulaCada.replace(',', '.')) : 0,
+        loyaltyValorPunto: loyaltyValorPunto.trim() ? Number(loyaltyValorPunto.replace(',', '.')) : 0,
       });
       setS(data);
       toast.success('Cambios guardados correctamente');
@@ -120,6 +126,25 @@ export function SettingsPage() {
           </label>
         </div>
         <p className="hint">Cuando el efectivo en el cajón supera este monto, el POS le sugiere al cajero hacer una sangría (retiro a la caja fuerte). Dejalo en 0 para no controlar el límite.</p>
+      </section>
+
+      <section className="panel">
+        <div className="panel__head"><h2>Fidelización (puntos)</h2></div>
+        <label className="field field--check">
+          <input type="checkbox" checked={f.loyaltyActivo} onChange={(e) => setF({ ...f, loyaltyActivo: e.target.checked })} />
+          Activar programa de puntos
+        </label>
+        {f.loyaltyActivo && (
+          <div className="form-grid">
+            <label className="field">Acumula 1 punto cada ($)
+              <input type="number" min={0} step="1" value={f.loyaltyAcumulaCada} onChange={(e) => setF({ ...f, loyaltyAcumulaCada: e.target.value })} placeholder="ej. 100" />
+            </label>
+            <label className="field">Valor de 1 punto al canjear ($)
+              <input type="number" min={0} step="0.01" value={f.loyaltyValorPunto} onChange={(e) => setF({ ...f, loyaltyValorPunto: e.target.value })} placeholder="ej. 1" />
+            </label>
+          </div>
+        )}
+        <p className="hint">Ej.: acumula cada $100 y punto = $1 → una compra de $500 da 5 puntos, y 100 puntos valen $100 al canjear en la caja. El cliente debe estar identificado.</p>
       </section>
 
       <section className="panel">

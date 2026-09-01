@@ -125,7 +125,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
   const toast = useToast();
   const security = useSecurity();
   const online = useOnline();
-  const { products, promos, listaPrecio, limiteEfectivoCaja, loading, fromCache } = useCatalog();
+  const { products, promos, listaPrecio, limiteEfectivoCaja, loyalty, loading, fromCache } = useCatalog();
   const promosMap = useMemo(() => promosByProduct(promos), [promos]);
   const cash = useCash();
   const cart = useCart(promosMap);
@@ -685,6 +685,7 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
           total={cart.total}
           customer={customer}
           requiereIdent={requiereIdentificacion(cart.total)}
+          loyalty={{ activo: loyalty.activo, valorPunto: loyalty.valorPunto }}
           onConfirm={onConfirmPayment}
           onCancel={() => setPaying(false)}
         />

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { AuditEventTipo, IvaIndicador, MedioPago, Prisma, SaleStatus, StockMovementType } from '@ats/database';
+import { AuditEventTipo, IvaIndicador, LoyaltyMovementTipo, MedioPago, Prisma, SaleStatus, StockMovementType } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { getTenantContext } from '../tenant/tenant-context';
@@ -164,6 +164,51 @@ export class SalesService {
           await tx.accountMovement.create({
             data: { tenantId, accountId: account.id, monto: new Prisma.Decimal(credito), concepto: 'Venta a cuenta', refId: sale.id },
           });
+        }
+      }
+
+      // Fidelización: canje de puntos usados como pago + puntos ganados por la compra.
+      if (dto.customerId) {
+        const tenant = await tx.tenant.findUnique({
+          where: { id: tenantId },
+          select: { loyaltyActivo: true, loyaltyAcumulaCada: true, loyaltyValorPunto: true },
+        });
+        if (tenant?.loyaltyActivo) {
+          const customer = await tx.customer.findFirst({ where: { id: dto.customerId, tenantId }, select: { puntos: true } });
+          if (customer) {
+            let saldo = customer.puntos;
+            const valorPunto = Number(tenant.loyaltyValorPunto);
+            const montoPuntos = (dto.payments ?? [])
+              .filter((p) => p.medio === MedioPago.PUNTOS)
+              .reduce((s, p) => s + Number(p.monto), 0);
+
+            if (montoPuntos > 0) {
+              if (!(valorPunto > 0)) throw new BadRequestException('El canje de puntos no está configurado');
+              const puntosCanje = Math.round(montoPuntos / valorPunto);
+              if (puntosCanje > saldo) throw new BadRequestException('El cliente no tiene puntos suficientes para el canje');
+              saldo -= puntosCanje;
+              await tx.loyaltyMovement.create({
+                data: { tenantId, customerId: dto.customerId, tipo: LoyaltyMovementTipo.CANJEADOS, puntos: -puntosCanje, saldo, saleId: sale.id, descripcion: 'Canje en compra' },
+              });
+            }
+
+            const acumulaCada = Number(tenant.loyaltyAcumulaCada);
+            if (acumulaCada > 0) {
+              // Se gana sobre lo efectivamente pagado (excluye lo cubierto con puntos).
+              const baseGana = Math.max(0, Number(total) - montoPuntos);
+              const ganados = Math.floor(baseGana / acumulaCada);
+              if (ganados > 0) {
+                saldo += ganados;
+                await tx.loyaltyMovement.create({
+                  data: { tenantId, customerId: dto.customerId, tipo: LoyaltyMovementTipo.GANADOS, puntos: ganados, saldo, saleId: sale.id, descripcion: 'Compra' },
+                });
+              }
+            }
+
+            if (saldo !== customer.puntos) {
+              await tx.customer.update({ where: { id: dto.customerId }, data: { puntos: saldo } });
+            }
+          }
         }
       }
 
