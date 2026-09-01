@@ -437,7 +437,24 @@ export interface Customer {
   priceListId: string | null;
   limiteCredito: number;
   saldo: number;
+  puntos: number;
   activo: boolean;
+}
+
+export interface LoyaltyMovement {
+  id: string;
+  fecha: string;
+  tipo: 'GANADOS' | 'CANJEADOS' | 'AJUSTE';
+  puntos: number;
+  saldo: number;
+  descripcion: string | null;
+}
+
+export interface CustomerLoyalty {
+  customerId: string;
+  nombre: string;
+  puntos: number;
+  movimientos: LoyaltyMovement[];
 }
 
 export interface CustomerInput {
@@ -481,6 +498,15 @@ export const getCustomerAccount = async (id: string) =>
 
 export const addCustomerPayment = async (id: string, input: { monto: number; concepto?: string }) =>
   ok<{ saldo: number }>(await fetch(`${API_BASE}/customers/${id}/payments`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }), 'payment');
+
+export const getCustomerLoyalty = async (id: string) =>
+  ok<CustomerLoyalty>(await fetch(`${API_BASE}/customers/${id}/loyalty`, { headers: headers() }), 'loyalty');
+
+export const adjustCustomerLoyalty = async (id: string, puntos: number, descripcion?: string) =>
+  ok<{ puntos: number }>(
+    await fetch(`${API_BASE}/customers/${id}/loyalty/ajuste`, { method: 'POST', headers: headers(), body: JSON.stringify({ puntos, descripcion }) }),
+    'loyaltyAjuste',
+  );
 
 export const addCustomerCharge = async (id: string, input: { monto: number; concepto?: string }) =>
   ok<{ saldo: number }>(await fetch(`${API_BASE}/customers/${id}/charges`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }), 'charge');
@@ -674,6 +700,9 @@ export interface Settings {
   telefono: string | null;
   email: string | null;
   limiteEfectivoCaja: number | null;
+  loyaltyActivo: boolean;
+  loyaltyAcumulaCada: number;
+  loyaltyValorPunto: number;
   cfe: {
     provider: string;
     ambiente: 'test' | 'produccion';
@@ -692,6 +721,9 @@ export interface SettingsInput {
   telefono?: string;
   email?: string;
   limiteEfectivoCaja?: number;
+  loyaltyActivo?: boolean;
+  loyaltyAcumulaCada?: number;
+  loyaltyValorPunto?: number;
   cfeAmbiente?: 'test' | 'produccion';
   emisorRut?: string;
   sucursalDefault?: number;

@@ -35,6 +35,8 @@ export interface CatalogResponse {
   promos: CatalogPromo[];
   /** Límite de efectivo en cajón (config del tenant; null = sin límite). */
   limiteEfectivoCaja: number | null;
+  /** Fidelización: config de puntos para el canje en el POS. */
+  loyalty: { activo: boolean; acumulaCada: number; valorPunto: number };
 }
 
 /**
@@ -51,7 +53,10 @@ export class CatalogService {
         where: { tenantId, tipo: TipoListaPrecio.MOSTRADOR, activo: true },
         orderBy: { createdAt: 'asc' },
       }),
-      this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { limiteEfectivoCaja: true } }),
+      this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { limiteEfectivoCaja: true, loyaltyActivo: true, loyaltyAcumulaCada: true, loyaltyValorPunto: true },
+      }),
     ]);
 
     const productos = await this.prisma.product.findMany({
@@ -114,6 +119,11 @@ export class CatalogService {
       products,
       promos,
       limiteEfectivoCaja: tenant?.limiteEfectivoCaja != null ? Number(tenant.limiteEfectivoCaja) : null,
+      loyalty: {
+        activo: tenant?.loyaltyActivo ?? false,
+        acumulaCada: Number(tenant?.loyaltyAcumulaCada ?? 0),
+        valorPunto: Number(tenant?.loyaltyValorPunto ?? 0),
+      },
     };
   }
 }

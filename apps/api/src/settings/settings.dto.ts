@@ -1,5 +1,5 @@
 import { RegimenFiscal } from '@ats/database';
-import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class UpdateSettingsDto {
   @IsOptional()
@@ -35,6 +35,23 @@ export class UpdateSettingsDto {
   @IsNumber()
   @Min(0)
   limiteEfectivoCaja?: number;
+
+  // --- Fidelización ---
+  @IsOptional()
+  @IsBoolean()
+  loyaltyActivo?: boolean;
+
+  /** Pesos de compra por punto (ej. 100 = 1 punto cada $100). */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  loyaltyAcumulaCada?: number;
+
+  /** Valor en $ de un punto al canjear. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  loyaltyValorPunto?: number;
 
   // --- Facturación electrónica (CFE) ---
   @IsOptional()

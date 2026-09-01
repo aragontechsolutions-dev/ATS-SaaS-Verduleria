@@ -11,6 +11,8 @@ export interface PosCustomer {
   tipoDocumento: TipoDocumentoCliente;
   documento: string | null;
   razonSocial: string | null;
+  /** Saldo de puntos de fidelización. */
+  puntos?: number;
 }
 
 /** Un comprador con RUC dispara e-Factura; el resto, e-Ticket identificado. */
@@ -41,7 +43,8 @@ export type MedioPago =
   | 'MERCADO_PAGO'
   | 'TRANSFERENCIA'
   | 'DINERO_ELECTRONICO'
-  | 'CUENTA_CORRIENTE';
+  | 'CUENTA_CORRIENTE'
+  | 'PUNTOS';
 
 export interface CartItem {
   productId?: string;

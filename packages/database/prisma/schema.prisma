@@ -131,6 +131,7 @@ enum MedioPago {
   TRANSFERENCIA
   DINERO_ELECTRONICO // Prex, Mi Dinero, etc.
   CUENTA_CORRIENTE // mayorista
+  PUNTOS // canje de puntos de fidelización (no es dinero)
 }
 
 enum TipoDocumentoCliente {
@@ -233,6 +234,14 @@ model Tenant {
   /// Límite de efectivo en el cajón: al superarlo, el POS sugiere una sangría.
   /// null o 0 = sin límite.
   limiteEfectivoCaja Decimal? @db.Decimal(14, 2)
+
+  // --- Fidelización (puntos) ---
+  /// Programa de puntos activo.
+  loyaltyActivo      Boolean @default(false)
+  /// Pesos de compra necesarios para ganar 1 punto (ej. 100 = 1 punto cada $100).
+  loyaltyAcumulaCada Decimal @default(0) @db.Decimal(14, 2)
+  /// Valor en $ de 1 punto al canjearlo (ej. 1 = cada punto vale $1).
+  loyaltyValorPunto  Decimal @default(0) @db.Decimal(14, 4)
 
   // Config de facturación (adaptador CFE)
   cfeConfig CfeTenantConfig?
@@ -1052,6 +1061,9 @@ model Customer {
   /// Límite de crédito para cuenta corriente.
   limiteCredito Decimal @default(0) @db.Decimal(14, 2)
 
+  /// Saldo de puntos de fidelización (ledger en LoyaltyMovement).
+  puntos Int @default(0)
+
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
 
@@ -1059,10 +1071,36 @@ model Customer {
   priceList PriceList?         @relation(fields: [priceListId], references: [id])
   sales     Sale[]
   account   AccountReceivable?
+  loyaltyMovements LoyaltyMovement[]
   deliveryOrders DeliveryOrder[]
 
   @@index([tenantId])
   @@index([tenantId, esMayorista])
+}
+
+/// Movimiento del programa de fidelización: puntos ganados en una venta,
+/// canjeados como pago, o ajuste manual. `saldo` es el saldo tras el movimiento.
+enum LoyaltyMovementTipo {
+  GANADOS
+  CANJEADOS
+  AJUSTE
+}
+
+model LoyaltyMovement {
+  id          String              @id @default(uuid()) @db.Uuid
+  tenantId    String              @db.Uuid
+  customerId  String              @db.Uuid
+  tipo        LoyaltyMovementTipo
+  puntos      Int // + gana, − canjea
+  saldo       Int // saldo del cliente tras el movimiento
+  saleId      String?             @db.Uuid
+  descripcion String?
+  createdAt   DateTime            @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, customerId])
+  @@index([customerId, createdAt])
 }
 
 model AccountReceivable {

@@ -54,4 +54,21 @@ export class CustomersController {
   addCharge(@CurrentTenant('tenantId') tenantId: string, @Param('id') id: string, @Body() dto: ChargeDto) {
     return this.customers.addCharge(tenantId, id, dto);
   }
+
+  /** Puntos de fidelización: saldo + movimientos del cliente. */
+  @Get(':id/loyalty')
+  loyalty(@CurrentTenant('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.customers.loyalty(tenantId, id);
+  }
+
+  /** Ajuste manual de puntos (regalo / corrección). */
+  @Post(':id/loyalty/ajuste')
+  @Roles(Role.ADMIN, Role.ENCARGADO)
+  ajustePuntos(
+    @CurrentTenant('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() body: { puntos: number; descripcion?: string },
+  ) {
+    return this.customers.ajustarPuntos(tenantId, id, Number(body.puntos), body.descripcion);
+  }
 }

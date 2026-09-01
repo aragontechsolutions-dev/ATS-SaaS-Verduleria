@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { AuditEventTipo, CashMovementTipo, CashSessionStatus, MedioPago, Prisma, TipoDocumentoCliente } from '@ats/database';
+import { AuditEventTipo, CashMovementTipo, CashSessionStatus, LoyaltyMovementTipo, MedioPago, Prisma, TipoDocumentoCliente } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import type { CobranzaDto, CreateCustomerDto, ChargeDto, PaymentDto, QuickCustomerDto, UpdateCustomerDto } from './customers.dto';
@@ -252,6 +252,7 @@ export class CustomersService {
     tipoDocumento: TipoDocumentoCliente;
     documento: string | null;
     razonSocial: string | null;
+    puntos?: number;
   }) {
     return {
       id: c.id,
@@ -259,6 +260,7 @@ export class CustomersService {
       tipoDocumento: c.tipoDocumento,
       documento: c.documento,
       razonSocial: c.razonSocial,
+      puntos: c.puntos ?? 0,
     };
   }
 
@@ -277,6 +279,7 @@ export class CustomersService {
     email: string | null;
     priceListId: string | null;
     limiteCredito: Prisma.Decimal;
+    puntos?: number;
     activo: boolean;
     account?: { saldo: Prisma.Decimal } | null;
   }) {
@@ -290,8 +293,49 @@ export class CustomersService {
       email: c.email,
       priceListId: c.priceListId,
       limiteCredito: num(c.limiteCredito),
+      puntos: c.puntos ?? 0,
       saldo: num(c.account?.saldo),
       activo: c.activo,
     };
+  }
+
+  /** Saldo de puntos + últimos movimientos de fidelización de un cliente. */
+  async loyalty(tenantId: string, id: string) {
+    const c = await this.prisma.customer.findFirst({ where: { id, tenantId }, select: { id: true, nombre: true, puntos: true } });
+    if (!c) throw new NotFoundException('Cliente no encontrado');
+    const movimientos = await this.prisma.loyaltyMovement.findMany({
+      where: { tenantId, customerId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    return {
+      customerId: c.id,
+      nombre: c.nombre,
+      puntos: c.puntos,
+      movimientos: movimientos.map((m) => ({
+        id: m.id,
+        fecha: m.createdAt.toISOString(),
+        tipo: m.tipo,
+        puntos: m.puntos,
+        saldo: m.saldo,
+        descripcion: m.descripcion,
+      })),
+    };
+  }
+
+  /** Ajuste manual de puntos (regalo, corrección). Deja movimiento AJUSTE. */
+  async ajustarPuntos(tenantId: string, id: string, puntos: number, descripcion?: string) {
+    if (!Number.isInteger(puntos) || puntos === 0) throw new BadRequestException('Ingresá una cantidad de puntos distinta de 0');
+    return this.prisma.$transaction(async (tx) => {
+      const c = await tx.customer.findFirst({ where: { id, tenantId }, select: { puntos: true } });
+      if (!c) throw new NotFoundException('Cliente no encontrado');
+      const saldo = c.puntos + puntos;
+      if (saldo < 0) throw new BadRequestException('El ajuste dejaría el saldo negativo');
+      await tx.customer.update({ where: { id }, data: { puntos: saldo } });
+      await tx.loyaltyMovement.create({
+        data: { tenantId, customerId: id, tipo: LoyaltyMovementTipo.AJUSTE, puntos, saldo, descripcion: descripcion || 'Ajuste manual' },
+      });
+      return { puntos: saldo };
+    });
   }
 }
