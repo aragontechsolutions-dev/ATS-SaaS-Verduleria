@@ -109,3 +109,68 @@ export function parseScan(raw: string, config: Partial<WeightBarcodeConfig> = {}
   }
   return { type: 'weight', plu, kind: 'price', price: valueInt / 10 ** cfg.priceDecimals, raw: code };
 }
+
+// ============================================================================
+// Generación (contraparte de parseScan): arma el EAN-13 de peso variable que
+// la verdulería imprime en la etiqueta de la balanza. Es puro y testeable, y
+// hace round-trip con parseScan usando la misma config.
+// ============================================================================
+
+/**
+ * Arma un EAN-13 de peso variable a partir del PLU y el valor embebido (peso en
+ * kg o importe según `embedded`). Devuelve el código de 13 dígitos, o null si el
+ * PLU o el valor no entran en la cantidad de dígitos configurada (o el layout no
+ * forma un EAN-13 válido). Es la contraparte exacta de `parseScan`.
+ */
+export function buildWeightEan(plu: number, value: number, config: Partial<WeightBarcodeConfig> = {}): string | null {
+  const cfg = { ...DEFAULT_WEIGHT_CONFIG, ...config };
+  const prefix = cfg.prefixes.find((p) => /^\d{2}$/.test(p)) ?? '20';
+
+  if (!Number.isFinite(plu) || plu < 0 || !Number.isFinite(value) || value < 0) return null;
+
+  const decimals = cfg.embedded === 'weight' ? cfg.weightDecimals : cfg.priceDecimals;
+  const valueInt = Math.round(value * 10 ** decimals);
+
+  const pluStr = String(Math.trunc(plu));
+  const valueStr = String(valueInt);
+  if (pluStr.length > cfg.pluDigits || valueStr.length > cfg.valueDigits) return null; // no entra
+
+  // Layout: prefijo(2) + PLU + valor, rellenado a 12 díg (posición 12 = verificador).
+  let body = prefix + pluStr.padStart(cfg.pluDigits, '0') + valueStr.padStart(cfg.valueDigits, '0');
+  if (body.length > 12) return null; // el formato configurado no forma un EAN-13
+  body = body.padEnd(12, '0');
+
+  return body + ean13CheckDigit(body);
+}
+
+// Tablas de codificación EAN-13 (para dibujar el código, no para parsear).
+const L_CODES = ['0001101','0011001','0010011','0111101','0100011','0110001','0101111','0111011','0110111','0001011'];
+const G_CODES = ['0100111','0110011','0011011','0100001','0011101','0111001','0000101','0010001','0001001','0010111'];
+const R_CODES = ['1110010','1100110','1101100','1000010','1011100','1001110','1010000','1000100','1001000','1110100'];
+// Paridad del grupo izquierdo según el primer dígito (A=L, B=G).
+const PARITY = ['AAAAAA','AABABB','AABBAB','AABBBA','ABAABB','ABBAAB','ABBBAA','ABABAB','ABABBA','ABBABA'];
+
+/**
+ * Devuelve el patrón de barras de un EAN-13 como cadena de 0/1 (1 = barra
+ * negra), incluyendo guardas de inicio/centro/fin. Útil para renderizar la
+ * etiqueta (SVG/canvas). Devuelve '' si el código no es un EAN-13 válido.
+ */
+export function ean13Bars(code: string): string {
+  if (!isValidEan13(code)) return '';
+  const first = code.charCodeAt(0) - 48;
+  const left = code.slice(1, 7);
+  const right = code.slice(7, 13);
+  const pattern = PARITY[first];
+
+  let bars = '101'; // guarda inicial
+  for (let i = 0; i < 6; i++) {
+    const d = left.charCodeAt(i) - 48;
+    bars += pattern[i] === 'A' ? L_CODES[d] : G_CODES[d];
+  }
+  bars += '01010'; // guarda central
+  for (let i = 0; i < 6; i++) {
+    bars += R_CODES[right.charCodeAt(i) - 48];
+  }
+  bars += '101'; // guarda final
+  return bars;
+}

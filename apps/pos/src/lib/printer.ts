@@ -9,9 +9,11 @@
 
 import type { OutboxSale } from './types';
 import type { Corte } from './api';
-import { buildCorte, buildReceipt, drawerKick } from './escpos';
+import type { LabelData } from './etiqueta';
+import { buildCorte, buildLabel, buildReceipt, drawerKick } from './escpos';
 import { printBoleta } from './boleta';
 import { printCorteBrowser } from './corte';
+import { printEtiquetaBrowser } from './etiqueta';
 
 export type PrinterMode = 'browser' | 'usb' | 'serial';
 
@@ -207,6 +209,23 @@ export async function printCorte(corte: Corte, cfg: PrinterConfig): Promise<void
     }
   }
   printCorteBrowser(corte);
+}
+
+/**
+ * Imprime una etiqueta de balanza (peso/precio + EAN-13). Con impresora ESC/POS
+ * conectada imprime el código por hardware; si no, cae a la impresión del
+ * navegador (SVG). Devuelve false solo si la impresión del navegador fue bloqueada.
+ */
+export async function printLabel(label: LabelData, cfg: PrinterConfig): Promise<boolean> {
+  if (cfg.mode !== 'browser' && isConnected(cfg.mode)) {
+    try {
+      await sendBytes(cfg.mode, buildLabel(label, { width: widthChars(cfg.width) }));
+      return true;
+    } catch {
+      // Falló el envío ESC/POS: caemos a la impresión del navegador.
+    }
+  }
+  return printEtiquetaBrowser(label);
 }
 
 /** Abre el cajón tras una venta en efectivo, si está configurado y conectado. */
