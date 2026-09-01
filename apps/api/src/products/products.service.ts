@@ -59,6 +59,8 @@ export class ProductsService {
       esEstadoNatural: p.esEstadoNatural,
       esImportado: p.esImportado,
       imagenUrl: p.imagenUrl,
+      proveedorId: p.proveedorId,
+      stockMinimo: p.stockMinimo != null ? Number(p.stockMinimo) : null,
       activo: p.activo,
       precio: Number(p.priceItems[0]?.precio ?? 0),
     }));
@@ -137,6 +139,8 @@ export class ProductsService {
         plu: dto.plu,
         codigoBarras: dto.codigoBarras,
         imagenUrl: dto.imagenUrl,
+        ...(dto.proveedorId !== undefined ? { proveedorId: dto.proveedorId || null } : {}),
+        ...(dto.stockMinimo !== undefined ? { stockMinimo: new Prisma.Decimal(dto.stockMinimo) } : {}),
         activo: dto.activo,
       },
     });

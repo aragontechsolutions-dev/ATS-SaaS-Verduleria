@@ -539,12 +539,18 @@ model Product {
   /// % de merma estimada para calcular costo real = costo / (1 - merma).
   mermaPct Decimal @default(0) @db.Decimal(5, 4)
 
+  /// Proveedor habitual (para agrupar el sugerido de compra). Opcional.
+  proveedorId String? @db.Uuid
+  /// Stock mínimo (unidad de venta) para disparar reposición. Opcional.
+  stockMinimo Decimal? @db.Decimal(14, 3)
+
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   categoria   Categoria?      @relation(fields: [categoriaId], references: [id])
+  proveedor   Supplier?       @relation(fields: [proveedorId], references: [id])
   priceItems  PriceListItem[]
   promos      Promo[]
   saleItems   SaleItem[]
@@ -559,6 +565,7 @@ model Product {
   @@index([tenantId])
   @@index([tenantId, categoriaId])
   @@index([tenantId, activo])
+  @@index([tenantId, proveedorId])
 }
 
 /// Tipo de evento de auditoría (quién hizo qué, cuándo y en qué caja).
@@ -790,6 +797,7 @@ model Supplier {
 
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   purchases Purchase[]
+  products  Product[]
 
   @@index([tenantId])
 }

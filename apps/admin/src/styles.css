@@ -184,6 +184,10 @@ code { font-family: ui-monospace, monospace; }
 .seg--on { background: var(--primary); color: #fff; }
 .modal__sub { color: var(--muted); margin: 0 0 6px; }
 
+/* Sugerido de compra: grupos por proveedor */
+.sugerido-grupo { margin-top: 14px; }
+.sugerido-grupo h3 { margin: 0; font-size: 15px; }
+
 /* Corte X/Z: detalle en el modal */
 .corte-detalle { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; font-size: 14px; }
 .corte-detalle .row { display: flex; justify-content: space-between; gap: 12px; }
