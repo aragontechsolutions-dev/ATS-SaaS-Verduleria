@@ -527,3 +527,8 @@ button { font: inherit; cursor: pointer; }
 .bc__res { margin: 2px 0 0; font-size: 14px; font-weight: 600; padding: 8px 10px; border-radius: 8px; }
 .bc__res.ok { background: #e6f4ea; color: #1b7a3e; }
 .bc__res.warn { background: #fdecea; color: var(--warn); }
+
+/* ===== Etiqueta de balanza (impresión desde el modal de peso) ===== */
+.btn--block { width: 100%; justify-content: center; }
+.weigh-label { margin: 10px 0 4px; }
+.weigh-label__msg { margin: 8px 0 0; font-size: 13px; color: var(--muted); line-height: 1.4; text-align: center; }

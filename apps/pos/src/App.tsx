@@ -599,6 +599,8 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         <WeighModal
           product={weighing}
           liveReading={scale.live && scale.connected ? scale.reading : null}
+          barcodeConfig={scale.config.barcode}
+          negocio={sucursalNombre}
           onConfirm={(cantidad) => {
             addProduct(weighing, cantidad);
             setWeighing(null);

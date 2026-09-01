@@ -7,6 +7,7 @@
 // ============================================================================
 
 import type { OutboxSale } from './types';
+import type { LabelData } from './etiqueta';
 import { lineBruto, lineTotal } from '../state/cart';
 import { formatMoney, formatQty, TASA_LABEL } from './format';
 
@@ -191,6 +192,37 @@ export function buildCorte(c: CorteTicket, opts: { width?: number } = {}): Uint8
   b.sep().align('c');
   b.line(c.tipo === 'Z' ? 'Turno cerrado' : 'Corte parcial - la caja sigue abierta');
   b.feed(3).cut();
+  return b.build();
+}
+
+/**
+ * Arma la etiqueta de balanza como bytes ESC/POS, con el EAN-13 impreso por el
+ * hardware (comando GS k). El código ya es un EAN-13 válido de 13 dígitos.
+ */
+export function buildLabel(d: LabelData, opts: { width?: number } = {}): Uint8Array {
+  const width = opts.width ?? 48;
+  const b = new Builder(width);
+
+  b.init().align('c');
+  if (d.negocio) b.line(d.negocio);
+  b.bold(true).size(true).line(d.nombre).size(false).bold(false);
+  b.align('l');
+  b.cols('Peso', `${d.weightKg.toFixed(3)} kg`);
+  b.cols('Precio/kg', formatMoney(d.precioKg));
+  b.bold(true).size(true).align('c').line(formatMoney(d.total)).size(false).bold(false);
+
+  // Código de barras EAN-13 impreso por la impresora.
+  b.align('c');
+  b.raw(GS, 0x48, 0x02); // HRI debajo del código
+  b.raw(GS, 0x66, 0x00); // fuente HRI A
+  b.raw(GS, 0x68, 0x50); // alto del código (80 puntos)
+  b.raw(GS, 0x77, 0x03); // ancho del módulo
+  // GS k 67 n d1..d13  (función B: EAN13, n = cantidad de bytes)
+  b.raw(GS, 0x6b, 0x43, d.ean.length);
+  for (const ch of d.ean) b.raw(ch.charCodeAt(0) & 0xff);
+
+  b.align('l').cols(`PLU ${d.plu}`, d.fecha);
+  b.feed(2).cut();
   return b.build();
 }
 
