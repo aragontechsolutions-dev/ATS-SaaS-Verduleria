@@ -10,6 +10,7 @@ import {
 } from '../lib/api';
 import type { Product, PurchaseRow, Sucursal, Supplier } from '../lib/api';
 import { SkeletonRows } from './Skeleton';
+import { SugeridoCompra } from './SugeridoCompra';
 import { ProductSearchSelect } from './ProductSearchSelect';
 import { useToast } from '../lib/toast';
 
@@ -131,6 +132,8 @@ export function ComprasPage() {
 
   return (
     <>
+      <SugeridoCompra />
+
       <section className="panel">
         <div className="panel__head"><h2>Nueva compra</h2></div>
 

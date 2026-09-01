@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { classifyIva, createProduct, updateProduct } from '../lib/api';
-import type { Categoria, Clasificacion, IvaIndicador, Product } from '../lib/api';
+import { classifyIva, createProduct, getSuppliers, updateProduct } from '../lib/api';
+import type { Categoria, Clasificacion, IvaIndicador, Product, Supplier } from '../lib/api';
 import { ImageUpload } from './ImageUpload';
 import { useToast } from '../lib/toast';
 
@@ -29,8 +29,16 @@ export function ProductModal({ product, categorias, canOverrideIva = false, onCl
   const [categoriaId, setCategoriaId] = useState(product?.categoriaId ?? '');
   const [plu, setPlu] = useState(product?.plu != null ? String(product.plu) : '');
   const [imagenUrl, setImagenUrl] = useState(product?.imagenUrl ?? '');
+  // Reposición (solo edición): proveedor habitual y stock mínimo.
+  const [proveedorId, setProveedorId] = useState(product?.proveedorId ?? '');
+  const [stockMinimo, setStockMinimo] = useState(product?.stockMinimo != null ? String(product.stockMinimo) : '');
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (editing) getSuppliers().then((s) => setSuppliers(s.filter((x) => x.activo))).catch(() => {});
+  }, [editing]);
 
   // Motor de IVA: por defecto lo asigna solo; el contador puede hacer override.
   const [override, setOverride] = useState(product?.ivaOverride ?? false);
@@ -62,6 +70,8 @@ export function ProductModal({ product, categorias, canOverrideIva = false, onCl
       categoriaId: categoriaId || undefined,
       plu: plu ? parseInt(plu, 10) : undefined,
       imagenUrl: imagenUrl || undefined,
+      // Reposición: solo se envía al editar.
+      ...(editing ? { proveedorId: proveedorId || '', stockMinimo: stockMinimo.trim() ? parseFloat(stockMinimo) : 0 } : {}),
       // IVA: solo ADMIN/CONTADOR mandan override; si no, lo asigna el motor.
       ...(canOverrideIva
         ? { ivaOverride: override, ...(override ? { ivaIndicador, esEstadoNatural, esImportado } : {}) }
@@ -114,6 +124,22 @@ export function ProductModal({ product, categorias, canOverrideIva = false, onCl
             <input type="number" value={plu} onChange={(e) => setPlu(e.target.value)} />
           </label>
         </div>
+
+        {editing && (
+          <div className="row2">
+            <label className="field">
+              Proveedor habitual
+              <select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)}>
+                <option value="">Sin proveedor</option>
+                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              Stock mínimo ({unidadVenta.toLowerCase()})
+              <input type="number" step="0.001" value={stockMinimo} onChange={(e) => setStockMinimo(e.target.value)} placeholder="0 = sin mínimo" />
+            </label>
+          </div>
+        )}
 
         <label className="field field--check">
           <input type="checkbox" checked={esPesable} onChange={(e) => setEsPesable(e.target.checked)} />

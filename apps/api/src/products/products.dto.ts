@@ -118,6 +118,17 @@ export class UpdateProductDto {
   @IsString()
   imagenUrl?: string;
 
+  /** Proveedor habitual (para el sugerido de compra). '' = quitar. */
+  @IsOptional()
+  @IsString()
+  proveedorId?: string;
+
+  /** Stock mínimo en unidad de venta (dispara reposición). */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  stockMinimo?: number;
+
   @IsOptional()
   @IsBoolean()
   activo?: boolean;

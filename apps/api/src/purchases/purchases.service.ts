@@ -498,6 +498,89 @@ export class PurchasesService {
     };
   }
 
+  /**
+   * Sugerido de compra (reposición). Para cada producto controlado en stock:
+   * estima la venta diaria (últimos 30 días), calcula un objetivo de cobertura
+   * (`dias`) y sugiere comprar lo que falta para llegar a ese objetivo (o al
+   * stock mínimo). Agrupa por proveedor habitual.
+   */
+  async sugeridoCompra(tenantId: string, opts: { dias?: number; sucursalId?: string } = {}) {
+    const dias = Math.max(1, Math.min(opts.dias ?? 4, 60));
+    const VENTANA = 30; // días de historia para estimar la venta diaria
+    const desde = new Date();
+    desde.setDate(desde.getDate() - VENTANA);
+
+    const [products, ventas] = await Promise.all([
+      this.prisma.product.findMany({
+        where: { tenantId, activo: true },
+        include: {
+          proveedor: { select: { id: true, nombre: true } },
+          stockItems: opts.sucursalId ? { where: { sucursalId: opts.sucursalId } } : true,
+        },
+      }),
+      this.prisma.saleItem.groupBy({
+        by: ['productId'],
+        where: { tenantId, sale: { is: { status: 'COMPLETADA', fecha: { gte: desde } } } },
+        _sum: { cantidad: true },
+      }),
+    ]);
+    const ventaMap = new Map(ventas.map((v) => [v.productId, num(v._sum.cantidad)]));
+
+    interface Item {
+      productId: string; nombre: string; unidadVenta: string; unidadCompra: string;
+      stockActual: number; ventaDiaria: number; diasCobertura: number | null;
+      stockMinimo: number; sugeridoVenta: number; sugeridoCompra: number;
+      costoUnit: number; costoEstimado: number; bajoMinimo: boolean; quiebre: boolean;
+    }
+    const grupos = new Map<string, { proveedorId: string | null; proveedorNombre: string; items: Item[]; totalEstimado: number }>();
+
+    for (const p of products) {
+      const stockRows = p.stockItems;
+      if (!stockRows.length) continue; // producto no controlado en stock
+
+      const stockActual = stockRows.reduce((s, x) => s + num(x.cantidad), 0);
+      const costoUnit = num(stockRows.find((x) => num(x.costoPromedio) > 0)?.costoPromedio);
+      const ventaDiaria = num(ventaMap.get(p.id)) / VENTANA;
+      const minimo = num(p.stockMinimo);
+      const objetivo = Math.max(minimo, ventaDiaria * dias);
+      const faltante = objetivo - stockActual;
+      if (faltante <= 0.0001) continue; // hay stock suficiente
+
+      const factor = num(p.factorConversion) || 1;
+      const item: Item = {
+        productId: p.id,
+        nombre: p.nombre,
+        unidadVenta: p.unidadVenta,
+        unidadCompra: p.unidadCompra,
+        stockActual: Number(stockActual.toFixed(3)),
+        ventaDiaria: Number(ventaDiaria.toFixed(3)),
+        diasCobertura: ventaDiaria > 0 ? Number((stockActual / ventaDiaria).toFixed(1)) : null,
+        stockMinimo: minimo,
+        sugeridoVenta: Number(faltante.toFixed(3)),
+        sugeridoCompra: Math.ceil(faltante / factor),
+        costoUnit: Number(costoUnit.toFixed(4)),
+        costoEstimado: Number((faltante * costoUnit).toFixed(2)),
+        bajoMinimo: minimo > 0 && stockActual < minimo,
+        quiebre: stockActual <= 0,
+      };
+
+      const key = p.proveedor?.id ?? 'sin';
+      const g = grupos.get(key) ?? { proveedorId: p.proveedor?.id ?? null, proveedorNombre: p.proveedor?.nombre ?? 'Sin proveedor', items: [], totalEstimado: 0 };
+      g.items.push(item);
+      g.totalEstimado += item.costoEstimado;
+      grupos.set(key, g);
+    }
+
+    return [...grupos.values()]
+      .map((g) => ({
+        ...g,
+        totalEstimado: Number(g.totalEstimado.toFixed(2)),
+        items: g.items.sort((a, b) => Number(b.quiebre) - Number(a.quiebre) || b.costoEstimado - a.costoEstimado),
+      }))
+      // "Sin proveedor" al final; el resto por mayor monto estimado.
+      .sort((a, b) => (a.proveedorId ? 0 : 1) - (b.proveedorId ? 0 : 1) || b.totalEstimado - a.totalEstimado);
+  }
+
   // --- Helpers --------------------------------------------------------------
 
   /**

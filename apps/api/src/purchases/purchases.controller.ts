@@ -96,6 +96,18 @@ export class PurchasesController {
     return this.purchases.createWaste(tenantId, dto);
   }
 
+  /** Sugerido de compra (reposición) agrupado por proveedor. */
+  @Get('sugerido')
+  @RequiresModule('INVENTORY')
+  @Roles(Role.ADMIN, Role.ENCARGADO, Role.COMPRADOR)
+  sugerido(
+    @CurrentTenant('tenantId') tenantId: string,
+    @Query('dias') dias?: string,
+    @Query('sucursalId') sucursalId?: string,
+  ) {
+    return this.purchases.sugeridoCompra(tenantId, { dias: dias ? Number(dias) : undefined, sucursalId });
+  }
+
   /** Reporte de mermas ($ perdido por producto y por motivo) en un rango. */
   @Get('waste/report')
   @RequiresModule('INVENTORY')

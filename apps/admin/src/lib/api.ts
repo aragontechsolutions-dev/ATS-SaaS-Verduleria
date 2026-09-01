@@ -54,6 +54,8 @@ export interface Product {
   esEstadoNatural: boolean;
   esImportado: boolean;
   imagenUrl: string | null;
+  proveedorId: string | null;
+  stockMinimo: number | null;
   activo: boolean;
   precio: number;
 }
@@ -86,6 +88,8 @@ export interface ProductInput {
   plu?: number;
   codigoBarras?: string;
   imagenUrl?: string;
+  proveedorId?: string;
+  stockMinimo?: number;
 }
 
 export const getMe = async () => ok<Me>(await fetch(`${API_BASE}/auth/me`, { headers: headers() }), 'me');
@@ -291,6 +295,36 @@ export const createWaste = async (input: { productId: string; cantidad: number; 
     await fetch(`${API_BASE}/purchases/waste`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
     'createWaste',
   );
+
+export interface SugeridoItem {
+  productId: string;
+  nombre: string;
+  unidadVenta: string;
+  unidadCompra: string;
+  stockActual: number;
+  ventaDiaria: number;
+  diasCobertura: number | null;
+  stockMinimo: number;
+  sugeridoVenta: number;
+  sugeridoCompra: number;
+  costoUnit: number;
+  costoEstimado: number;
+  bajoMinimo: boolean;
+  quiebre: boolean;
+}
+
+export interface SugeridoGrupo {
+  proveedorId: string | null;
+  proveedorNombre: string;
+  items: SugeridoItem[];
+  totalEstimado: number;
+}
+
+export const getSugerido = async (dias = 4, sucursalId?: string) => {
+  const p = new URLSearchParams({ dias: String(dias) });
+  if (sucursalId) p.set('sucursalId', sucursalId);
+  return ok<SugeridoGrupo[]>(await fetch(`${API_BASE}/purchases/sugerido?${p.toString()}`, { headers: headers() }), 'sugerido');
+};
 
 export const getMermaReport = async (qs: { from?: string; to?: string } = {}) => {
   const p = new URLSearchParams();
