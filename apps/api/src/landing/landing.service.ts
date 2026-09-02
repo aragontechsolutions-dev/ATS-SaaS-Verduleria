@@ -81,7 +81,7 @@ export class LandingService {
   async getPublic(slug: string) {
     const tenant = await this.prisma.tenant.findFirst({
       where: { slug, activo: true },
-      select: { id: true, nombre: true, telefono: true, landing: true },
+      select: { id: true, nombre: true, telefono: true, landing: true, tiendaOnlineActiva: true },
     });
     if (!tenant || !tenant.landing || !tenant.landing.estaPublicado || !tenant.landing.publicado) {
       throw new NotFoundException('Página no encontrada');
@@ -94,7 +94,7 @@ export class LandingService {
       config.productos = { ...config.productos, items };
     }
 
-    return { nombre: tenant.nombre, config };
+    return { nombre: tenant.nombre, config, tiendaActiva: tenant.tiendaOnlineActiva };
   }
 
   /**

@@ -102,6 +102,13 @@ code { font-family: ui-monospace, monospace; }
 .content { padding: 16px; max-width: 1100px; width: 100%; margin: 0 auto; }
 .banner { padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; }
 .banner--err { background: #fdecea; color: var(--warn); }
+.banner--warn { background: #fff4e5; color: #8a5a00; border: 1px solid #ffd591; }
+
+/* Tienda: filas editables inline y celdas de tabla con input */
+.row-inline { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.row-inline > input { flex: 1; min-width: 120px; }
+.cell-input { width: 90px; padding: 4px 6px; }
+tr.is-muted { opacity: .55; }
 
 /* Desktop: menú lateral fijo, sin drawer */
 @media (min-width: 900px) {

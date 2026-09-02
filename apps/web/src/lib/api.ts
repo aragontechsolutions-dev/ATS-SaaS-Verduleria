@@ -36,6 +36,8 @@ export function gmapsDirUrl(lat: number, lng: number): string {
 export interface PublicLanding {
   nombre: string;
   config: LandingConfig;
+  /** La tienda online (e-commerce) está activa: mostrar el CTA "Comprar online". */
+  tiendaActiva?: boolean;
 }
 
 export class NotFoundError extends Error {}
@@ -65,9 +67,25 @@ export interface StoreProduct {
   disponible: boolean;
 }
 
+export interface StoreZone {
+  id: string;
+  nombre: string;
+  costoEnvio: number;
+  pedidoMinimo: number;
+}
+
+export interface StorePublicConfig {
+  deliveryActivo: boolean;
+  pickupActivo: boolean;
+  franjas: string[];
+  notaCheckout: string | null;
+}
+
 export interface StoreCatalog {
   nombre: string;
   slug: string;
+  config: StorePublicConfig;
+  zonas: StoreZone[];
   categorias: Array<{ id: string; nombre: string }>;
   productos: StoreProduct[];
 }
@@ -78,4 +96,74 @@ export async function getStoreCatalog(slug: string): Promise<StoreCatalog> {
   if (res.status === 404) throw new NotFoundError('Tienda no encontrada');
   if (!res.ok) throw new Error(`tienda HTTP ${res.status}`);
   return res.json() as Promise<StoreCatalog>;
+}
+
+export type TipoEntrega = 'DELIVERY' | 'PICKUP';
+
+export interface CreateOrderInput {
+  tipoEntrega: TipoEntrega;
+  zonaId?: string;
+  franja?: string;
+  clienteNombre: string;
+  clienteTelefono: string;
+  direccion?: string;
+  notas?: string;
+  items: Array<{ productId: string; cantidad: number }>;
+}
+
+export interface OrderResult {
+  id: string;
+  numero: number;
+  codigo: string;
+  estado: string;
+  total: number;
+}
+
+/** Crea un pedido en la tienda online. Lanza Error con el mensaje del backend si falla. */
+export async function createOrder(slug: string, input: CreateOrderInput): Promise<OrderResult> {
+  const res = await fetch(`${API_BASE}/public/tienda/${encodeURIComponent(slug)}/pedido`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string | string[] };
+    const msg = Array.isArray(body.message) ? body.message.join(' · ') : body.message;
+    throw new Error(msg || `No se pudo crear el pedido (HTTP ${res.status})`);
+  }
+  return res.json() as Promise<OrderResult>;
+}
+
+export interface OrderItemView {
+  concepto: string;
+  unidad: string;
+  esPesable: boolean;
+  cantidad: number;
+  precioUnit: number;
+  subtotal: number;
+}
+
+export interface OrderView {
+  numero: number;
+  codigo: string;
+  estado: string;
+  tipoEntrega: TipoEntrega;
+  zonaNombre: string | null;
+  franja: string | null;
+  clienteNombre: string;
+  direccion: string | null;
+  notas: string | null;
+  subtotal: number;
+  costoEnvio: number;
+  total: number;
+  createdAt: string;
+  items: OrderItemView[];
+}
+
+/** Seguimiento de un pedido por su código público. */
+export async function getOrder(slug: string, codigo: string): Promise<OrderView> {
+  const res = await fetch(`${API_BASE}/public/tienda/${encodeURIComponent(slug)}/pedido/${encodeURIComponent(codigo)}`);
+  if (res.status === 404) throw new NotFoundError('Pedido no encontrado');
+  if (!res.ok) throw new Error(`pedido HTTP ${res.status}`);
+  return res.json() as Promise<OrderView>;
 }

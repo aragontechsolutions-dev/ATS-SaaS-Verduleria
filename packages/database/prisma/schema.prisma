@@ -277,6 +277,9 @@ model Tenant {
   accounts      AccountReceivable[]
   landing       TenantLanding?
   terminals     Terminal[]
+  storeConfig   StoreConfig?
+  deliveryZones DeliveryZone[]
+  onlineOrders  OnlineOrder[]
 
   @@index([activo])
 }
@@ -578,6 +581,7 @@ model Product {
   wastes      Waste[]
   vencimientos Vencimiento[]
   deliveryItems DeliveryItem[]
+  onlineOrderItems OnlineOrderItem[]
 
   @@unique([tenantId, plu])
   @@index([tenantId])
@@ -1083,6 +1087,7 @@ model Customer {
   account   AccountReceivable?
   loyaltyMovements LoyaltyMovement[]
   deliveryOrders DeliveryOrder[]
+  onlineOrders OnlineOrder[]
 
   @@index([tenantId])
   @@index([tenantId, esMayorista])
@@ -1203,6 +1208,122 @@ model Route {
 
   @@index([tenantId])
   @@index([tenantId, fecha])
+}
+
+// ============================================================================
+// TIENDA ONLINE (E-COMMERCE PÚBLICO DEL TENANT)
+// ============================================================================
+
+enum TipoEntrega {
+  DELIVERY
+  PICKUP
+}
+
+/// Estado del pedido online. Flujo: NUEVO → CONFIRMADO → PREPARANDO → EN_CAMINO
+/// → ENTREGADO (o CANCELADO en cualquier punto).
+enum OnlineOrderEstado {
+  NUEVO
+  CONFIRMADO
+  PREPARANDO
+  EN_CAMINO
+  ENTREGADO
+  CANCELADO
+}
+
+/// Configuración de la tienda online (complementa Tenant.tiendaOnlineActiva).
+model StoreConfig {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @unique @db.Uuid
+  /// Ofrece envío a domicilio (con zonas).
+  deliveryActivo Boolean  @default(true)
+  /// Ofrece retiro en el local (pickup).
+  pickupActivo   Boolean  @default(true)
+  /// Franjas horarias ofrecidas en el checkout (lista de textos).
+  franjas        Json     @default("[]")
+  /// Nota que se muestra en el checkout (ej. horarios de reparto).
+  notaCheckout   String?
+  updatedAt      DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+/// Zona de reparto con costo de envío y pedido mínimo.
+model DeliveryZone {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  nombre       String
+  costoEnvio   Decimal  @default(0) @db.Decimal(14, 2)
+  pedidoMinimo Decimal  @default(0) @db.Decimal(14, 2)
+  activo       Boolean  @default(true)
+  orden        Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders OnlineOrder[]
+
+  @@index([tenantId])
+}
+
+/// Pedido de la tienda online.
+model OnlineOrder {
+  id          String            @id @default(uuid()) @db.Uuid
+  tenantId    String            @db.Uuid
+  /// Nº correlativo por tenant (para mostrar al cliente y al negocio).
+  numero      Int
+  /// Código público aleatorio para el seguimiento (evita enumeración).
+  codigo      String
+  estado      OnlineOrderEstado @default(NUEVO)
+  tipoEntrega TipoEntrega       @default(DELIVERY)
+
+  zonaId     String? @db.Uuid
+  /// Snapshot del nombre de la zona (histórico, aunque se borre la zona).
+  zonaNombre String?
+  /// Franja horaria elegida (texto).
+  franja     String?
+
+  clienteNombre   String
+  clienteTelefono String
+  direccion       String?
+  notas           String?
+  /// Cliente registrado (fase login opcional). Null para invitados.
+  customerId      String? @db.Uuid
+
+  subtotal   Decimal @default(0) @db.Decimal(14, 2)
+  costoEnvio Decimal @default(0) @db.Decimal(14, 2)
+  total      Decimal @default(0) @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  zona     DeliveryZone?     @relation(fields: [zonaId], references: [id])
+  customer Customer?         @relation(fields: [customerId], references: [id])
+  items    OnlineOrderItem[]
+
+  @@unique([tenantId, numero])
+  @@unique([tenantId, codigo])
+  @@index([tenantId])
+  @@index([tenantId, estado])
+}
+
+model OnlineOrderItem {
+  id         String  @id @default(uuid()) @db.Uuid
+  tenantId   String  @db.Uuid
+  orderId    String  @db.Uuid
+  productId  String? @db.Uuid
+  concepto   String
+  unidad     String
+  esPesable  Boolean @default(false)
+  /// Cantidad pedida (kg estimados si es pesable).
+  cantidad   Decimal @db.Decimal(14, 3)
+  precioUnit Decimal @db.Decimal(14, 4)
+  subtotal   Decimal @db.Decimal(14, 2)
+
+  order   OnlineOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product?    @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([tenantId])
 }
 
 // ============================================================================
