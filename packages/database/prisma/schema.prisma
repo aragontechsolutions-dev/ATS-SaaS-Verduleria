@@ -1004,6 +1004,7 @@ model Sale {
   items       SaleItem[]
   payments    Payment[]
   cfeDocument CfeDocument?
+  onlineOrder OnlineOrder?
 
   referenciaSale Sale?  @relation("SaleDevolucion", fields: [referenciaSaleId], references: [id])
   devoluciones   Sale[] @relation("SaleDevolucion")
@@ -1292,12 +1293,16 @@ model OnlineOrder {
   costoEnvio Decimal @default(0) @db.Decimal(14, 2)
   total      Decimal @default(0) @db.Decimal(14, 2)
 
+  /// Venta generada al entregar el pedido (factura + descuenta stock). Null hasta entregar.
+  saleId String? @unique @db.Uuid
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   zona     DeliveryZone?     @relation(fields: [zonaId], references: [id])
   customer Customer?         @relation(fields: [customerId], references: [id])
+  sale     Sale?             @relation(fields: [saleId], references: [id])
   items    OnlineOrderItem[]
 
   @@unique([tenantId, numero])

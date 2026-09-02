@@ -813,6 +813,8 @@ export interface OrderAdmin {
   subtotal: number;
   costoEnvio: number;
   total: number;
+  saleId: string | null;
+  comprobante: { tipo: string; estado: string; serie: string | null; numero: number | null } | null;
   createdAt: string;
   items: OrderItemAdmin[];
 }
