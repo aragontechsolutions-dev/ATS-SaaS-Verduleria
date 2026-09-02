@@ -53,6 +53,12 @@ export class UpdateSettingsDto {
   @Min(0)
   loyaltyValorPunto?: number;
 
+  // --- Tienda online ---
+  /** Activa la tienda online (e-commerce público) del tenant. */
+  @IsOptional()
+  @IsBoolean()
+  tiendaOnlineActiva?: boolean;
+
   // --- Facturación electrónica (CFE) ---
   @IsOptional()
   @IsString()

@@ -23,6 +23,7 @@ import { TerminalsModule } from './terminals/terminals.module';
 import { UsersModule } from './users/users.module';
 import { ReportsModule } from './reports/reports.module';
 import { SettingsModule } from './settings/settings.module';
+import { StoreModule } from './store/store.module';
 import { AuditModule } from './audit/audit.module';
 import { HealthController } from './health/health.controller';
 
@@ -50,6 +51,7 @@ import { HealthController } from './health/health.controller';
     UsersModule,
     ReportsModule,
     SettingsModule,
+    StoreModule,
     AuditModule,
   ],
   controllers: [HealthController],

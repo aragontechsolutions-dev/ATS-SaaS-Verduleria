@@ -243,6 +243,10 @@ model Tenant {
   /// Valor en $ de 1 punto al canjearlo (ej. 1 = cada punto vale $1).
   loyaltyValorPunto  Decimal @default(0) @db.Decimal(14, 4)
 
+  // --- Tienda online (e-commerce público) ---
+  /// La tienda online está activa: el público puede ver el catálogo y (fase 2) pedir.
+  tiendaOnlineActiva Boolean @default(false)
+
   // Config de facturación (adaptador CFE)
   cfeConfig CfeTenantConfig?
 
@@ -529,6 +533,11 @@ model Product {
   /// Se vende por peso (usa balanza / código de peso variable).
   esPesable Boolean @default(true)
 
+  /// Visible en la tienda online (e-commerce público del tenant). Curado por el admin.
+  visibleOnline Boolean @default(false)
+  /// Descripción para la ficha de la tienda online (opcional).
+  descripcionOnline String?
+
   /// IVA base del producto a CONSUMIDOR FINAL (mayormente MINIMA en verdulería).
   /// Hereda de la categoría; editable por el contador. La tasa efectiva puede
   /// cambiar según el tipo de cliente en mayoreo B2B (ver docs/CFE-IVA.md §5).
@@ -575,6 +584,7 @@ model Product {
   @@index([tenantId, categoriaId])
   @@index([tenantId, activo])
   @@index([tenantId, proveedorId])
+  @@index([tenantId, visibleOnline])
 }
 
 /// Tipo de evento de auditoría (quién hizo qué, cuándo y en qué caja).

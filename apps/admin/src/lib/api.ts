@@ -54,6 +54,10 @@ export interface Product {
   esEstadoNatural: boolean;
   esImportado: boolean;
   imagenUrl: string | null;
+  /** Visible en la tienda online (e-commerce público). */
+  visibleOnline: boolean;
+  /** Descripción para la ficha de la tienda online. */
+  descripcionOnline: string | null;
   proveedorId: string | null;
   stockMinimo: number | null;
   activo: boolean;
@@ -88,6 +92,8 @@ export interface ProductInput {
   plu?: number;
   codigoBarras?: string;
   imagenUrl?: string;
+  visibleOnline?: boolean;
+  descripcionOnline?: string;
   proveedorId?: string;
   stockMinimo?: number;
 }
@@ -703,6 +709,7 @@ export interface Settings {
   loyaltyActivo: boolean;
   loyaltyAcumulaCada: number;
   loyaltyValorPunto: number;
+  tiendaOnlineActiva: boolean;
   cfe: {
     provider: string;
     ambiente: 'test' | 'produccion';
@@ -724,6 +731,7 @@ export interface SettingsInput {
   loyaltyActivo?: boolean;
   loyaltyAcumulaCada?: number;
   loyaltyValorPunto?: number;
+  tiendaOnlineActiva?: boolean;
   cfeAmbiente?: 'test' | 'produccion';
   emisorRut?: string;
   sucursalDefault?: number;

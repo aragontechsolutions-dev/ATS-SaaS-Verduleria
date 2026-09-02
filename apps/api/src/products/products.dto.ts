@@ -64,6 +64,16 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   imagenUrl?: string;
+
+  /** Visible en la tienda online (e-commerce público). */
+  @IsOptional()
+  @IsBoolean()
+  visibleOnline?: boolean;
+
+  /** Descripción para la ficha de la tienda online. */
+  @IsOptional()
+  @IsString()
+  descripcionOnline?: string;
 }
 
 export class UpdateProductDto {
@@ -117,6 +127,16 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   imagenUrl?: string;
+
+  /** Visible en la tienda online (e-commerce público). */
+  @IsOptional()
+  @IsBoolean()
+  visibleOnline?: boolean;
+
+  /** Descripción para la ficha de la tienda online. '' = quitar. */
+  @IsOptional()
+  @IsString()
+  descripcionOnline?: string;
 
   /** Proveedor habitual (para el sugerido de compra). '' = quitar. */
   @IsOptional()

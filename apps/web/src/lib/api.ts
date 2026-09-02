@@ -47,3 +47,35 @@ export async function getPublicLanding(slug: string): Promise<PublicLanding> {
   if (!res.ok) throw new Error(`landing HTTP ${res.status}`);
   return res.json() as Promise<PublicLanding>;
 }
+
+// --- Tienda online (e-commerce público) -------------------------------------
+
+export interface StoreProduct {
+  id: string;
+  nombre: string;
+  descripcionOnline: string | null;
+  categoriaId: string | null;
+  categoriaNombre: string | null;
+  unidadVenta: string;
+  esPesable: boolean;
+  /** Precio de mostrador con IVA (por kg si es pesable). */
+  precio: number;
+  imagenUrl: string | null;
+  /** Hay stock para pedir. */
+  disponible: boolean;
+}
+
+export interface StoreCatalog {
+  nombre: string;
+  slug: string;
+  categorias: Array<{ id: string; nombre: string }>;
+  productos: StoreProduct[];
+}
+
+/** Catálogo de la tienda online por slug. 404 si la tienda no está activa. */
+export async function getStoreCatalog(slug: string): Promise<StoreCatalog> {
+  const res = await fetch(`${API_BASE}/public/tienda/${encodeURIComponent(slug)}/catalogo`);
+  if (res.status === 404) throw new NotFoundError('Tienda no encontrada');
+  if (!res.ok) throw new Error(`tienda HTTP ${res.status}`);
+  return res.json() as Promise<StoreCatalog>;
+}
