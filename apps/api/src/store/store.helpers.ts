@@ -50,6 +50,32 @@ export function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+/** Cantidad efectiva de una línea: la real si ya se pesó, si no la estimada. */
+export function cantidadEfectiva(cantidad: number, cantidadReal: number | null | undefined): number {
+  return cantidadReal != null ? cantidadReal : cantidad;
+}
+
+/**
+ * Recalcula los subtotales y el total de un pedido usando la cantidad efectiva
+ * (real tras el pesaje, o estimada). Devuelve el subtotal por línea + totales.
+ */
+export function recomputeOrder(
+  items: Array<{ precioUnit: number; cantidad: number; cantidadReal: number | null | undefined }>,
+  costoEnvio: number,
+): { lineas: number[]; subtotal: number; total: number } {
+  const lineas = items.map((i) => round2(i.precioUnit * cantidadEfectiva(i.cantidad, i.cantidadReal)));
+  const subtotal = round2(lineas.reduce((s, x) => s + x, 0));
+  return { lineas, subtotal, total: round2(subtotal + costoEnvio) };
+}
+
+/** Estados terminales: no admiten más cambios de estado. */
+const ESTADOS_TERMINALES = new Set(['ENTREGADO', 'CANCELADO']);
+
+/** ¿Se puede cambiar el estado desde `actual`? (los terminales quedan fijos). */
+export function puedeCambiarEstado(actual: string): boolean {
+  return !ESTADOS_TERMINALES.has(actual);
+}
+
 /**
  * Calcula el subtotal de una línea de pedido a partir del precio del catálogo
  * (el servidor NUNCA confía en el precio que manda el cliente).

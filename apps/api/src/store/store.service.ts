@@ -1,15 +1,25 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, TipoEntrega, TipoListaPrecio } from '@ats/database';
+import { OnlineOrderEstado, Prisma, TipoEntrega, TipoListaPrecio } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   calcLine,
+  cantidadEfectiva,
   categoriasDeProductos,
   disponibleDeStock,
+  puedeCambiarEstado,
   randomCodigo,
+  recomputeOrder,
   round2,
   type OrderLineCalc,
 } from './store.helpers';
-import type { CreateOrderDto, SaveStoreConfigDto, CreateZoneDto, UpdateZoneDto } from './store.dto';
+import type {
+  CreateOrderDto,
+  CreateZoneDto,
+  PesajeDto,
+  SaveStoreConfigDto,
+  SetEstadoDto,
+  UpdateZoneDto,
+} from './store.dto';
 
 /** Un producto tal como lo ve la tienda online pública. */
 export interface StoreProduct {
@@ -422,5 +432,125 @@ export class StoreService {
     if (usada > 0) await this.prisma.deliveryZone.update({ where: { id }, data: { activo: false } });
     else await this.prisma.deliveryZone.delete({ where: { id } });
     return this.getConfig(tenantId);
+  }
+
+  // --- Admin: gestión de pedidos --------------------------------------------
+
+  /** Lista de pedidos del tenant (opcionalmente por estado), del más nuevo al más viejo. */
+  async listOrders(tenantId: string, estado?: OnlineOrderEstado) {
+    const orders = await this.prisma.onlineOrder.findMany({
+      where: { tenantId, ...(estado ? { estado } : {}) },
+      include: { items: true },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    // Resumen de conteos por estado (para badges y el aviso de nuevos).
+    const grouped = await this.prisma.onlineOrder.groupBy({
+      by: ['estado'],
+      where: { tenantId },
+      _count: { _all: true },
+    });
+    const counts: Record<string, number> = {};
+    for (const g of grouped) counts[g.estado] = g._count._all;
+    return { counts, orders: orders.map((o) => this.toAdminOrder(o)) };
+  }
+
+  async getOrderAdmin(tenantId: string, id: string) {
+    const order = await this.prisma.onlineOrder.findFirst({ where: { id, tenantId }, include: { items: true } });
+    if (!order) throw new NotFoundException('Pedido no encontrado');
+    return this.toAdminOrder(order);
+  }
+
+  /** Cambia el estado del pedido (no permite tocar los pedidos ya cerrados). */
+  async setEstado(tenantId: string, id: string, dto: SetEstadoDto) {
+    const order = await this.prisma.onlineOrder.findFirst({ where: { id, tenantId }, include: { items: true } });
+    if (!order) throw new NotFoundException('Pedido no encontrado');
+    if (!puedeCambiarEstado(order.estado)) {
+      throw new BadRequestException('El pedido ya está cerrado y no se puede modificar.');
+    }
+    const updated = await this.prisma.onlineOrder.update({
+      where: { id },
+      data: { estado: dto.estado },
+      include: { items: true },
+    });
+    return this.toAdminOrder(updated);
+  }
+
+  /**
+   * Registra el pesaje/preparación: guarda la cantidad real por ítem y recalcula
+   * los subtotales y el total del pedido. Solo mientras no esté cerrado.
+   */
+  async pesaje(tenantId: string, id: string, dto: PesajeDto) {
+    const order = await this.prisma.onlineOrder.findFirst({ where: { id, tenantId }, include: { items: true } });
+    if (!order) throw new NotFoundException('Pedido no encontrado');
+    if (!puedeCambiarEstado(order.estado)) {
+      throw new BadRequestException('El pedido ya está cerrado y no se puede modificar.');
+    }
+
+    const realById = new Map(dto.items.map((i) => [i.itemId, i.cantidad]));
+    // Cantidad efectiva por ítem = la pesada si vino en el body, si no la actual.
+    const merged = order.items.map((it) => ({
+      id: it.id,
+      precioUnit: Number(it.precioUnit),
+      cantidad: Number(it.cantidad),
+      cantidadReal: realById.has(it.id) ? realById.get(it.id)! : (it.cantidadReal != null ? Number(it.cantidadReal) : null),
+    }));
+    const { lineas, subtotal, total } = recomputeOrder(merged, Number(order.costoEnvio));
+
+    await this.prisma.$transaction([
+      ...merged.map((m, idx) =>
+        this.prisma.onlineOrderItem.update({
+          where: { id: m.id },
+          data: {
+            cantidadReal: m.cantidadReal != null ? new Prisma.Decimal(m.cantidadReal) : null,
+            subtotal: new Prisma.Decimal(lineas[idx]),
+          },
+        }),
+      ),
+      this.prisma.onlineOrder.update({
+        where: { id },
+        data: {
+          subtotal: new Prisma.Decimal(subtotal),
+          total: new Prisma.Decimal(total),
+          // Al pesar por primera vez, si estaba NUEVO/CONFIRMADO lo pasamos a PREPARANDO.
+          ...(order.estado === OnlineOrderEstado.NUEVO || order.estado === OnlineOrderEstado.CONFIRMADO
+            ? { estado: OnlineOrderEstado.PREPARANDO }
+            : {}),
+        },
+      }),
+    ]);
+
+    return this.getOrderAdmin(tenantId, id);
+  }
+
+  private toAdminOrder(o: Prisma.OnlineOrderGetPayload<{ include: { items: true } }>) {
+    return {
+      id: o.id,
+      numero: o.numero,
+      codigo: o.codigo,
+      estado: o.estado,
+      tipoEntrega: o.tipoEntrega,
+      zonaNombre: o.zonaNombre,
+      franja: o.franja,
+      clienteNombre: o.clienteNombre,
+      clienteTelefono: o.clienteTelefono,
+      direccion: o.direccion,
+      notas: o.notas,
+      subtotal: Number(o.subtotal),
+      costoEnvio: Number(o.costoEnvio),
+      total: Number(o.total),
+      createdAt: o.createdAt.toISOString(),
+      items: o.items.map((i) => ({
+        id: i.id,
+        concepto: i.concepto,
+        unidad: i.unidad,
+        esPesable: i.esPesable,
+        cantidad: Number(i.cantidad),
+        cantidadReal: i.cantidadReal != null ? Number(i.cantidadReal) : null,
+        cantidadEfectiva: cantidadEfectiva(Number(i.cantidad), i.cantidadReal != null ? Number(i.cantidadReal) : null),
+        precioUnit: Number(i.precioUnit),
+        subtotal: Number(i.subtotal),
+      })),
+    };
   }
 }

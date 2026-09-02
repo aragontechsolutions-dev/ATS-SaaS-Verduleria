@@ -781,6 +781,65 @@ export const deleteZone = async (id: string) =>
     'deleteZone',
   );
 
+// --- Pedidos de la tienda online --------------------------------------------
+
+export type OnlineOrderEstado = 'NUEVO' | 'CONFIRMADO' | 'PREPARANDO' | 'EN_CAMINO' | 'ENTREGADO' | 'CANCELADO';
+export type TipoEntrega = 'DELIVERY' | 'PICKUP';
+
+export interface OrderItemAdmin {
+  id: string;
+  concepto: string;
+  unidad: string;
+  esPesable: boolean;
+  cantidad: number;
+  cantidadReal: number | null;
+  cantidadEfectiva: number;
+  precioUnit: number;
+  subtotal: number;
+}
+
+export interface OrderAdmin {
+  id: string;
+  numero: number;
+  codigo: string;
+  estado: OnlineOrderEstado;
+  tipoEntrega: TipoEntrega;
+  zonaNombre: string | null;
+  franja: string | null;
+  clienteNombre: string;
+  clienteTelefono: string;
+  direccion: string | null;
+  notas: string | null;
+  subtotal: number;
+  costoEnvio: number;
+  total: number;
+  createdAt: string;
+  items: OrderItemAdmin[];
+}
+
+export interface OrdersResponse {
+  counts: Record<string, number>;
+  orders: OrderAdmin[];
+}
+
+export const getOrders = async (estado?: OnlineOrderEstado) =>
+  ok<OrdersResponse>(
+    await fetch(`${API_BASE}/store/pedidos${estado ? `?estado=${estado}` : ''}`, { headers: headers() }),
+    'orders',
+  );
+
+export const setOrderEstado = async (id: string, estado: OnlineOrderEstado) =>
+  ok<OrderAdmin>(
+    await fetch(`${API_BASE}/store/pedidos/${id}/estado`, { method: 'PATCH', headers: headers(), body: JSON.stringify({ estado }) }),
+    'setOrderEstado',
+  );
+
+export const pesajeOrder = async (id: string, items: Array<{ itemId: string; cantidad: number }>) =>
+  ok<OrderAdmin>(
+    await fetch(`${API_BASE}/store/pedidos/${id}/pesaje`, { method: 'PATCH', headers: headers(), body: JSON.stringify({ items }) }),
+    'pesajeOrder',
+  );
+
 export interface SettingsInput {
   nombre?: string;
   razonSocial?: string;

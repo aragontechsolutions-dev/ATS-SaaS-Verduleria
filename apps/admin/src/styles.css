@@ -443,3 +443,51 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 .pwd-wrap { position: relative; display: flex; }
 .pwd-wrap input { flex: 1; padding-right: 42px; }
 .pwd-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: none; background: transparent; cursor: pointer; font-size: 16px; padding: 4px 6px; line-height: 1; }
+
+/* ===== Pedidos (tablero de la tienda online) ===== */
+.ped-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.ped-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.ped-tab { border: 1px solid var(--border, #ddd); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer; color: var(--text, #222); }
+.ped-tab.is-on { background: var(--brand, #128C7E); color: #fff; border-color: var(--brand, #128C7E); }
+.ped-tab span { font-weight: 700; opacity: .8; margin-left: 4px; }
+.btn--ghost.is-on { background: #e6f4ea; }
+.ped-empty { color: var(--muted, #777); padding: 24px 0; text-align: center; }
+
+.ped-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.ped-card { border: 1px solid var(--border, #e6e6e6); border-left: 4px solid #bbb; border-radius: 12px; padding: 12px 14px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
+.ped-card.estado-nuevo { border-left-color: #e8820c; }
+.ped-card.estado-confirmado { border-left-color: #2563eb; }
+.ped-card.estado-preparando { border-left-color: #7c3aed; }
+.ped-card.estado-en_camino { border-left-color: #0891b2; }
+.ped-card.estado-entregado { border-left-color: #1b7a3e; }
+.ped-card.estado-cancelado { border-left-color: #999; opacity: .7; }
+.ped-card__head { display: flex; justify-content: space-between; align-items: center; }
+.ped-card__code { color: var(--muted, #888); font-size: 12px; margin-left: 8px; letter-spacing: 1px; }
+.ped-card__time { color: var(--muted, #888); font-size: 12px; }
+.ped-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff; background: #999; }
+.ped-badge.estado-nuevo { background: #e8820c; }
+.ped-badge.estado-confirmado { background: #2563eb; }
+.ped-badge.estado-preparando { background: #7c3aed; }
+.ped-badge.estado-en_camino { background: #0891b2; }
+.ped-badge.estado-entregado { background: #1b7a3e; }
+.ped-badge.estado-cancelado { background: #999; }
+.ped-card__cli { font-size: 14px; }
+.ped-card__cli a { color: var(--brand, #128C7E); }
+.ped-card__entrega { font-size: 12.5px; color: var(--muted, #555); }
+.ped-items { list-style: none; padding: 8px 0; margin: 0; border-top: 1px dashed #e2e2e2; border-bottom: 1px dashed #e2e2e2; }
+.ped-items li { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 2px 0; }
+.ped-items em { font-style: normal; color: var(--muted, #888); font-size: 12px; }
+.ped-card__notas { font-size: 12.5px; color: #8a5a00; background: #fff8ec; border-radius: 6px; padding: 6px 8px; margin: 0; }
+.ped-card__totals { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; color: var(--muted, #666); }
+.ped-card__totals strong { font-size: 15px; color: var(--text, #111); }
+.ped-card__actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Modal de pesaje/preparación */
+.pesaje-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.pesaje-row { display: grid; grid-template-columns: 1fr 100px 80px; align-items: center; gap: 10px; }
+.pesaje-row__nom { display: flex; flex-direction: column; }
+.pesaje-row__nom small { color: var(--muted, #888); font-size: 11.5px; }
+.pesaje-row input { padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
+.pesaje-row__sub { text-align: right; font-weight: 700; }
+.pesaje-total { display: flex; justify-content: space-between; align-items: baseline; border-top: 2px solid #000; margin-top: 8px; padding-top: 8px; }
+.pesaje-total strong { font-size: 17px; }
