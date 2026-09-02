@@ -1314,9 +1314,12 @@ model OnlineOrderItem {
   concepto   String
   unidad     String
   esPesable  Boolean @default(false)
-  /// Cantidad pedida (kg estimados si es pesable).
+  /// Cantidad pedida por el cliente (kg estimados si es pesable).
   cantidad   Decimal @db.Decimal(14, 3)
+  /// Cantidad real tras pesar/preparar (kg reales). Null hasta que se prepara.
+  cantidadReal Decimal? @db.Decimal(14, 3)
   precioUnit Decimal @db.Decimal(14, 4)
+  /// Subtotal efectivo (usa cantidadReal si está, si no la estimada).
   subtotal   Decimal @db.Decimal(14, 2)
 
   order   OnlineOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)

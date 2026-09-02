@@ -1,6 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcLine, categoriasDeProductos, disponibleDeStock, randomCodigo, round2 } from './store.helpers.ts';
+import {
+  calcLine,
+  cantidadEfectiva,
+  categoriasDeProductos,
+  disponibleDeStock,
+  puedeCambiarEstado,
+  randomCodigo,
+  recomputeOrder,
+  round2,
+} from './store.helpers.ts';
 import type { StoreProduct } from './store.service.ts';
 
 test('disponibleDeStock: sin filas → disponible (no controlado)', () => {
@@ -56,6 +65,32 @@ test('calcLine: recalcula el subtotal con el precio del catálogo', () => {
   assert.equal(l.esPesable, true);
   assert.equal(l.precioUnit, 89.9);
   assert.equal(l.subtotal, round2(89.9 * 1.5));
+});
+
+test('cantidadEfectiva: usa la real si existe, si no la estimada', () => {
+  assert.equal(cantidadEfectiva(1.5, null), 1.5);
+  assert.equal(cantidadEfectiva(1.5, 1.723), 1.723);
+  assert.equal(cantidadEfectiva(1.5, 0), 0);
+});
+
+test('recomputeOrder: recalcula con la cantidad efectiva + envío', () => {
+  const r = recomputeOrder(
+    [
+      { precioUnit: 100, cantidad: 1, cantidadReal: 1.25 }, // pesado 1.25 → 125
+      { precioUnit: 50, cantidad: 2, cantidadReal: null }, // sin pesar → 100
+    ],
+    80,
+  );
+  assert.deepEqual(r.lineas, [125, 100]);
+  assert.equal(r.subtotal, 225);
+  assert.equal(r.total, 305);
+});
+
+test('puedeCambiarEstado: bloquea terminales', () => {
+  assert.equal(puedeCambiarEstado('NUEVO'), true);
+  assert.equal(puedeCambiarEstado('PREPARANDO'), true);
+  assert.equal(puedeCambiarEstado('ENTREGADO'), false);
+  assert.equal(puedeCambiarEstado('CANCELADO'), false);
 });
 
 test('randomCodigo: 8 caracteres sin I/L/O/0/1', () => {

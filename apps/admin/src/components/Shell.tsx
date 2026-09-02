@@ -10,12 +10,13 @@ import { SucursalesPage } from './SucursalesPage';
 import { MayoristasPage } from './MayoristasPage';
 import { LandingPage } from './LandingPage';
 import { TiendaPage } from './TiendaPage';
+import { PedidosPage } from './PedidosPage';
 import { UsersPage } from './UsersPage';
 import { AuditoriaPage } from './AuditoriaPage';
 import { ReportsPage } from './ReportsPage';
 import { SettingsPage } from './SettingsPage';
 
-type Tab = 'reportes' | 'productos' | 'categorias' | 'promos' | 'compras' | 'stock' | 'mermas' | 'caja' | 'sucursales' | 'mayoristas' | 'miweb' | 'tienda' | 'usuarios' | 'auditoria' | 'config';
+type Tab = 'reportes' | 'productos' | 'categorias' | 'promos' | 'compras' | 'stock' | 'mermas' | 'caja' | 'sucursales' | 'mayoristas' | 'miweb' | 'tienda' | 'pedidos' | 'usuarios' | 'auditoria' | 'config';
 
 const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'reportes', label: 'Reportes', icon: '📊' },
@@ -30,6 +31,7 @@ const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'mayoristas', label: 'Mayoristas', icon: '🤝' },
   { id: 'miweb', label: 'Mi web', icon: '🌐' },
   { id: 'tienda', label: 'Tienda online', icon: '🛒' },
+  { id: 'pedidos', label: 'Pedidos', icon: '📦' },
   { id: 'usuarios', label: 'Usuarios', icon: '👥' },
   { id: 'auditoria', label: 'Auditoría', icon: '📋' },
   { id: 'config', label: 'Configuración', icon: '⚙️' },
@@ -48,6 +50,7 @@ const PAGES: Record<Tab, JSX.Element> = {
   mayoristas: <MayoristasPage />,
   miweb: <LandingPage />,
   tienda: <TiendaPage />,
+  pedidos: <PedidosPage />,
   usuarios: <UsersPage />,
   auditoria: <AuditoriaPage />,
   config: <SettingsPage />,

@@ -1,11 +1,18 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
-import { Role } from '@ats/database';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { OnlineOrderEstado, Role } from '@ats/database';
 import { CurrentTenant } from '../tenant/current-tenant.decorator';
 import { TenantGuard } from '../tenant/tenant.guard';
 import { RolesGuard } from '../tenant/roles.guard';
 import { Roles } from '../tenant/roles.decorator';
 import { StoreService } from './store.service';
-import { CreateOrderDto, CreateZoneDto, SaveStoreConfigDto, UpdateZoneDto } from './store.dto';
+import {
+  CreateOrderDto,
+  CreateZoneDto,
+  PesajeDto,
+  SaveStoreConfigDto,
+  SetEstadoDto,
+  UpdateZoneDto,
+} from './store.dto';
 
 /** Tienda online pública por slug — SIN autenticación (la consume la web pública). */
 @Controller('public/tienda')
@@ -58,5 +65,32 @@ export class StoreAdminController {
   @Delete('zonas/:id')
   deleteZone(@CurrentTenant('tenantId') tenantId: string, @Param('id') id: string) {
     return this.store.deleteZone(tenantId, id);
+  }
+
+  // --- Pedidos --------------------------------------------------------------
+
+  @Get('pedidos')
+  @Roles(Role.ADMIN, Role.ENCARGADO)
+  listOrders(@CurrentTenant('tenantId') tenantId: string, @Query('estado') estado?: string) {
+    const e = estado && estado in OnlineOrderEstado ? (estado as OnlineOrderEstado) : undefined;
+    return this.store.listOrders(tenantId, e);
+  }
+
+  @Get('pedidos/:id')
+  @Roles(Role.ADMIN, Role.ENCARGADO)
+  getOrder(@CurrentTenant('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.store.getOrderAdmin(tenantId, id);
+  }
+
+  @Patch('pedidos/:id/estado')
+  @Roles(Role.ADMIN, Role.ENCARGADO)
+  setEstado(@CurrentTenant('tenantId') tenantId: string, @Param('id') id: string, @Body() dto: SetEstadoDto) {
+    return this.store.setEstado(tenantId, id, dto);
+  }
+
+  @Patch('pedidos/:id/pesaje')
+  @Roles(Role.ADMIN, Role.ENCARGADO)
+  pesaje(@CurrentTenant('tenantId') tenantId: string, @Param('id') id: string, @Body() dto: PesajeDto) {
+    return this.store.pesaje(tenantId, id, dto);
   }
 }

@@ -1,4 +1,4 @@
-import { TipoEntrega } from '@ats/database';
+import { OnlineOrderEstado, TipoEntrega } from '@ats/database';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -130,4 +130,30 @@ export class UpdateZoneDto {
   @IsOptional()
   @IsNumber()
   orden?: number;
+}
+
+// --- Admin: gestión de pedidos ----------------------------------------------
+
+export class SetEstadoDto {
+  @IsEnum(OnlineOrderEstado)
+  estado!: OnlineOrderEstado;
+}
+
+export class PesajeItemDto {
+  @IsString()
+  itemId!: string;
+
+  /** Cantidad real (kg pesados / unidades preparadas). */
+  @IsNumber()
+  @Min(0)
+  cantidad!: number;
+}
+
+export class PesajeDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(200)
+  @ValidateNested({ each: true })
+  @Type(() => PesajeItemDto)
+  items!: PesajeItemDto[];
 }
