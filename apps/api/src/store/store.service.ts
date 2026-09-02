@@ -1,6 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { OnlineOrderEstado, Prisma, TipoEntrega, TipoListaPrecio } from '@ats/database';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { IvaIndicador, MedioPago, OnlineOrderEstado, Prisma, TipoEntrega, TipoListaPrecio, UnidadMedida } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
+import { SalesService } from '../sales/sales.service';
+import { CfeService } from '../cfe/cfe.service';
 import {
   calcLine,
   cantidadEfectiva,
@@ -72,6 +74,9 @@ const DEFAULT_CONFIG: StorePublicConfig = {
   notaCheckout: null,
 };
 
+/** Include estándar de un pedido para la vista de administración. */
+const ORDER_INCLUDE = { items: true, sale: { include: { cfeDocument: true } } } as const;
+
 /**
  * Tienda online (e-commerce del tenant). Catálogo público, checkout de invitado
  * (crea el pedido recalculando precios con el catálogo, nunca confía en el
@@ -79,7 +84,13 @@ const DEFAULT_CONFIG: StorePublicConfig = {
  */
 @Injectable()
 export class StoreService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(StoreService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sales: SalesService,
+    private readonly cfe: CfeService,
+  ) {}
 
   /** Resuelve el tenant de una tienda activa por slug, o 404. */
   private async tiendaActiva(slug: string) {
@@ -440,7 +451,7 @@ export class StoreService {
   async listOrders(tenantId: string, estado?: OnlineOrderEstado) {
     const orders = await this.prisma.onlineOrder.findMany({
       where: { tenantId, ...(estado ? { estado } : {}) },
-      include: { items: true },
+      include: ORDER_INCLUDE,
       orderBy: { createdAt: 'desc' },
       take: 200,
     });
@@ -456,7 +467,7 @@ export class StoreService {
   }
 
   async getOrderAdmin(tenantId: string, id: string) {
-    const order = await this.prisma.onlineOrder.findFirst({ where: { id, tenantId }, include: { items: true } });
+    const order = await this.prisma.onlineOrder.findFirst({ where: { id, tenantId }, include: ORDER_INCLUDE });
     if (!order) throw new NotFoundException('Pedido no encontrado');
     return this.toAdminOrder(order);
   }
@@ -468,12 +479,85 @@ export class StoreService {
     if (!puedeCambiarEstado(order.estado)) {
       throw new BadRequestException('El pedido ya está cerrado y no se puede modificar.');
     }
+
+    // Al ENTREGAR, el pedido se convierte en venta (stock + reportes + CFE).
+    if (dto.estado === OnlineOrderEstado.ENTREGADO && !order.saleId) {
+      await this.facturarPedido(tenantId, order);
+    }
+
     const updated = await this.prisma.onlineOrder.update({
       where: { id },
       data: { estado: dto.estado },
-      include: { items: true },
+      include: ORDER_INCLUDE,
     });
     return this.toAdminOrder(updated);
+  }
+
+  /**
+   * Convierte un pedido entregado en una venta: reutiliza el flujo de ventas del
+   * POS (descuenta stock, entra a reportes) y emite el CFE (e-Ticket). Idempotente:
+   * la clave de la venta es el id del pedido, así reintentar no factura dos veces.
+   * Usa la cantidad REAL (pesada) de cada ítem; el envío va como una línea aparte.
+   */
+  private async facturarPedido(
+    tenantId: string,
+    order: Prisma.OnlineOrderGetPayload<{ include: { items: true } }>,
+  ): Promise<void> {
+    // IVA por producto (los ítems del pedido no lo guardan; lo tomamos del catálogo).
+    const productIds = order.items.map((i) => i.productId).filter((x): x is string => !!x);
+    const productos = productIds.length
+      ? await this.prisma.product.findMany({ where: { tenantId, id: { in: productIds } }, select: { id: true, ivaIndicador: true } })
+      : [];
+    const ivaById = new Map(productos.map((p) => [p.id, p.ivaIndicador]));
+
+    const items = order.items.map((i) => ({
+      productId: i.productId ?? undefined,
+      concepto: i.concepto,
+      unidad: (i.unidad in UnidadMedida ? i.unidad : UnidadMedida.UNIDAD) as UnidadMedida,
+      cantidad: i.cantidadReal != null ? Number(i.cantidadReal) : Number(i.cantidad),
+      precioUnit: Number(i.precioUnit),
+      ivaIndicador: (i.productId && ivaById.get(i.productId)) || IvaIndicador.MINIMA,
+    }));
+
+    // Envío como línea de servicio (si corresponde). El contador puede ajustar la tasa.
+    const costoEnvio = Number(order.costoEnvio);
+    if (order.tipoEntrega === TipoEntrega.DELIVERY && costoEnvio > 0) {
+      items.push({
+        productId: undefined,
+        concepto: `Envío${order.zonaNombre ? ` (${order.zonaNombre})` : ''}`,
+        unidad: UnidadMedida.UNIDAD,
+        cantidad: 1,
+        precioUnit: costoEnvio,
+        ivaIndicador: IvaIndicador.BASICA,
+      });
+    }
+
+    // Sucursal principal del tenant (los pedidos online no tienen caja).
+    const sucursal = await this.prisma.sucursal.findFirst({
+      where: { tenantId, activo: true },
+      orderBy: { codigo: 'asc' },
+      select: { id: true },
+    });
+
+    const total = round2(items.reduce((s, it) => s + it.precioUnit * it.cantidad, 0));
+
+    // Pago: contra entrega en efectivo (el gateway online es fase 2).
+    const sale = await this.sales.createSale(tenantId, {
+      idempotencyKey: order.id,
+      sucursalId: sucursal?.id,
+      customerId: order.customerId ?? undefined,
+      items,
+      payments: [{ medio: MedioPago.EFECTIVO, monto: total }],
+    });
+
+    await this.prisma.onlineOrder.update({ where: { id: order.id }, data: { saleId: sale.id } });
+
+    // CFE best-effort: si falla, la venta ya existe y el CFE se puede reintentar.
+    try {
+      await this.cfe.emitirParaVenta(tenantId, sale.id);
+    } catch (e) {
+      this.logger.error(`No se pudo emitir el CFE del pedido ${order.numero}: ${e instanceof Error ? e.message : e}`);
+    }
   }
 
   /**
@@ -523,7 +607,8 @@ export class StoreService {
     return this.getOrderAdmin(tenantId, id);
   }
 
-  private toAdminOrder(o: Prisma.OnlineOrderGetPayload<{ include: { items: true } }>) {
+  private toAdminOrder(o: Prisma.OnlineOrderGetPayload<{ include: typeof ORDER_INCLUDE }>) {
+    const cfe = o.sale?.cfeDocument;
     return {
       id: o.id,
       numero: o.numero,
@@ -539,6 +624,10 @@ export class StoreService {
       subtotal: Number(o.subtotal),
       costoEnvio: Number(o.costoEnvio),
       total: Number(o.total),
+      saleId: o.saleId,
+      comprobante: cfe
+        ? { tipo: cfe.tipo, estado: cfe.estado, serie: cfe.serie, numero: cfe.numero }
+        : null,
       createdAt: o.createdAt.toISOString(),
       items: o.items.map((i) => ({
         id: i.id,

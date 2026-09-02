@@ -171,6 +171,16 @@ function OrderCard({ o, onEstado, onPesar }: {
         <strong>Total {money(o.total)}{hayPeso ? ' aprox.' : ''}</strong>
       </div>
 
+      {o.saleId && (
+        <div className="ped-card__cfe">
+          🧾 {o.comprobante
+            ? o.comprobante.serie && o.comprobante.numero != null
+              ? `${o.comprobante.tipo === 'TICKET_INTERNO' ? 'Ticket interno' : 'e-Ticket'} ${o.comprobante.serie}-${o.comprobante.numero}`
+              : o.comprobante.tipo === 'TICKET_INTERNO' ? 'Ticket interno' : `Comprobante ${o.comprobante.estado}`
+            : 'Venta registrada'}
+        </div>
+      )}
+
       {!terminal && (
         <div className="ped-card__actions">
           {o.estado === 'NUEVO' && <button className="btn btn--sm" onClick={() => onEstado(o, 'CONFIRMADO')}>Confirmar</button>}
@@ -178,7 +188,11 @@ function OrderCard({ o, onEstado, onPesar }: {
           {o.tipoEntrega === 'DELIVERY' && (o.estado === 'PREPARANDO' || o.estado === 'CONFIRMADO') && (
             <button className="btn btn--sm" onClick={() => onEstado(o, 'EN_CAMINO')}>🛵 En camino</button>
           )}
-          <button className="btn btn--sm" onClick={() => onEstado(o, 'ENTREGADO')}>✓ Entregado</button>
+          <button
+            className="btn btn--sm"
+            title="Marca el pedido como entregado y genera la venta + comprobante"
+            onClick={() => { if (confirm(`¿Marcar el pedido #${o.numero} como entregado? Se registra la venta y se emite el comprobante.`)) onEstado(o, 'ENTREGADO'); }}
+          >✓ Entregado</button>
           <button className="btn btn--sm btn--ghost" onClick={() => { if (confirm(`¿Cancelar el pedido #${o.numero}?`)) onEstado(o, 'CANCELADO'); }}>Cancelar</button>
         </div>
       )}
