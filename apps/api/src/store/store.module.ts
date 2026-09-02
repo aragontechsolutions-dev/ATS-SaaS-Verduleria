@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
-import { PublicStoreController } from './store.controller';
+import { RolesGuard } from '../tenant/roles.guard';
+import { PublicStoreController, StoreAdminController } from './store.controller';
 import { StoreService } from './store.service';
 
 @Module({
-  controllers: [PublicStoreController],
-  providers: [StoreService],
+  controllers: [PublicStoreController, StoreAdminController],
+  providers: [StoreService, RolesGuard],
 })
 export class StoreModule {}

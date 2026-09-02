@@ -26,3 +26,45 @@ export function categoriasDeProductos(items: StoreProduct[]): StoreCategory[] {
     .map(([id, nombre]) => ({ id, nombre }))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 }
+
+/** Código público de seguimiento: 8 caracteres alfanuméricos sin ambigüedades. */
+export function randomCodigo(): string {
+  const alfabeto = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // sin I/L/O/0/1
+  let out = '';
+  for (let i = 0; i < 8; i++) out += alfabeto[Math.floor(Math.random() * alfabeto.length)];
+  return out;
+}
+
+export interface OrderLineCalc {
+  productId: string;
+  concepto: string;
+  unidad: string;
+  esPesable: boolean;
+  cantidad: number;
+  precioUnit: number;
+  subtotal: number;
+}
+
+/** Redondea a 2 decimales (dinero). */
+export function round2(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+/**
+ * Calcula el subtotal de una línea de pedido a partir del precio del catálogo
+ * (el servidor NUNCA confía en el precio que manda el cliente).
+ */
+export function calcLine(
+  p: { id: string; nombre: string; unidadVenta: string; esPesable: boolean; precio: number },
+  cantidad: number,
+): OrderLineCalc {
+  return {
+    productId: p.id,
+    concepto: p.nombre,
+    unidad: p.unidadVenta,
+    esPesable: p.esPesable,
+    cantidad,
+    precioUnit: p.precio,
+    subtotal: round2(p.precio * cantidad),
+  };
+}

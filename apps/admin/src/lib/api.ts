@@ -719,6 +719,68 @@ export interface Settings {
   } | null;
 }
 
+// --- Tienda online (config + zonas de reparto) ------------------------------
+
+export interface StoreZone {
+  id: string;
+  nombre: string;
+  costoEnvio: number;
+  pedidoMinimo: number;
+  activo: boolean;
+  orden: number;
+}
+
+export interface StoreConfig {
+  tiendaOnlineActiva: boolean;
+  slug: string;
+  deliveryActivo: boolean;
+  pickupActivo: boolean;
+  franjas: string[];
+  notaCheckout: string;
+  zonas: StoreZone[];
+}
+
+export interface StoreConfigInput {
+  deliveryActivo?: boolean;
+  pickupActivo?: boolean;
+  franjas?: string[];
+  notaCheckout?: string;
+}
+
+export interface ZoneInput {
+  nombre: string;
+  costoEnvio: number;
+  pedidoMinimo?: number;
+  orden?: number;
+}
+
+export const getStoreConfig = async () =>
+  ok<StoreConfig>(await fetch(`${API_BASE}/store/config`, { headers: headers() }), 'storeConfig');
+
+export const saveStoreConfig = async (patch: StoreConfigInput) =>
+  ok<StoreConfig>(
+    await fetch(`${API_BASE}/store/config`, { method: 'PUT', headers: headers(), body: JSON.stringify(patch) }),
+    'saveStoreConfig',
+  );
+
+export const createZone = async (input: ZoneInput) =>
+  ok<StoreConfig>(
+    await fetch(`${API_BASE}/store/zonas`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
+    'createZone',
+  );
+
+export const updateZone = async (id: string, patch: Partial<ZoneInput> & { activo?: boolean }) =>
+  ok<StoreConfig>(
+    await fetch(`${API_BASE}/store/zonas/${id}`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) }),
+    'updateZone',
+  );
+
+export const deleteZone = async (id: string) =>
+  ok<StoreConfig>(
+    await fetch(`${API_BASE}/store/zonas/${id}`, { method: 'DELETE', headers: headers() }),
+    'deleteZone',
+  );
+
 export interface SettingsInput {
   nombre?: string;
   razonSocial?: string;

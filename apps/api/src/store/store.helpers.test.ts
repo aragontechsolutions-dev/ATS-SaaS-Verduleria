@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { categoriasDeProductos, disponibleDeStock } from './store.helpers.ts';
+import { calcLine, categoriasDeProductos, disponibleDeStock, randomCodigo, round2 } from './store.helpers.ts';
 import type { StoreProduct } from './store.service.ts';
 
 test('disponibleDeStock: sin filas → disponible (no controlado)', () => {
@@ -41,4 +41,28 @@ test('categoriasDeProductos: deduplica y ordena por nombre (es)', () => {
 
 test('categoriasDeProductos: ignora productos sin categoría', () => {
   assert.deepEqual(categoriasDeProductos([prod({ categoriaId: null, categoriaNombre: null })]), []);
+});
+
+test('round2: redondea a 2 decimales sin errores de flotante', () => {
+  assert.equal(round2(1.005), 1.01);
+  assert.equal(round2(19.99 * 1.5), 29.99);
+});
+
+test('calcLine: recalcula el subtotal con el precio del catálogo', () => {
+  const p = { id: 'x', nombre: 'Tomate', unidadVenta: 'KG', esPesable: true, precio: 89.9 };
+  const l = calcLine(p, 1.5);
+  assert.equal(l.productId, 'x');
+  assert.equal(l.concepto, 'Tomate');
+  assert.equal(l.esPesable, true);
+  assert.equal(l.precioUnit, 89.9);
+  assert.equal(l.subtotal, round2(89.9 * 1.5));
+});
+
+test('randomCodigo: 8 caracteres sin I/L/O/0/1', () => {
+  for (let i = 0; i < 50; i++) {
+    const c = randomCodigo();
+    assert.equal(c.length, 8);
+    assert.match(c, /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/);
+    assert.doesNotMatch(c, /[ILO01]/);
+  }
 });

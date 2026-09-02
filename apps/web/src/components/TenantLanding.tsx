@@ -40,17 +40,21 @@ export function TenantLanding({ slug }: { slug: string }) {
   const accent = config.tema.color || '#0F8A7C';
   const wa = config.contacto.whatsapp.replace(/[^\d]/g, '');
 
-  return <LandingView config={config} accent={accent} wa={wa} />;
+  return <LandingView config={config} accent={accent} wa={wa} tiendaActiva={!!s.data.tiendaActiva} slug={slug} />;
 }
 
 function LandingView({
   config,
   accent,
   wa,
+  tiendaActiva,
+  slug,
 }: {
   config: PublicLanding['config'];
   accent: string;
   wa: string;
+  tiendaActiva: boolean;
+  slug: string;
 }) {
   const style = useMemo(() => ({ '--lp-accent': accent }) as CSSProperties, [accent]);
 
@@ -69,9 +73,14 @@ function LandingView({
             {config.hero.titulo || 'Verdulería'}
           </h1>
           {config.hero.lema && <p>{config.hero.lema}</p>}
-          {config.contacto.mostrar && wa && (
-            <a className="lp-cta" href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer">Pedir por WhatsApp</a>
-          )}
+          <div className="lp-cta-row">
+            {tiendaActiva && (
+              <a className="lp-cta lp-cta--shop" href={`/v/${encodeURIComponent(slug)}/tienda`}>🛒 Comprar online</a>
+            )}
+            {config.contacto.mostrar && wa && (
+              <a className="lp-cta" href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer">Pedir por WhatsApp</a>
+            )}
+          </div>
         </header>
       )}
 
