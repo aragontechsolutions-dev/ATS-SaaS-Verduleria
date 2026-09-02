@@ -24,6 +24,7 @@ export function SettingsPage() {
     direccion: '', telefono: '', email: '', cfeAmbiente: 'test' as 'test' | 'produccion',
     emisorRut: '', sucursalDefault: 1, limiteEfectivoCaja: '',
     loyaltyActivo: false, loyaltyAcumulaCada: '', loyaltyValorPunto: '',
+    tiendaOnlineActiva: false,
   });
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export function SettingsPage() {
           loyaltyActivo: data.loyaltyActivo,
           loyaltyAcumulaCada: data.loyaltyAcumulaCada ? String(data.loyaltyAcumulaCada) : '',
           loyaltyValorPunto: data.loyaltyValorPunto ? String(data.loyaltyValorPunto) : '',
+          tiendaOnlineActiva: data.tiendaOnlineActiva,
         });
       })
       .catch((e) => { const m = e instanceof Error ? e.message : String(e); setError(m); toast.error(m); });
@@ -145,6 +147,19 @@ export function SettingsPage() {
           </div>
         )}
         <p className="hint">Ej.: acumula cada $100 y punto = $1 → una compra de $500 da 5 puntos, y 100 puntos valen $100 al canjear en la caja. El cliente debe estar identificado.</p>
+      </section>
+
+      <section className="panel">
+        <div className="panel__head"><h2>Tienda online</h2></div>
+        <label className="field field--check">
+          <input type="checkbox" checked={f.tiendaOnlineActiva} onChange={(e) => setF({ ...f, tiendaOnlineActiva: e.target.checked })} />
+          Activar tienda online (e-commerce público)
+        </label>
+        <p className="hint">
+          Publica tu catálogo online para que tus clientes vean los productos marcados como
+          <strong> visibles online</strong> (en la ficha de cada producto). Los pedidos y el envío a domicilio
+          se habilitan en los próximos módulos.
+        </p>
       </section>
 
       <section className="panel">

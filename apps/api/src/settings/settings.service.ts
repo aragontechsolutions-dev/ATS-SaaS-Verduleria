@@ -34,6 +34,7 @@ export class SettingsService {
       loyaltyActivo: tenant.loyaltyActivo,
       loyaltyAcumulaCada: Number(tenant.loyaltyAcumulaCada),
       loyaltyValorPunto: Number(tenant.loyaltyValorPunto),
+      tiendaOnlineActiva: tenant.tiendaOnlineActiva,
       cfe: tenant.cfeConfig
         ? {
             provider: tenant.cfeConfig.provider,
@@ -69,6 +70,7 @@ export class SettingsService {
         ...(dto.loyaltyActivo !== undefined ? { loyaltyActivo: dto.loyaltyActivo } : {}),
         ...(dto.loyaltyAcumulaCada !== undefined ? { loyaltyAcumulaCada: new Prisma.Decimal(dto.loyaltyAcumulaCada) } : {}),
         ...(dto.loyaltyValorPunto !== undefined ? { loyaltyValorPunto: new Prisma.Decimal(dto.loyaltyValorPunto) } : {}),
+        ...(dto.tiendaOnlineActiva !== undefined ? { tiendaOnlineActiva: dto.tiendaOnlineActiva } : {}),
       },
     });
 

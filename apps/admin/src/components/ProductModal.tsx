@@ -29,6 +29,9 @@ export function ProductModal({ product, categorias, canOverrideIva = false, onCl
   const [categoriaId, setCategoriaId] = useState(product?.categoriaId ?? '');
   const [plu, setPlu] = useState(product?.plu != null ? String(product.plu) : '');
   const [imagenUrl, setImagenUrl] = useState(product?.imagenUrl ?? '');
+  // Tienda online: se publica en el catálogo público del tenant.
+  const [visibleOnline, setVisibleOnline] = useState(product?.visibleOnline ?? false);
+  const [descripcionOnline, setDescripcionOnline] = useState(product?.descripcionOnline ?? '');
   // Reposición (solo edición): proveedor habitual y stock mínimo.
   const [proveedorId, setProveedorId] = useState(product?.proveedorId ?? '');
   const [stockMinimo, setStockMinimo] = useState(product?.stockMinimo != null ? String(product.stockMinimo) : '');
@@ -70,6 +73,9 @@ export function ProductModal({ product, categorias, canOverrideIva = false, onCl
       categoriaId: categoriaId || undefined,
       plu: plu ? parseInt(plu, 10) : undefined,
       imagenUrl: imagenUrl || undefined,
+      // Tienda online.
+      visibleOnline,
+      descripcionOnline: descripcionOnline.trim(),
       // Reposición: solo se envía al editar.
       ...(editing ? { proveedorId: proveedorId || '', stockMinimo: stockMinimo.trim() ? parseFloat(stockMinimo) : 0 } : {}),
       // IVA: solo ADMIN/CONTADOR mandan override; si no, lo asigna el motor.
@@ -193,6 +199,26 @@ export function ProductModal({ product, categorias, canOverrideIva = false, onCl
         <div className="field">
           <span>Foto del producto (se usa en tu web)</span>
           <ImageUpload value={imagenUrl} onChange={setImagenUrl} hint="Cuadrada, se ve mejor." />
+        </div>
+
+        {/* Tienda online: qué se publica en el catálogo público. */}
+        <div className="iva-box">
+          <div className="iva-box__head"><span>Tienda online</span></div>
+          <label className="field field--check">
+            <input type="checkbox" checked={visibleOnline} onChange={(e) => setVisibleOnline(e.target.checked)} />
+            Mostrar este producto en la tienda online
+          </label>
+          {visibleOnline && (
+            <label className="field">
+              Descripción para la web (opcional)
+              <textarea
+                value={descripcionOnline}
+                onChange={(e) => setDescripcionOnline(e.target.value)}
+                rows={2}
+                placeholder="Ej.: Tomate perita de estación, ideal para salsa."
+              />
+            </label>
+          )}
         </div>
 
         {error && <p className="err">{error}</p>}
