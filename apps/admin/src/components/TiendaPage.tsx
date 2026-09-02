@@ -4,6 +4,9 @@ import {
   deleteZone,
   getStoreConfig,
   saveStoreConfig,
+  telegramLink,
+  telegramTest,
+  telegramUnlink,
   updateZone,
 } from '../lib/api';
 import type { StoreConfig, StoreZone } from '../lib/api';
@@ -123,8 +126,68 @@ export function TiendaPage() {
         </div>
       </section>
 
+      <TelegramPanel cfg={cfg} onChange={setCfg} />
+
       <ZonesPanel zonas={cfg.zonas} onChange={setCfg} />
     </div>
+  );
+}
+
+function TelegramPanel({ cfg, onChange }: { cfg: StoreConfig; onChange: (c: StoreConfig) => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+
+  async function refrescar() {
+    try { onChange(await getStoreConfig()); } catch { /* noop */ }
+  }
+
+  async function vincular() {
+    setBusy(true);
+    try {
+      const { deepLink } = await telegramLink();
+      window.open(deepLink, '_blank', 'noopener');
+      toast.info('Abrí el chat con el bot y tocá "Iniciar / Start". Después tocá "Actualizar estado".');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo generar el enlace');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function probar() {
+    try { await telegramTest(); toast.success('Mensaje de prueba enviado'); }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'No se pudo enviar'); }
+  }
+
+  async function desvincular() {
+    if (!confirm('¿Desvincular Telegram? Dejarás de recibir avisos de pedidos.')) return;
+    try { onChange(await telegramUnlink().then(() => getStoreConfig())); toast.success('Telegram desvinculado'); }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'No se pudo desvincular'); }
+  }
+
+  return (
+    <section className="panel">
+      <div className="panel__head"><h2>Avisos por Telegram</h2></div>
+      {!cfg.telegram.disponible ? (
+        <p className="hint">Las notificaciones por Telegram no están habilitadas en el sistema. Pedile al soporte de Aragon Tech Solutions que active el bot.</p>
+      ) : cfg.telegram.vinculado ? (
+        <>
+          <p className="hint">✅ <strong>Telegram vinculado.</strong> Te avisamos por ahí cada vez que entre un pedido nuevo.</p>
+          <div className="modal__actions" style={{ justifyContent: 'flex-start' }}>
+            <button className="btn btn--ghost btn--sm" onClick={() => void probar()}>Enviar prueba</button>
+            <button className="btn btn--ghost btn--sm" onClick={() => void desvincular()}>Desvincular</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="hint">Recibí un aviso en tu celular apenas entra un pedido. Tocá <strong>Vincular</strong>, abrí el chat con el bot, tocá <strong>Iniciar</strong> y volvé acá.</p>
+          <div className="modal__actions" style={{ justifyContent: 'flex-start' }}>
+            <button className="btn btn--primary btn--sm" onClick={() => void vincular()} disabled={busy}>Vincular Telegram</button>
+            <button className="btn btn--ghost btn--sm" onClick={() => void refrescar()}>Actualizar estado</button>
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 

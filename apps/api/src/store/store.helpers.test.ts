@@ -9,6 +9,7 @@ import {
   randomCodigo,
   recomputeOrder,
   round2,
+  telegramNewOrderText,
 } from './store.helpers.ts';
 import type { StoreProduct } from './store.service.ts';
 
@@ -91,6 +92,41 @@ test('puedeCambiarEstado: bloquea terminales', () => {
   assert.equal(puedeCambiarEstado('PREPARANDO'), true);
   assert.equal(puedeCambiarEstado('ENTREGADO'), false);
   assert.equal(puedeCambiarEstado('CANCELADO'), false);
+});
+
+test('telegramNewOrderText: arma el aviso con datos clave y escapa HTML', () => {
+  const txt = telegramNewOrderText({
+    numero: 12,
+    codigo: 'ABCD2345',
+    clienteNombre: 'Ana & Co',
+    clienteTelefono: '099111222',
+    tipoEntrega: 'DELIVERY',
+    zonaNombre: 'Centro',
+    franja: 'Hoy 16-18h',
+    direccion: 'Rivera 123',
+    total: 345.5,
+    items: [
+      { concepto: 'Tomate', unidad: 'KG', cantidad: 1.5 },
+      { concepto: 'Lechuga', unidad: 'UNIDAD', cantidad: 2 },
+    ],
+  });
+  assert.match(txt, /Nuevo pedido #12/);
+  assert.match(txt, /Ana &amp; Co/); // HTML escapado
+  assert.match(txt, /1\.500 kg/);
+  assert.match(txt, /×2/);
+  assert.match(txt, /Centro/);
+  assert.match(txt, /ABCD2345/);
+  assert.match(txt, /aprox\./); // hay pesable
+});
+
+test('telegramNewOrderText: pickup sin peso no dice aprox', () => {
+  const txt = telegramNewOrderText({
+    numero: 3, codigo: 'XYZ23456', clienteNombre: 'Beto', clienteTelefono: '091',
+    tipoEntrega: 'PICKUP', zonaNombre: null, franja: null, direccion: null,
+    total: 100, items: [{ concepto: 'Bandeja', unidad: 'BANDEJA', cantidad: 1 }],
+  });
+  assert.match(txt, /Retiro en el local/);
+  assert.doesNotMatch(txt, /aprox/);
 });
 
 test('randomCodigo: 8 caracteres sin I/L/O/0/1', () => {

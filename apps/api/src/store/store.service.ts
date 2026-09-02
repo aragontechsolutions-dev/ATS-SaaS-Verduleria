@@ -3,6 +3,7 @@ import { IvaIndicador, MedioPago, OnlineOrderEstado, Prisma, TipoEntrega, TipoLi
 import { PrismaService } from '../prisma/prisma.service';
 import { SalesService } from '../sales/sales.service';
 import { CfeService } from '../cfe/cfe.service';
+import { TelegramService } from './telegram.service';
 import {
   calcLine,
   cantidadEfectiva,
@@ -12,6 +13,7 @@ import {
   randomCodigo,
   recomputeOrder,
   round2,
+  telegramNewOrderText,
   type OrderLineCalc,
 } from './store.helpers';
 import type {
@@ -90,6 +92,7 @@ export class StoreService {
     private readonly prisma: PrismaService,
     private readonly sales: SalesService,
     private readonly cfe: CfeService,
+    private readonly telegram: TelegramService,
   ) {}
 
   /** Resuelve el tenant de una tienda activa por slug, o 404. */
@@ -230,7 +233,29 @@ export class StoreService {
       zonaNombre,
     });
 
+    // Aviso al tenant por Telegram (best-effort: no bloquea ni rompe el checkout).
+    await this.avisarPedidoNuevo(tenant.id, {
+      numero: order.numero,
+      codigo: order.codigo,
+      clienteNombre: dto.clienteNombre.trim(),
+      clienteTelefono: dto.clienteTelefono.trim(),
+      tipoEntrega: dto.tipoEntrega,
+      zonaNombre,
+      franja: dto.franja ?? null,
+      direccion: dto.direccion?.trim() || null,
+      total,
+      items: lines.map((l) => ({ concepto: l.concepto, unidad: l.unidad, cantidad: l.cantidad })),
+    });
+
     return { id: order.id, numero: order.numero, codigo: order.codigo, estado: order.estado, total };
+  }
+
+  /** Envía el aviso de pedido nuevo al Telegram del tenant, si está vinculado. */
+  private async avisarPedidoNuevo(tenantId: string, msg: Parameters<typeof telegramNewOrderText>[0]) {
+    if (!this.telegram.enabled) return;
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { telegramChatId: true } });
+    if (!tenant?.telegramChatId) return;
+    await this.telegram.sendMessage(tenant.telegramChatId, telegramNewOrderText(msg));
   }
 
   /** Resuelve las líneas del pedido validando productos y recalculando precios. */
@@ -361,7 +386,10 @@ export class StoreService {
 
   async getConfig(tenantId: string) {
     const [tenant, cfg, zonas] = await Promise.all([
-      this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { tiendaOnlineActiva: true, slug: true } }),
+      this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { tiendaOnlineActiva: true, slug: true, telegramChatId: true },
+      }),
       this.prisma.storeConfig.findUnique({ where: { tenantId } }),
       this.prisma.deliveryZone.findMany({ where: { tenantId }, orderBy: [{ orden: 'asc' }, { nombre: 'asc' }] }),
     ]);
@@ -372,6 +400,10 @@ export class StoreService {
       pickupActivo: cfg?.pickupActivo ?? DEFAULT_CONFIG.pickupActivo,
       franjas: this.franjasFromJson(cfg?.franjas),
       notaCheckout: cfg?.notaCheckout ?? '',
+      telegram: {
+        disponible: this.telegram.enabled,
+        vinculado: !!tenant?.telegramChatId,
+      },
       zonas: zonas.map((z) => ({
         id: z.id,
         nombre: z.nombre,
@@ -381,6 +413,71 @@ export class StoreService {
         orden: z.orden,
       })),
     };
+  }
+
+  // --- Telegram: vinculación y avisos ---------------------------------------
+
+  /** Genera un código y devuelve el deep link para vincular el Telegram del tenant. */
+  async telegramLink(tenantId: string) {
+    if (!this.telegram.enabled || !this.telegram.botUsername) {
+      throw new BadRequestException('Las notificaciones por Telegram no están configuradas en el sistema.');
+    }
+    const code = `${randomCodigo()}${randomCodigo()}`;
+    await this.prisma.tenant.update({ where: { id: tenantId }, data: { telegramLinkCode: code } });
+    return {
+      deepLink: `https://t.me/${this.telegram.botUsername}?start=${code}`,
+      botUsername: this.telegram.botUsername,
+    };
+  }
+
+  /** Envía un mensaje de prueba al Telegram vinculado. */
+  async telegramTest(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { telegramChatId: true, nombre: true } });
+    if (!tenant?.telegramChatId) throw new BadRequestException('Todavía no vinculaste tu Telegram.');
+    const ok = await this.telegram.sendMessage(tenant.telegramChatId, `✅ <b>${tenant.nombre}</b>\nLas notificaciones de pedidos están activas.`);
+    if (!ok) throw new BadRequestException('No se pudo enviar el mensaje de prueba.');
+    return { ok: true };
+  }
+
+  /** Desvincula el Telegram del tenant. */
+  async telegramUnlink(tenantId: string) {
+    await this.prisma.tenant.update({ where: { id: tenantId }, data: { telegramChatId: null, telegramLinkCode: null } });
+    return { vinculado: false };
+  }
+
+  /**
+   * Webhook entrante de Telegram. Vincula el chat cuando el usuario envía
+   * `/start <code>` (o el código suelto). Siempre responde ok para que Telegram
+   * no reintente. Valida el secreto de la ruta antes de procesar.
+   */
+  async handleTelegramWebhook(secret: string, update: unknown): Promise<{ ok: true }> {
+    if (!this.telegram.enabled || secret !== this.telegram.webhookSecret) return { ok: true };
+
+    const message = (update as { message?: { text?: string; chat?: { id?: number | string } } })?.message;
+    const text = message?.text?.trim();
+    const chatId = message?.chat?.id;
+    if (!text || chatId == null) return { ok: true };
+
+    // Extrae el código: "/start CODE" o el texto suelto.
+    const m = text.match(/^\/start(?:@\w+)?\s+(\S+)/) ?? text.match(/^(\S{8,})$/);
+    const code = m?.[1];
+    if (!code) {
+      await this.telegram.sendMessage(String(chatId), 'Para vincular tu verdulería, tocá el botón "Vincular Telegram" en el panel de administración.');
+      return { ok: true };
+    }
+
+    const tenant = await this.prisma.tenant.findUnique({ where: { telegramLinkCode: code }, select: { id: true, nombre: true } });
+    if (!tenant) {
+      await this.telegram.sendMessage(String(chatId), 'El código de vinculación no es válido o ya expiró. Generá uno nuevo desde el panel.');
+      return { ok: true };
+    }
+
+    await this.prisma.tenant.update({
+      where: { id: tenant.id },
+      data: { telegramChatId: String(chatId), telegramLinkCode: null },
+    });
+    await this.telegram.sendMessage(String(chatId), `✅ <b>${tenant.nombre}</b> quedó vinculada.\nTe voy a avisar acá cada vez que entre un pedido nuevo.`);
+    return { ok: true };
   }
 
   async saveConfig(tenantId: string, dto: SaveStoreConfigDto) {

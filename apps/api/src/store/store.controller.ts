@@ -35,6 +35,17 @@ export class PublicStoreController {
   }
 }
 
+/** Webhook entrante de Telegram — SIN autenticación (valida un secreto en la ruta). */
+@Controller('public/telegram')
+export class TelegramWebhookController {
+  constructor(private readonly store: StoreService) {}
+
+  @Post(':secret')
+  webhook(@Param('secret') secret: string, @Body() update: unknown) {
+    return this.store.handleTelegramWebhook(secret, update);
+  }
+}
+
 /** Gestión de la tienda (config + zonas) — solo el ADMIN del tenant. */
 @Controller('store')
 @UseGuards(TenantGuard, RolesGuard)
@@ -92,5 +103,22 @@ export class StoreAdminController {
   @Roles(Role.ADMIN, Role.ENCARGADO)
   pesaje(@CurrentTenant('tenantId') tenantId: string, @Param('id') id: string, @Body() dto: PesajeDto) {
     return this.store.pesaje(tenantId, id, dto);
+  }
+
+  // --- Telegram -------------------------------------------------------------
+
+  @Post('telegram/link')
+  telegramLink(@CurrentTenant('tenantId') tenantId: string) {
+    return this.store.telegramLink(tenantId);
+  }
+
+  @Post('telegram/test')
+  telegramTest(@CurrentTenant('tenantId') tenantId: string) {
+    return this.store.telegramTest(tenantId);
+  }
+
+  @Delete('telegram')
+  telegramUnlink(@CurrentTenant('tenantId') tenantId: string) {
+    return this.store.telegramUnlink(tenantId);
   }
 }
