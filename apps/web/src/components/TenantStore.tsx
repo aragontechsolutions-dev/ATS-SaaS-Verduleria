@@ -57,6 +57,7 @@ export function TenantStore({ slug }: { slug: string }) {
   const [session, setSession] = useState<Session | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     let vivo = true;
@@ -85,7 +86,7 @@ export function TenantStore({ slug }: { slug: string }) {
   const trackCodigo = new URLSearchParams(window.location.search).get('codigo');
   if (trackCodigo) return <TrackView slug={slug} codigo={trackCodigo} />;
 
-  if (s.e === 'load') return <div className="sh-center">Cargando tienda…</div>;
+  if (s.e === 'load') return <StoreSkeleton />;
   if (s.e === '404') {
     return (
       <div className="sh-center sh-404">
@@ -136,16 +137,12 @@ export function TenantStore({ slug }: { slug: string }) {
   return (
     <div className="sh" style={style}>
       <header className="sh-top">
-        <a className="sh-back" href={`/v/${encodeURIComponent(slug)}`}>‹ {cat.nombre}</a>
+        <a className="sh-back" href={`/v/${encodeURIComponent(slug)}`} aria-label="Volver">‹</a>
+        <span className="sh-top__name">{cat.nombre}</span>
         <div className="sh-top__right">
-          {step === 'shop' && cartCount > 0 && (
-            <button className="sh-cartbtn" onClick={() => setStep('checkout')}>
-              🛒 {cartCount} · {formatMoney(subtotal)}
-            </button>
-          )}
           {session ? (
             <button className="sh-acct" onClick={() => setOrdersOpen(true)} title="Mi cuenta">
-              👤 {session.customer.nombre.split(' ')[0]} · ⭐{session.customer.puntos}
+              👤 {session.customer.nombre.split(' ')[0]} <span className="sh-acct__pts">⭐{session.customer.puntos}</span>
             </button>
           ) : (
             <button className="sh-acct" onClick={() => setAuthOpen(true)}>Ingresar</button>
@@ -154,12 +151,19 @@ export function TenantStore({ slug }: { slug: string }) {
       </header>
 
       {step === 'shop' && (
-        <ShopView cat={cat} qty={qty} setQ={setQ} catFilter={catFilter} setCatFilter={setCatFilter} />
+        <ShopView
+          cat={cat} qty={qty} setQ={setQ}
+          catFilter={catFilter} setCatFilter={setCatFilter}
+          search={search} setSearch={setSearch}
+        />
       )}
       {step === 'shop' && cartCount > 0 && (
         <div className="sh-bar">
-          <span>{cartCount} {cartCount === 1 ? 'producto' : 'productos'} · <strong>{formatMoney(subtotal)}</strong> aprox.</span>
-          <button className="sh-btn sh-btn--primary" onClick={() => setStep('checkout')}>Hacer pedido</button>
+          <button className="sh-bar__btn" onClick={() => setStep('checkout')}>
+            <span className="sh-bar__count">{cartCount}</span>
+            <span>Ver pedido</span>
+            <span className="sh-bar__total">{formatMoney(subtotal)}</span>
+          </button>
         </div>
       )}
 
@@ -181,20 +185,44 @@ export function TenantStore({ slug }: { slug: string }) {
 
 // --- Catálogo ----------------------------------------------------------------
 
+// Normaliza para buscar sin acentos ni mayúsculas.
+const norm = (s: string) =>
+  [...s.normalize('NFD')].filter((ch) => { const c = ch.codePointAt(0)!; return c < 0x300 || c > 0x36f; }).join('').toLowerCase();
+
 function ShopView({
-  cat, qty, setQ, catFilter, setCatFilter,
+  cat, qty, setQ, catFilter, setCatFilter, search, setSearch,
 }: {
   cat: StoreCatalog;
   qty: Record<string, number>;
   setQ: (id: string, n: number) => void;
   catFilter: string | null;
   setCatFilter: (id: string | null) => void;
+  search: string;
+  setSearch: (v: string) => void;
 }) {
-  const productos = catFilter ? cat.productos.filter((p) => p.categoriaId === catFilter) : cat.productos;
+  const q = norm(search.trim());
+  const productos = cat.productos.filter((p) => {
+    if (catFilter && p.categoriaId !== catFilter) return false;
+    if (q && !(norm(p.nombre).includes(q) || (p.descripcionOnline && norm(p.descripcionOnline).includes(q)))) return false;
+    return true;
+  });
 
   return (
     <>
-      {cat.categorias.length > 1 && (
+      <div className="sh-search">
+        <span className="sh-search__ic" aria-hidden>🔍</span>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar productos…"
+          inputMode="search"
+        />
+        {search && <button className="sh-search__x" onClick={() => setSearch('')} aria-label="Limpiar">×</button>}
+      </div>
+
+      <InfoStrip cat={cat} />
+
+      {cat.categorias.length > 1 && !q && (
         <div className="sh-cats">
           <button className={`sh-chip ${!catFilter ? 'is-on' : ''}`} onClick={() => setCatFilter(null)}>Todo</button>
           {cat.categorias.map((c) => (
@@ -204,43 +232,92 @@ function ShopView({
           ))}
         </div>
       )}
+
       <div className="sh-grid">
         {productos.map((p) => <ProductCard key={p.id} p={p} cantidad={qty[p.id] ?? 0} setQ={setQ} />)}
       </div>
-      {productos.length === 0 && <p className="sh-empty">No hay productos en esta categoría.</p>}
+      {productos.length === 0 && (
+        <div className="sh-empty">
+          <div className="sh-empty__ic">{q ? '🔍' : '🥬'}</div>
+          <p>{q ? `Nada para “${search.trim()}”.` : 'No hay productos en esta categoría.'}</p>
+          {q && <button className="sh-btn" onClick={() => setSearch('')}>Ver todo</button>}
+        </div>
+      )}
     </>
+  );
+}
+
+function InfoStrip({ cat }: { cat: StoreCatalog }) {
+  const zonas = cat.zonas;
+  const items: string[] = [];
+  if (cat.config.deliveryActivo && zonas.length) {
+    const envioMin = Math.min(...zonas.map((z) => z.costoEnvio));
+    items.push(envioMin > 0 ? `🛵 Envío desde ${formatMoney(envioMin)}` : '🛵 Envío gratis');
+    const minPed = Math.min(...zonas.map((z) => z.pedidoMinimo).filter((m) => m > 0));
+    if (Number.isFinite(minPed)) items.push(`Mínimo ${formatMoney(minPed)}`);
+  }
+  if (cat.config.pickupActivo) items.push('🏪 Retiro en el local');
+  items.push('💵 Pagás al recibir');
+  if (cat.config.franjas.length) items.push(`⏰ ${cat.config.franjas.length} franjas`);
+
+  return (
+    <div className="sh-info">
+      {items.map((t, i) => <span className="sh-info__i" key={i}>{t}</span>)}
+    </div>
   );
 }
 
 function ProductCard({ p, cantidad, setQ }: { p: StoreProduct; cantidad: number; setQ: (id: string, n: number) => void }) {
   const peso = esPeso(p.unidadVenta);
   const paso = peso ? 0.25 : 1;
-  const inicial = peso ? 1 : 1;
   const enCarrito = cantidad > 0;
 
   return (
-    <div className={`sh-card ${!p.disponible ? 'is-out' : ''}`}>
+    <div className={`sh-card ${!p.disponible ? 'is-out' : ''} ${enCarrito ? 'is-in' : ''}`}>
       <div className="sh-card__img" style={p.imagenUrl ? { backgroundImage: `url(${p.imagenUrl})` } : undefined}>
         {!p.imagenUrl && <span className="sh-card__ph">🥬</span>}
         {!p.disponible && <span className="sh-card__out">Sin stock</span>}
+
+        {/* Control de compra flotante sobre la foto (patrón quick-commerce). */}
+        {p.disponible && (
+          enCarrito ? (
+            <div className="sh-qty">
+              <button onClick={() => setQ(p.id, cantidad - paso)} aria-label="Quitar">−</button>
+              <span>{peso ? `${cantidad.toFixed(3)}` : cantidad}<em>{peso ? 'kg' : ''}</em></span>
+              <button onClick={() => setQ(p.id, cantidad + paso)} aria-label="Agregar">+</button>
+            </div>
+          ) : (
+            <button className="sh-plus" onClick={() => setQ(p.id, 1)} aria-label={`Agregar ${p.nombre}`}>+</button>
+          )
+        )}
       </div>
       <div className="sh-card__body">
         <strong className="sh-card__name">{p.nombre}</strong>
         {p.descripcionOnline && <p className="sh-card__desc">{p.descripcionOnline}</p>}
-        <div className="sh-card__price">{formatMoney(p.precio)} <span>/{unidadCorta(p.unidadVenta)}</span></div>
+        <div className="sh-card__foot">
+          <span className="sh-card__price">{formatMoney(p.precio)}<span>/{unidadCorta(p.unidadVenta)}</span></span>
+          {enCarrito && <span className="sh-card__sub">{formatMoney(p.precio * cantidad)}{peso ? '~' : ''}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-        {!p.disponible ? (
-          <button className="sh-add" disabled>No disponible</button>
-        ) : !enCarrito ? (
-          <button className="sh-add" onClick={() => setQ(p.id, inicial)}>Agregar</button>
-        ) : (
-          <div className="sh-qty">
-            <button onClick={() => setQ(p.id, cantidad - paso)} aria-label="Quitar">−</button>
-            <span>{peso ? `${cantidad.toFixed(3)} kg` : `${cantidad}`}</span>
-            <button onClick={() => setQ(p.id, cantidad + paso)} aria-label="Agregar">+</button>
+function StoreSkeleton() {
+  return (
+    <div className="sh">
+      <header className="sh-top"><span className="sk sk-line" style={{ width: 120 }} /></header>
+      <div className="sh-search"><span className="sk sk-line" style={{ width: '100%', height: 20 }} /></div>
+      <div className="sh-grid">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div className="sh-card" key={i}>
+            <div className="sh-card__img sk" />
+            <div className="sh-card__body">
+              <span className="sk sk-line" style={{ width: '80%' }} />
+              <span className="sk sk-line" style={{ width: '40%' }} />
+            </div>
           </div>
-        )}
-        {enCarrito && <div className="sh-card__sub">{formatMoney(p.precio * cantidad)}{peso ? ' aprox.' : ''}</div>}
+        ))}
       </div>
     </div>
   );
