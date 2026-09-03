@@ -59,25 +59,28 @@ button { font: inherit; cursor: pointer; }
 /* Product grid */
 .grid-panel { display: flex; flex-direction: column; padding: 12px; min-height: 0; }
 .search {
-  padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius);
-  font-size: 16px; margin-bottom: 10px; outline: none;
+  padding: 13px 16px; border: 1px solid var(--border); border-radius: 14px;
+  font-size: 16px; margin-bottom: 10px; outline: none; background: var(--panel);
+  transition: border-color .12s, box-shadow .12s;
 }
-.search:focus { border-color: var(--green); }
+.search:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(18,140,126,.14); }
 .chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; }
 .chip {
-  padding: 6px 14px; border: 1px solid var(--border); background: var(--panel);
-  border-radius: 999px; white-space: nowrap; color: var(--muted);
+  padding: 8px 16px; border: 1px solid var(--border); background: var(--panel);
+  border-radius: 999px; white-space: nowrap; color: var(--text); font-weight: 600; font-size: 14px;
 }
 .chip--on { background: var(--green); color: #fff; border-color: var(--green); }
 .grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px; overflow-y: auto; padding: 4px; align-content: start;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 12px; overflow-y: auto; padding: 4px; align-content: start;
 }
 .tile {
   display: flex; flex-direction: column; gap: 6px; padding: 14px;
-  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
-  text-align: left; min-height: 92px; transition: transform .05s;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
+  text-align: left; min-height: 100px; box-shadow: 0 1px 2px rgba(20,40,34,.05);
+  transition: transform .05s, box-shadow .12s, border-color .12s;
 }
+.tile:hover { box-shadow: 0 4px 14px rgba(20,40,34,.10); }
 .tile:active { transform: scale(.97); border-color: var(--green); }
 .tile__name { font-weight: 600; line-height: 1.2; }
 .tile__price { font-size: 18px; color: var(--green-dark); font-weight: 700; margin-top: auto; }
@@ -402,16 +405,33 @@ button { font: inherit; cursor: pointer; }
 /* ===== Botones de la barra superior (acciones) ===== */
 .statusbar__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sbtn {
-  border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.14); color: #fff;
-  font-weight: 600; font-size: 13px; padding: 7px 12px; border-radius: 10px; white-space: nowrap;
-  transition: background .12s ease;
+  border: 1px solid rgba(255,255,255,.32); background: rgba(255,255,255,.14); color: #fff;
+  font-weight: 600; font-size: 14px; padding: 9px 14px; border-radius: 11px; white-space: nowrap;
+  min-height: 40px; display: inline-flex; align-items: center; gap: 6px;
+  transition: background .12s ease, transform .05s ease;
 }
 .sbtn:hover { background: rgba(255,255,255,.28); }
-.sbtn--accent { background: var(--accent); color: #14351a; border-color: transparent; }
+.sbtn:active { transform: scale(.96); }
+.sbtn--accent { background: var(--accent); color: #14351a; border-color: transparent; font-weight: 700; }
 .sbtn--accent:hover { background: var(--accent-dark); }
 .sbtn--cash { background: rgba(255,255,255,.28); }
 .sbtn--on { background: #e6f4ea; color: #1b7a3e; border-color: transparent; }
 .sbtn--ghost { background: transparent; }
+
+/* Menú "Más" (acciones secundarias del turno/caja) */
+.sbmenu { position: relative; display: inline-flex; }
+.sbmenu__pop {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 120;
+  background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(0,0,0,.22); padding: 6px; min-width: 250px; display: flex; flex-direction: column; gap: 2px;
+}
+.sbmenu__item {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 12px 12px; border: none; background: none; border-radius: 10px;
+  font-size: 15px; font-weight: 600; color: var(--text); cursor: pointer; min-height: 46px;
+}
+.sbmenu__item:hover { background: var(--surface); }
+.sbmenu__ic { width: 26px; text-align: center; font-size: 17px; }
 
 /* ===== Toasts con detalle ===== */
 .toasts { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 200; display: flex; flex-direction: column; gap: 8px; width: min(94vw, 420px); }
