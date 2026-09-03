@@ -37,6 +37,8 @@ export interface CatalogResponse {
   limiteEfectivoCaja: number | null;
   /** Fidelización: config de puntos para el canje en el POS. */
   loyalty: { activo: boolean; acumulaCada: number; valorPunto: number };
+  /** Seguridad de caja (PIN centralizado): hash + puertas. El POS lo cachea y exige offline. */
+  security: { pinHash: string | null; gates: Record<string, boolean> };
 }
 
 /**
@@ -55,7 +57,10 @@ export class CatalogService {
       }),
       this.prisma.tenant.findUnique({
         where: { id: tenantId },
-        select: { limiteEfectivoCaja: true, loyaltyActivo: true, loyaltyAcumulaCada: true, loyaltyValorPunto: true },
+        select: {
+          limiteEfectivoCaja: true, loyaltyActivo: true, loyaltyAcumulaCada: true, loyaltyValorPunto: true,
+          cajaPinHash: true, cajaGates: true,
+        },
       }),
     ]);
 
@@ -124,6 +129,21 @@ export class CatalogService {
         acumulaCada: Number(tenant?.loyaltyAcumulaCada ?? 0),
         valorPunto: Number(tenant?.loyaltyValorPunto ?? 0),
       },
+      security: {
+        pinHash: tenant?.cajaPinHash ?? null,
+        gates: normalizeCajaGates(tenant?.cajaGates),
+      },
     };
   }
+}
+
+/** Normaliza las puertas de seguridad a los 4 flags conocidos. */
+function normalizeCajaGates(raw: unknown): Record<string, boolean> {
+  const src = (raw ?? {}) as Record<string, unknown>;
+  return {
+    discount: !!src.discount,
+    price: !!src.price,
+    void: !!src.void,
+    return: !!src.return,
+  };
 }

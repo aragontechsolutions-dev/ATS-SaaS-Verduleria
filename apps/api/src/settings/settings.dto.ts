@@ -1,5 +1,5 @@
 import { RegimenFiscal } from '@ats/database';
-import { IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsNumber, IsObject, IsOptional, IsString, Length, Min } from 'class-validator';
 
 export class UpdateSettingsDto {
   @IsOptional()
@@ -58,6 +58,23 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsBoolean()
   tiendaOnlineActiva?: boolean;
+
+  // --- Seguridad de caja (PIN de supervisor) ---
+  /** Nuevo PIN (4-12 dígitos). Se hashea en el servidor. */
+  @IsOptional()
+  @IsString()
+  @Length(4, 12)
+  cajaPin?: string;
+
+  /** Quitar el PIN (y desactivar todas las puertas). */
+  @IsOptional()
+  @IsBoolean()
+  cajaPinClear?: boolean;
+
+  /** Qué acciones exigen PIN: { discount, price, void, return }. */
+  @IsOptional()
+  @IsObject()
+  cajaGates?: Record<string, boolean>;
 
   // --- Facturación electrónica (CFE) ---
   @IsOptional()

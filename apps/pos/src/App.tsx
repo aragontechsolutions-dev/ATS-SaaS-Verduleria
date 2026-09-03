@@ -544,7 +544,6 @@ function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void 
         onOpenOps={() => setOpsOpen(true)}
         onOpenPrice={openPriceCheck}
         onCobranza={() => setCobranzaOpen(true)}
-        onOpenSecurity={security.openSettings}
         onMovimiento={cash.session ? () => { setMovementInitial('EGRESO'); setMovingCash(true); } : undefined}
         onSangria={cash.session ? () => { setMovementInitial('SANGRIA'); setMovingCash(true); } : undefined}
         onRelevo={cash.session?.terminalId ? () => setRelevoOpen(true) : undefined}

@@ -149,6 +149,8 @@ export function SettingsPage() {
         <p className="hint">Ej.: acumula cada $100 y punto = $1 → una compra de $500 da 5 puntos, y 100 puntos valen $100 al canjear en la caja. El cliente debe estar identificado.</p>
       </section>
 
+      {s && <CajaSecurityPanel settings={s} onSaved={setS} />}
+
       <section className="panel">
         <div className="panel__head"><h2>Tienda online</h2></div>
         <label className="field field--check">
@@ -196,5 +198,96 @@ export function SettingsPage() {
         </button>
       </div>
     </form>
+  );
+}
+
+const GATE_LABELS: Array<[string, string]> = [
+  ['discount', 'Aplicar descuento'],
+  ['price', 'Cambiar el precio de una línea'],
+  ['void', 'Vaciar el carrito'],
+  ['return', 'Registrar devolución'],
+];
+
+/** Configuración centralizada del PIN de supervisor de las cajas. */
+function CajaSecurityPanel({ settings, onSaved }: { settings: Settings; onSaved: (s: Settings) => void }) {
+  const toast = useToast();
+  const seg = settings.cajaSeguridad;
+  const [pin, setPin] = useState('');
+  const [pin2, setPin2] = useState('');
+  const [gates, setGates] = useState<Record<string, boolean>>({ ...seg.gates });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const algunGate = Object.values(gates).some(Boolean);
+
+  async function guardar() {
+    setErr(null);
+    const cambiaPin = !!(pin || pin2);
+    if (cambiaPin) {
+      if (!/^\d{4,12}$/.test(pin)) return setErr('El PIN debe tener entre 4 y 12 dígitos.');
+      if (pin !== pin2) return setErr('Los PIN no coinciden.');
+    }
+    if (algunGate && !seg.tienePin && !cambiaPin) return setErr('Configurá un PIN para poder exigir autorización.');
+    setSaving(true);
+    try {
+      const data = await updateSettings({ ...(cambiaPin ? { cajaPin: pin } : {}), cajaGates: gates });
+      onSaved(data);
+      setPin(''); setPin2('');
+      toast.success('Seguridad de caja actualizada');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function quitar() {
+    if (!confirm('¿Quitar el PIN? Las cajas dejarán de pedir autorización.')) return;
+    try {
+      const data = await updateSettings({ cajaPinClear: true });
+      onSaved(data);
+      setGates({ ...data.cajaSeguridad.gates });
+      toast.success('PIN quitado');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo quitar el PIN');
+    }
+  }
+
+  return (
+    <section className="panel">
+      <div className="panel__head"><h2>Seguridad de caja</h2></div>
+      <p className="hint">
+        Definí un <strong>PIN de supervisor</strong> y qué acciones sensibles del POS lo exigen. Se aplica a
+        <strong> todas las cajas</strong> del negocio y funciona sin conexión. El cajero ya no lo configura en la caja.
+      </p>
+      <div className="form-grid">
+        <label className="field">{seg.tienePin ? 'Nuevo PIN' : 'PIN'}
+          <input type="password" inputMode="numeric" autoComplete="new-password" value={pin}
+            onChange={(e) => { setPin(e.target.value); setErr(null); }}
+            placeholder={seg.tienePin ? 'Dejar vacío = sin cambios' : '4 a 12 dígitos'} />
+        </label>
+        <label className="field">Repetir PIN
+          <input type="password" inputMode="numeric" autoComplete="new-password" value={pin2}
+            onChange={(e) => { setPin2(e.target.value); setErr(null); }} />
+        </label>
+      </div>
+      {seg.tienePin && <p className="hint">✅ Hay un PIN configurado. Dejá los campos vacíos para conservarlo.</p>}
+
+      <p className="hint" style={{ margin: '10px 0 4px' }}>Acciones que exigen PIN:</p>
+      {GATE_LABELS.map(([k, label]) => (
+        <label key={k} className="field field--check">
+          <input type="checkbox" checked={!!gates[k]} onChange={(e) => setGates((g) => ({ ...g, [k]: e.target.checked }))} />
+          {label}
+        </label>
+      ))}
+
+      {err && <div className="banner banner--err">{err}</div>}
+      <div className="modal__actions" style={{ justifyContent: 'flex-start' }}>
+        <button type="button" className="btn btn--primary" onClick={() => void guardar()} disabled={saving}>
+          {saving ? 'Guardando…' : 'Guardar seguridad'}
+        </button>
+        {seg.tienePin && <button type="button" className="btn btn--ghost" onClick={() => void quitar()}>Quitar PIN</button>}
+      </div>
+    </section>
   );
 }

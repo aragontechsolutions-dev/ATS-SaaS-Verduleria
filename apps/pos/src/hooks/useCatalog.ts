@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchCatalog } from '../lib/api';
 import { getCatalog, getCatalogMeta, saveCatalog } from '../lib/db';
+import { saveServerSecurity } from '../lib/security';
 import type { CatalogProduct } from '../lib/types';
 import type { Promo } from '../lib/promo';
 
@@ -56,6 +57,8 @@ export function useCatalog(): CatalogState {
       setUpdatedAt(remote.updatedAt);
       setLimite(limite);
       setLoyalty(remote.loyalty ?? { activo: false, acumulaCada: 0, valorPunto: 0 });
+      // Cachea la seguridad de caja (PIN centralizado) para exigirla offline.
+      saveServerSecurity(remote.security);
       setFromCache(false);
     } catch {
       setFromCache(true); // sin conexión: nos quedamos con el cache local
