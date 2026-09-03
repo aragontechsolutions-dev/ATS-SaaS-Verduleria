@@ -47,6 +47,8 @@ export interface AppConfig {
   /** Dominio público del sitio de landings (apps/web), ej. https://ats-web.vercel.app. */
   webUrl: string;
   telegram: TelegramConfig;
+  /** Secreto para firmar los tokens de los clientes de la tienda online. */
+  customerJwtSecret: string;
 }
 
 export default (): AppConfig => ({
@@ -77,4 +79,7 @@ export default (): AppConfig => ({
     botUsername: (process.env.TELEGRAM_BOT_USERNAME ?? '').replace(/^@/, ''),
     webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET ?? '',
   },
+  // Sin var propia, cae al service-role de Supabase (secreto fuerte ya presente).
+  customerJwtSecret:
+    process.env.CUSTOMER_JWT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'ats-dev-customer-secret',
 });

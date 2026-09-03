@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { OnlineOrderEstado, Role } from '@ats/database';
 import { CurrentTenant } from '../tenant/current-tenant.decorator';
 import { TenantGuard } from '../tenant/tenant.guard';
 import { RolesGuard } from '../tenant/roles.guard';
 import { Roles } from '../tenant/roles.decorator';
 import { StoreService } from './store.service';
+import { CustomerService } from './customer.service';
 import {
   CreateOrderDto,
   CreateZoneDto,
@@ -13,11 +14,15 @@ import {
   SetEstadoDto,
   UpdateZoneDto,
 } from './store.dto';
+import { AddressDto, LoginDto, RegisterDto } from './customer.dto';
 
 /** Tienda online pública por slug — SIN autenticación (la consume la web pública). */
 @Controller('public/tienda')
 export class PublicStoreController {
-  constructor(private readonly store: StoreService) {}
+  constructor(
+    private readonly store: StoreService,
+    private readonly customers: CustomerService,
+  ) {}
 
   @Get(':slug/catalogo')
   catalogo(@Param('slug') slug: string) {
@@ -25,13 +30,69 @@ export class PublicStoreController {
   }
 
   @Post(':slug/pedido')
-  crearPedido(@Param('slug') slug: string, @Body() dto: CreateOrderDto) {
-    return this.store.createOrder(slug, dto);
+  async crearPedido(
+    @Param('slug') slug: string,
+    @Body() dto: CreateOrderDto,
+    @Headers('authorization') auth?: string,
+  ) {
+    // Si viene con sesión de cliente válida, el pedido se vincula a su cuenta.
+    const tenantId = await this.store.resolveActiveTenantId(slug);
+    const customer = this.customers.verify(auth, tenantId);
+    return this.store.createOrder(slug, dto, customer?.customerId);
   }
 
   @Get(':slug/pedido/:codigo')
   seguirPedido(@Param('slug') slug: string, @Param('codigo') codigo: string) {
     return this.store.getOrderByCodigo(slug, codigo);
+  }
+}
+
+/** Cuentas de clientes de la tienda online (registro/login/cuenta) — auth propia por token. */
+@Controller('public/tienda')
+export class PublicCustomerController {
+  constructor(
+    private readonly store: StoreService,
+    private readonly customers: CustomerService,
+  ) {}
+
+  @Post(':slug/cuenta/registro')
+  async registro(@Param('slug') slug: string, @Body() dto: RegisterDto) {
+    const tenantId = await this.store.resolveActiveTenantId(slug);
+    return this.customers.register(tenantId, dto);
+  }
+
+  @Post(':slug/cuenta/login')
+  async login(@Param('slug') slug: string, @Body() dto: LoginDto) {
+    const tenantId = await this.store.resolveActiveTenantId(slug);
+    return this.customers.login(tenantId, dto);
+  }
+
+  @Get(':slug/cuenta')
+  async cuenta(@Param('slug') slug: string, @Headers('authorization') auth?: string) {
+    const tenantId = await this.store.resolveActiveTenantId(slug);
+    const { customerId } = this.customers.requireCustomer(auth, tenantId);
+    return this.customers.getAccount(tenantId, customerId);
+  }
+
+  @Post(':slug/cuenta/direcciones')
+  async addDireccion(@Param('slug') slug: string, @Body() dto: AddressDto, @Headers('authorization') auth?: string) {
+    const tenantId = await this.store.resolveActiveTenantId(slug);
+    const { customerId } = this.customers.requireCustomer(auth, tenantId);
+    return this.customers.addAddress(tenantId, customerId, dto);
+  }
+
+  @Delete(':slug/cuenta/direcciones/:id')
+  async delDireccion(@Param('slug') slug: string, @Param('id') id: string, @Headers('authorization') auth?: string) {
+    const tenantId = await this.store.resolveActiveTenantId(slug);
+    const { customerId } = this.customers.requireCustomer(auth, tenantId);
+    return this.customers.deleteAddress(tenantId, customerId, id);
+  }
+
+  @Get(':slug/mis-pedidos')
+  async misPedidos(@Param('slug') slug: string, @Headers('authorization') auth?: string) {
+    const tenantId = await this.store.resolveActiveTenantId(slug);
+    const { customerId } = this.customers.requireCustomer(auth, tenantId);
+    return this.customers.myOrders(tenantId, customerId);
   }
 }
 

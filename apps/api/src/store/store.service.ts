@@ -95,6 +95,12 @@ export class StoreService {
     private readonly telegram: TelegramService,
   ) {}
 
+  /** Id del tenant de una tienda activa por slug (para los endpoints de cuenta). */
+  async resolveActiveTenantId(slug: string): Promise<string> {
+    const t = await this.tiendaActiva(slug);
+    return t.id;
+  }
+
   /** Resuelve el tenant de una tienda activa por slug, o 404. */
   private async tiendaActiva(slug: string) {
     const tenant = await this.prisma.tenant.findFirst({
@@ -176,8 +182,8 @@ export class StoreService {
     };
   }
 
-  /** Crea un pedido de la tienda online (checkout de invitado). */
-  async createOrder(slug: string, dto: CreateOrderDto) {
+  /** Crea un pedido de la tienda online (invitado, o cliente logueado si viene customerId). */
+  async createOrder(slug: string, dto: CreateOrderDto, customerId?: string) {
     const tenant = await this.tiendaActiva(slug);
     const cfg = await this.prisma.storeConfig.findUnique({ where: { tenantId: tenant.id } });
     const deliveryActivo = cfg?.deliveryActivo ?? DEFAULT_CONFIG.deliveryActivo;
@@ -223,6 +229,13 @@ export class StoreService {
 
     const total = round2(subtotal + costoEnvio);
 
+    // Cliente logueado: verifica que pertenezca a este tenant.
+    let validCustomerId: string | null = null;
+    if (customerId) {
+      const c = await this.prisma.customer.findFirst({ where: { id: customerId, tenantId: tenant.id }, select: { id: true } });
+      validCustomerId = c?.id ?? null;
+    }
+
     const order = await this.insertOrderWithNumero(tenant.id, {
       dto,
       lines,
@@ -231,7 +244,19 @@ export class StoreService {
       total,
       zonaId,
       zonaNombre,
+      customerId: validCustomerId,
     });
+
+    // Cliente logueado + envío: guarda la dirección si pidió guardarla y es nueva.
+    if (validCustomerId && dto.guardarDireccion && dto.tipoEntrega === TipoEntrega.DELIVERY && dto.direccion?.trim()) {
+      const dir = dto.direccion.trim();
+      const ya = await this.prisma.customerAddress.findFirst({ where: { customerId: validCustomerId, direccion: dir } });
+      if (!ya) {
+        await this.prisma.customerAddress.create({
+          data: { tenantId: tenant.id, customerId: validCustomerId, etiqueta: zonaNombre || 'Casa', direccion: dir },
+        });
+      }
+    }
 
     // Aviso al tenant por Telegram (best-effort: no bloquea ni rompe el checkout).
     await this.avisarPedidoNuevo(tenant.id, {
@@ -294,9 +319,10 @@ export class StoreService {
       total: number;
       zonaId: string | null;
       zonaNombre: string | null;
+      customerId: string | null;
     },
   ) {
-    const { dto, lines, subtotal, costoEnvio, total, zonaId, zonaNombre } = data;
+    const { dto, lines, subtotal, costoEnvio, total, zonaId, zonaNombre, customerId } = data;
     for (let intento = 0; intento < 5; intento++) {
       const last = await this.prisma.onlineOrder.findFirst({
         where: { tenantId },
@@ -311,6 +337,7 @@ export class StoreService {
             numero,
             codigo: randomCodigo(),
             tipoEntrega: dto.tipoEntrega,
+            customerId,
             zonaId,
             zonaNombre,
             franja: dto.franja ?? null,

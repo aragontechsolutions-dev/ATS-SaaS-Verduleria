@@ -1,18 +1,42 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
+  addAddress,
   createOrder,
+  deleteAddress,
+  getAccount,
+  getMyOrders,
   getOrder,
   getStoreCatalog,
+  loginCustomer,
   NotFoundError,
+  registerCustomer,
+  type AccountView,
   type CreateOrderInput,
+  type CustomerAddress,
+  type MyOrder,
   type OrderResult,
   type OrderView,
   type StoreCatalog,
+  type StoreCustomer,
   type StoreProduct,
   type TipoEntrega,
 } from '../lib/api';
 import { esPeso, formatMoney, unidadCorta } from '../lib/format';
+
+export interface Session {
+  token: string;
+  customer: StoreCustomer;
+  direcciones: CustomerAddress[];
+}
+
+function tokenKey(slug: string) { return `ats.store.token.${slug}`; }
+function loadToken(slug: string): string | null {
+  try { return localStorage.getItem(tokenKey(slug)); } catch { return null; }
+}
+function saveToken(slug: string, token: string | null) {
+  try { if (token) localStorage.setItem(tokenKey(slug), token); else localStorage.removeItem(tokenKey(slug)); } catch { /* noop */ }
+}
 
 const ESTADO_LABEL: Record<string, string> = {
   NUEVO: 'Recibido', CONFIRMADO: 'Confirmado', PREPARANDO: 'En preparación',
@@ -30,12 +54,26 @@ export function TenantStore({ slug }: { slug: string }) {
   const [step, setStep] = useState<Step>('shop');
   const [catFilter, setCatFilter] = useState<string | null>(null);
   const [order, setOrder] = useState<OrderResult | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [ordersOpen, setOrdersOpen] = useState(false);
 
   useEffect(() => {
     let vivo = true;
     getStoreCatalog(slug)
       .then((data) => vivo && setS({ e: 'ok', data }))
       .catch((err) => vivo && setS({ e: err instanceof NotFoundError ? '404' : 'error' }));
+    return () => { vivo = false; };
+  }, [slug]);
+
+  // Sesión del cliente: si hay token guardado, recupera la cuenta.
+  useEffect(() => {
+    const token = loadToken(slug);
+    if (!token) return;
+    let vivo = true;
+    getAccount(slug, token)
+      .then((acc) => { if (vivo) setSession({ token, customer: acc.customer, direcciones: acc.direcciones }); })
+      .catch(() => { saveToken(slug, null); });
     return () => { vivo = false; };
   }, [slug]);
 
@@ -73,21 +111,46 @@ export function TenantStore({ slug }: { slug: string }) {
   }
 
   async function confirmar(input: CreateOrderInput) {
-    const res = await createOrder(slug, input);
+    const res = await createOrder(slug, input, session?.token);
     setOrder(res);
     setQty({});
     setStep('done');
+    // Si guardó una dirección o sumó puntos, refrescamos la cuenta.
+    if (session) getAccount(slug, session.token).then((acc) => setSession({ token: session.token, customer: acc.customer, direcciones: acc.direcciones })).catch(() => {});
+  }
+
+  function onAuthed(token: string, customer: StoreCustomer) {
+    saveToken(slug, token);
+    setAuthOpen(false);
+    getAccount(slug, token)
+      .then((acc) => setSession({ token, customer: acc.customer, direcciones: acc.direcciones }))
+      .catch(() => setSession({ token, customer, direcciones: [] }));
+  }
+
+  function logout() {
+    saveToken(slug, null);
+    setSession(null);
+    setOrdersOpen(false);
   }
 
   return (
     <div className="sh" style={style}>
       <header className="sh-top">
         <a className="sh-back" href={`/v/${encodeURIComponent(slug)}`}>‹ {cat.nombre}</a>
-        {step === 'shop' && cartCount > 0 && (
-          <button className="sh-cartbtn" onClick={() => setStep('checkout')}>
-            🛒 {cartCount} · {formatMoney(subtotal)}
-          </button>
-        )}
+        <div className="sh-top__right">
+          {step === 'shop' && cartCount > 0 && (
+            <button className="sh-cartbtn" onClick={() => setStep('checkout')}>
+              🛒 {cartCount} · {formatMoney(subtotal)}
+            </button>
+          )}
+          {session ? (
+            <button className="sh-acct" onClick={() => setOrdersOpen(true)} title="Mi cuenta">
+              👤 {session.customer.nombre.split(' ')[0]} · ⭐{session.customer.puntos}
+            </button>
+          ) : (
+            <button className="sh-acct" onClick={() => setAuthOpen(true)}>Ingresar</button>
+          )}
+        </div>
       </header>
 
       {step === 'shop' && (
@@ -101,11 +164,16 @@ export function TenantStore({ slug }: { slug: string }) {
       )}
 
       {step === 'checkout' && (
-        <CheckoutView cat={cat} lines={lines} subtotal={subtotal} onBack={() => setStep('shop')} onConfirm={confirmar} />
+        <CheckoutView cat={cat} lines={lines} subtotal={subtotal} session={session} onBack={() => setStep('shop')} onConfirm={confirmar} />
       )}
 
       {step === 'done' && order && (
         <Confirmation order={order} slug={slug} onMore={() => { setOrder(null); setStep('shop'); }} />
+      )}
+
+      {authOpen && <AuthModal slug={slug} onClose={() => setAuthOpen(false)} onAuthed={onAuthed} />}
+      {ordersOpen && session && (
+        <AccountModal slug={slug} session={session} onClose={() => setOrdersOpen(false)} onLogout={logout} />
       )}
     </div>
   );
@@ -181,11 +249,12 @@ function ProductCard({ p, cantidad, setQ }: { p: StoreProduct; cantidad: number;
 // --- Checkout ----------------------------------------------------------------
 
 function CheckoutView({
-  cat, lines, subtotal, onBack, onConfirm,
+  cat, lines, subtotal, session, onBack, onConfirm,
 }: {
   cat: StoreCatalog;
   lines: Array<{ product: StoreProduct; cantidad: number }>;
   subtotal: number;
+  session: Session | null;
   onBack: () => void;
   onConfirm: (input: CreateOrderInput) => Promise<void>;
 }) {
@@ -194,12 +263,19 @@ function CheckoutView({
   const [tipo, setTipo] = useState<TipoEntrega>(puedeDelivery ? 'DELIVERY' : 'PICKUP');
   const [zonaId, setZonaId] = useState(cat.zonas[0]?.id ?? '');
   const [franja, setFranja] = useState(cat.config.franjas[0] ?? '');
-  const [nombre, setNombre] = useState('');
-  const [telefono, setTelefono] = useState('');
-  const [direccion, setDireccion] = useState('');
+  const [nombre, setNombre] = useState(session?.customer.nombre ?? '');
+  const [telefono, setTelefono] = useState(session?.customer.telefono ?? '');
+  // Dirección: elegir una guardada o escribir una nueva.
+  const dirs = session?.direcciones ?? [];
+  const [dirSel, setDirSel] = useState<string>(dirs[0]?.id ?? 'nueva');
+  const [direccion, setDireccion] = useState(dirs[0]?.direccion ?? '');
+  const [guardarDir, setGuardarDir] = useState(false);
   const [notas, setNotas] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const usaGuardada = !!session && dirSel !== 'nueva';
+  const direccionFinal = usaGuardada ? (dirs.find((d) => d.id === dirSel)?.direccion ?? '') : direccion;
 
   const zona = cat.zonas.find((z) => z.id === zonaId) ?? null;
   const costoEnvio = tipo === 'DELIVERY' && zona ? zona.costoEnvio : 0;
@@ -221,8 +297,9 @@ function CheckoutView({
         franja: cat.config.franjas.length ? franja : undefined,
         clienteNombre: nombre.trim(),
         clienteTelefono: telefono.trim(),
-        direccion: tipo === 'DELIVERY' ? direccion.trim() : undefined,
+        direccion: tipo === 'DELIVERY' ? direccionFinal.trim() : undefined,
         notas: notas.trim() || undefined,
+        guardarDireccion: !!session && tipo === 'DELIVERY' && !usaGuardada && guardarDir,
         items: lines.map((l) => ({ productId: l.product.id, cantidad: l.cantidad })),
       });
     } catch (e2) {
@@ -270,9 +347,27 @@ function CheckoutView({
               ))}
             </select>
           </label>
-          <label className="sh-field">Dirección
-            <input value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder="Calle, número, apto, referencias" required />
-          </label>
+          {dirs.length > 0 && (
+            <label className="sh-field">Dirección guardada
+              <select value={dirSel} onChange={(e) => setDirSel(e.target.value)}>
+                {dirs.map((d) => <option key={d.id} value={d.id}>{d.etiqueta}: {d.direccion}</option>)}
+                <option value="nueva">Otra dirección…</option>
+              </select>
+            </label>
+          )}
+          {!usaGuardada && (
+            <>
+              <label className="sh-field">Dirección
+                <input value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder="Calle, número, apto, referencias" required />
+              </label>
+              {session && (
+                <label className="sh-check">
+                  <input type="checkbox" checked={guardarDir} onChange={(e) => setGuardarDir(e.target.checked)} />
+                  Guardar esta dirección en mi cuenta
+                </label>
+              )}
+            </>
+          )}
         </>
       )}
 
@@ -393,6 +488,124 @@ function Confirmation({ order, slug, onMore }: { order: OrderResult; slug: strin
       <div className="sh-done__actions">
         <a className="sh-btn" href={`/v/${encodeURIComponent(slug)}/tienda?codigo=${order.codigo}`}>Ver estado</a>
         <button className="sh-btn sh-btn--primary" onClick={onMore}>Hacer otro pedido</button>
+      </div>
+    </div>
+  );
+}
+
+// --- Cuenta del cliente ------------------------------------------------------
+
+function AuthModal({ slug, onClose, onAuthed }: { slug: string; onClose: () => void; onAuthed: (token: string, c: StoreCustomer) => void }) {
+  const [modo, setModo] = useState<'login' | 'registro'>('login');
+  const [nombre, setNombre] = useState('');
+  const [email, setEmail] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [password, setPassword] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null); setBusy(true);
+    try {
+      const r = modo === 'login'
+        ? await loginCustomer(slug, { email: email.trim(), password })
+        : await registerCustomer(slug, { nombre: nombre.trim(), email: email.trim(), telefono: telefono.trim() || undefined, password });
+      onAuthed(r.token, r.customer);
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : 'No se pudo continuar.');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="sh-modal-bg" onClick={onClose}>
+      <form className="sh-modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+        <div className="sh-seg">
+          <button type="button" className={modo === 'login' ? 'is-on' : ''} onClick={() => setModo('login')}>Ingresar</button>
+          <button type="button" className={modo === 'registro' ? 'is-on' : ''} onClick={() => setModo('registro')}>Crear cuenta</button>
+        </div>
+        <p className="sh-note">Con tu cuenta guardás tus direcciones, ves tus pedidos y sumás puntos.</p>
+        {modo === 'registro' && (
+          <>
+            <label className="sh-field">Nombre
+              <input value={nombre} onChange={(e) => setNombre(e.target.value)} required minLength={2} />
+            </label>
+            <label className="sh-field">Teléfono
+              <input value={telefono} onChange={(e) => setTelefono(e.target.value)} inputMode="tel" />
+            </label>
+          </>
+        )}
+        <label className="sh-field">Email
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </label>
+        <label className="sh-field">Contraseña
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+        </label>
+        {err && <p className="sh-err">{err}</p>}
+        <button className="sh-btn sh-btn--primary sh-btn--full" type="submit" disabled={busy}>
+          {busy ? 'Un momento…' : modo === 'login' ? 'Ingresar' : 'Crear cuenta'}
+        </button>
+        <button type="button" className="sh-linkback" onClick={onClose} style={{ marginTop: 8 }}>Cancelar</button>
+      </form>
+    </div>
+  );
+}
+
+function AccountModal({ slug, session, onClose, onLogout }: { slug: string; session: Session; onClose: () => void; onLogout: () => void }) {
+  const [acc, setAcc] = useState<AccountView>({ customer: session.customer, direcciones: session.direcciones });
+  const [pedidos, setPedidos] = useState<MyOrder[] | null>(null);
+  const [nuevaDir, setNuevaDir] = useState('');
+  const [etiqueta, setEtiqueta] = useState('Casa');
+
+  useEffect(() => {
+    getMyOrders(slug, session.token).then(setPedidos).catch(() => setPedidos([]));
+  }, [slug, session.token]);
+
+  async function agregar() {
+    if (nuevaDir.trim().length < 3) return;
+    try {
+      const a = await addAddress(slug, session.token, { etiqueta: etiqueta.trim() || 'Casa', direccion: nuevaDir.trim() });
+      setAcc(a); setNuevaDir('');
+    } catch { /* noop */ }
+  }
+  async function quitar(id: string) {
+    try { setAcc(await deleteAddress(slug, session.token, id)); } catch { /* noop */ }
+  }
+
+  return (
+    <div className="sh-modal-bg" onClick={onClose}>
+      <div className="sh-modal" onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ margin: '0 0 4px' }}>Hola, {acc.customer.nombre.split(' ')[0]}</h3>
+        <p className="sh-note">⭐ Tenés <strong>{acc.customer.puntos} puntos</strong>.</p>
+
+        <h4 className="sh-acct__h">Mis direcciones</h4>
+        {acc.direcciones.map((d) => (
+          <div className="sh-sumrow" key={d.id}>
+            <span><strong>{d.etiqueta}</strong> · {d.direccion}</span>
+            <button className="sh-linkback" onClick={() => void quitar(d.id)}>Quitar</button>
+          </div>
+        ))}
+        <div className="sh-addrow">
+          <input value={etiqueta} onChange={(e) => setEtiqueta(e.target.value)} placeholder="Etiqueta" style={{ maxWidth: 90 }} />
+          <input value={nuevaDir} onChange={(e) => setNuevaDir(e.target.value)} placeholder="Nueva dirección" />
+          <button className="sh-btn sh-btn--primary" onClick={() => void agregar()}>+</button>
+        </div>
+
+        <h4 className="sh-acct__h">Mis pedidos</h4>
+        {pedidos === null ? <p className="sh-note">Cargando…</p>
+          : pedidos.length === 0 ? <p className="sh-note">Todavía no hiciste pedidos.</p>
+          : pedidos.map((o) => (
+            <a className="sh-sumrow sh-orderlink" key={o.codigo} href={`/v/${encodeURIComponent(slug)}/tienda?codigo=${o.codigo}`}>
+              <span>#{o.numero} · {ESTADO_LABEL[o.estado] ?? o.estado}</span>
+              <span>{formatMoney(o.total)}</span>
+            </a>
+          ))}
+
+        <div className="sh-done__actions" style={{ marginTop: 16 }}>
+          <button className="sh-btn" onClick={onLogout}>Cerrar sesión</button>
+          <button className="sh-btn sh-btn--primary" onClick={onClose}>Volver a comprar</button>
+        </div>
       </div>
     </div>
   );

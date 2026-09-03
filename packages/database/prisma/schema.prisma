@@ -1083,6 +1083,11 @@ model Customer {
   /// Saldo de puntos de fidelización (ledger en LoyaltyMovement).
   puntos Int @default(0)
 
+  /// Cuenta creada por el cliente desde la tienda online (self-service).
+  esOnline Boolean @default(false)
+  /// Hash de la contraseña (bcrypt) para el login de la tienda online. Null = sin cuenta.
+  passwordHash String?
+
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
 
@@ -1093,9 +1098,27 @@ model Customer {
   loyaltyMovements LoyaltyMovement[]
   deliveryOrders DeliveryOrder[]
   onlineOrders OnlineOrder[]
+  addresses CustomerAddress[]
 
   @@index([tenantId])
   @@index([tenantId, esMayorista])
+  @@index([tenantId, email])
+}
+
+/// Dirección guardada por un cliente de la tienda online (para el checkout).
+model CustomerAddress {
+  id         String  @id @default(uuid()) @db.Uuid
+  tenantId   String  @db.Uuid
+  customerId String  @db.Uuid
+  etiqueta   String  // "Casa", "Trabajo", …
+  direccion  String
+  referencia String?
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([tenantId])
 }
 
 /// Movimiento del programa de fidelización: puntos ganados en una venta,

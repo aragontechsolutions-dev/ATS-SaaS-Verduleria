@@ -57,6 +57,11 @@ export class CreateOrderDto {
   @IsString()
   notas?: string;
 
+  /** Cliente logueado: guardar esta dirección en su cuenta. */
+  @IsOptional()
+  @IsBoolean()
+  guardarDireccion?: boolean;
+
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(200)

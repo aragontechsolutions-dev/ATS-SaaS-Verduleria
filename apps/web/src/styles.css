@@ -293,3 +293,15 @@ section { padding: 60px 0; }
 .sh-steps li::before { content: ''; position: absolute; left: 6px; top: 12px; width: 12px; height: 12px; border-radius: 50%; background: #ddd; }
 .sh-steps li.is-done { color: #1a1a1a; }
 .sh-steps li.is-done::before { background: var(--sh-accent); }
+
+/* ===== Tienda: cuenta del cliente ===== */
+.sh-top__right { display: flex; align-items: center; gap: 8px; }
+.sh-acct { border: 1px solid var(--sh-accent, #0F8A7C); background: #fff; color: var(--sh-accent, #0F8A7C); font-weight: 700; border-radius: 999px; padding: 7px 12px; cursor: pointer; font-size: 13px; white-space: nowrap; }
+.sh-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #444; margin-top: 8px; }
+.sh-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 20; }
+.sh-modal { background: #fff; border-radius: 16px; padding: 18px; width: 100%; max-width: 400px; max-height: 88vh; overflow-y: auto; }
+.sh-acct__h { margin: 16px 0 6px; font-size: 14px; }
+.sh-addrow { display: flex; gap: 6px; margin-top: 8px; }
+.sh-addrow input { flex: 1; border: 1px solid #ccc; border-radius: 9px; padding: 8px; font-size: 14px; }
+.sh-orderlink { text-decoration: none; color: inherit; border-bottom: 1px dashed #eee; }
+.sh-orderlink:hover { color: var(--sh-accent, #0F8A7C); }
