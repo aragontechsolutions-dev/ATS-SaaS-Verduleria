@@ -1,14 +1,33 @@
 import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import type { AppConfig } from '../config/configuration';
 import { RolesGuard } from '../tenant/roles.guard';
 import { SalesModule } from '../sales/sales.module';
 import { CfeModule } from '../cfe/cfe.module';
-import { PublicStoreController, StoreAdminController, TelegramWebhookController } from './store.controller';
+import {
+  PublicCustomerController,
+  PublicStoreController,
+  StoreAdminController,
+  TelegramWebhookController,
+} from './store.controller';
 import { StoreService } from './store.service';
 import { TelegramService } from './telegram.service';
+import { CustomerService } from './customer.service';
 
 @Module({
-  imports: [SalesModule, CfeModule],
-  controllers: [PublicStoreController, StoreAdminController, TelegramWebhookController],
-  providers: [StoreService, TelegramService, RolesGuard],
+  imports: [
+    SalesModule,
+    CfeModule,
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<AppConfig, true>) => ({
+        secret: config.get('customerJwtSecret', { infer: true }),
+        signOptions: { expiresIn: '60d' },
+      }),
+    }),
+  ],
+  controllers: [PublicStoreController, PublicCustomerController, StoreAdminController, TelegramWebhookController],
+  providers: [StoreService, TelegramService, CustomerService, RolesGuard],
 })
 export class StoreModule {}

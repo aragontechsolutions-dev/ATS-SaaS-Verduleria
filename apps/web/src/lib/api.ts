@@ -108,7 +108,95 @@ export interface CreateOrderInput {
   clienteTelefono: string;
   direccion?: string;
   notas?: string;
+  guardarDireccion?: boolean;
   items: Array<{ productId: string; cantidad: number }>;
+}
+
+// --- Cuenta del cliente (login opcional) ------------------------------------
+
+export interface StoreCustomer {
+  id: string;
+  nombre: string;
+  email: string | null;
+  telefono: string | null;
+  puntos: number;
+}
+
+export interface CustomerAddress {
+  id: string;
+  etiqueta: string;
+  direccion: string;
+  referencia: string | null;
+}
+
+export interface AccountView {
+  customer: StoreCustomer;
+  direcciones: CustomerAddress[];
+}
+
+export interface MyOrder {
+  numero: number;
+  codigo: string;
+  estado: string;
+  tipoEntrega: TipoEntrega;
+  total: number;
+  createdAt: string;
+}
+
+const authHeaders = (token: string) => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token}` });
+
+async function okJson<T>(res: Response): Promise<T> {
+  if (res.status === 401) throw new NotFoundError('Sesión inválida');
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string | string[] };
+    const msg = Array.isArray(body.message) ? body.message.join(' · ') : body.message;
+    throw new Error(msg || `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+export async function registerCustomer(slug: string, input: { nombre: string; email: string; telefono?: string; password: string }) {
+  return okJson<{ token: string; customer: StoreCustomer }>(
+    await fetch(`${API_BASE}/public/tienda/${encodeURIComponent(slug)}/cuenta/registro`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+    }),
+  );
+}
+
+export async function loginCustomer(slug: string, input: { email: string; password: string }) {
+  return okJson<{ token: string; customer: StoreCustomer }>(
+    await fetch(`${API_BASE}/public/tienda/${encodeURIComponent(slug)}/cuenta/login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+    }),
+  );
+}
+
+export async function getAccount(slug: string, token: string) {
+  return okJson<AccountView>(
+    await fetch(`${API_BASE}/public/tienda/${encodeURIComponent(slug)}/cuenta`, { headers: authHeaders(token) }),
+  );
+}
+
+export async function addAddress(slug: string, token: string, input: { etiqueta: string; direccion: string; referencia?: string }) {
+  return okJson<AccountView>(
+    await fetch(`${API_BASE}/public/tienda/${encodeURIComponent(slug)}/cuenta/direcciones`, {
+      method: 'POST', headers: authHeaders(token), body: JSON.stringify(input),
+    }),
+  );
+}
+
+export async function deleteAddress(slug: string, token: string, id: string) {
+  return okJson<AccountView>(
+    await fetch(`${API_BASE}/public/tienda/${encodeURIComponent(slug)}/cuenta/direcciones/${id}`, {
+      method: 'DELETE', headers: authHeaders(token),
+    }),
+  );
+}
+
+export async function getMyOrders(slug: string, token: string) {
+  return okJson<MyOrder[]>(
+    await fetch(`${API_BASE}/public/tienda/${encodeURIComponent(slug)}/mis-pedidos`, { headers: authHeaders(token) }),
+  );
 }
 
 export interface OrderResult {
@@ -120,10 +208,10 @@ export interface OrderResult {
 }
 
 /** Crea un pedido en la tienda online. Lanza Error con el mensaje del backend si falla. */
-export async function createOrder(slug: string, input: CreateOrderInput): Promise<OrderResult> {
+export async function createOrder(slug: string, input: CreateOrderInput, token?: string): Promise<OrderResult> {
   const res = await fetch(`${API_BASE}/public/tienda/${encodeURIComponent(slug)}/pedido`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: token ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } : { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
   if (!res.ok) {
