@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { formatMoney } from '../lib/format';
 import type { CashSession } from '../lib/types';
 
@@ -48,6 +49,15 @@ export function StatusBar({
   onCorteX,
   onLogout,
 }: Props) {
+  // Acciones secundarias (turno / caja / ajustes) agrupadas en un menú "Más".
+  const masItems: Array<{ icon: string; label: string; onClick: () => void }> = [];
+  if (cash && onMovimiento) masItems.push({ icon: '➕➖', label: 'Movimiento de efectivo', onClick: onMovimiento });
+  if (cash && onSangria) masItems.push({ icon: '🔻', label: 'Sangría (retiro a caja fuerte)', onClick: onSangria });
+  if (cash && onRelevo) masItems.push({ icon: '🔄', label: 'Relevo de cajero', onClick: onRelevo });
+  if (cash && onCorteX) masItems.push({ icon: '✂️', label: 'Corte X (resumen parcial)', onClick: onCorteX });
+  if (onCobranza) masItems.push({ icon: '💳', label: 'Cobrar cuenta corriente', onClick: onCobranza });
+  if (onOpenPrinter) masItems.push({ icon: '🖨️', label: 'Impresora / cajón', onClick: onOpenPrinter });
+
   return (
     <header className="statusbar">
       <div className="statusbar__brand">
@@ -71,34 +81,55 @@ export function StatusBar({
         ) : (
           <button className="sbtn sbtn--accent" onClick={onOpenCash}>🔒 Abrir caja</button>
         )}
-        {cash && onMovimiento && (
-          <button className="sbtn" onClick={onMovimiento} title="Ingreso / egreso de efectivo">➕➖ Movimiento</button>
-        )}
-        {cash && onSangria && (
-          <button className="sbtn" onClick={onSangria} title="Sangría: retirar efectivo del cajón a la caja fuerte">🔻 Sangría</button>
-        )}
-        {cash && onRelevo && (
-          <button className="sbtn" onClick={onRelevo} title="Relevo: cambiar de cajero sin cerrar la caja">🔄 Relevo</button>
-        )}
-        {cash && onCorteX && (
-          <button className="sbtn" onClick={onCorteX} title="Corte X (resumen parcial del turno)">✂️ Corte X</button>
-        )}
         {onOpenPrice && (
           <button className="sbtn" onClick={onOpenPrice} title="Consultar precio (F3)">🔎 Precio</button>
-        )}
-        {onCobranza && (
-          <button className="sbtn" onClick={onCobranza} title="Cobrar cuenta corriente">💳 Cta. cte.</button>
         )}
         <button className="sbtn" onClick={onOpenOps} title="Operaciones del turno">🧾 Operaciones</button>
         <button className={`sbtn ${scaleLive ? 'sbtn--on' : ''}`} onClick={onOpenScale} title="Balanza">
           ⚖ Balanza{scaleLive ? ' ●' : ''}
         </button>
-        {onOpenPrinter && (
-          <button className="sbtn" onClick={onOpenPrinter} title="Impresora / cajón">🖨</button>
-        )}
+        {masItems.length > 0 && <MoreMenu items={masItems} />}
         {userEmail && <span className="statusbar__tenant" title={userEmail}>{userEmail}</span>}
         <button className="sbtn sbtn--ghost" onClick={onLogout} title="Cerrar sesión">Salir</button>
       </div>
     </header>
+  );
+}
+
+/** Menú desplegable de acciones secundarias. */
+function MoreMenu({ items }: { items: Array<{ icon: string; label: string; onClick: () => void }> }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onEsc);
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onEsc); };
+  }, [open]);
+
+  return (
+    <div className="sbmenu" ref={ref}>
+      <button className={`sbtn ${open ? 'sbtn--on' : ''}`} onClick={() => setOpen((v) => !v)} aria-haspopup="true" aria-expanded={open}>
+        ⋯ Más
+      </button>
+      {open && (
+        <div className="sbmenu__pop" role="menu">
+          {items.map((it) => (
+            <button
+              key={it.label}
+              className="sbmenu__item"
+              role="menuitem"
+              onClick={() => { setOpen(false); it.onClick(); }}
+            >
+              <span className="sbmenu__ic" aria-hidden>{it.icon}</span>
+              {it.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
