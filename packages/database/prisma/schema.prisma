@@ -246,6 +246,10 @@ model Tenant {
   // --- Tienda online (e-commerce público) ---
   /// La tienda online está activa: el público puede ver el catálogo y (fase 2) pedir.
   tiendaOnlineActiva Boolean @default(false)
+  /// Chat de Telegram vinculado para avisar pedidos nuevos (null = sin vincular).
+  telegramChatId     String?
+  /// Código temporal de vinculación de Telegram (se limpia al vincular).
+  telegramLinkCode   String? @unique
 
   // Config de facturación (adaptador CFE)
   cfeConfig CfeTenantConfig?

@@ -26,6 +26,15 @@ export interface BillingConfig {
   autoSuspend: boolean;
 }
 
+export interface TelegramConfig {
+  /** Token del bot de Telegram (BotFather). Vacío = notificaciones deshabilitadas. */
+  botToken: string;
+  /** Username del bot (sin @), para armar el deep link de vinculación. */
+  botUsername: string;
+  /** Secreto que valida el webhook entrante de Telegram. */
+  webhookSecret: string;
+}
+
 export interface AppConfig {
   port: number;
   databaseUrl: string;
@@ -37,6 +46,7 @@ export interface AppConfig {
   cfePollingIntervalMs: number;
   /** Dominio público del sitio de landings (apps/web), ej. https://ats-web.vercel.app. */
   webUrl: string;
+  telegram: TelegramConfig;
 }
 
 export default (): AppConfig => ({
@@ -62,4 +72,9 @@ export default (): AppConfig => ({
   },
   cfePollingIntervalMs: Number(process.env.CFE_POLLING_INTERVAL_MS ?? 60_000),
   webUrl: (process.env.WEB_URL ?? '').replace(/\/+$/, ''),
+  telegram: {
+    botToken: process.env.TELEGRAM_BOT_TOKEN ?? '',
+    botUsername: (process.env.TELEGRAM_BOT_USERNAME ?? '').replace(/^@/, ''),
+    webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET ?? '',
+  },
 });

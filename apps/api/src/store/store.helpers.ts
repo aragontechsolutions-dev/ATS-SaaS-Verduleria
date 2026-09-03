@@ -50,6 +50,51 @@ export function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+const esPesoUnidad = (u: string): boolean => u === 'KG' || u === 'GRAMO';
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] ?? c));
+}
+
+const fmtMoneyTg = (n: number): string => `$${n.toLocaleString('es-UY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+export interface NewOrderMessage {
+  numero: number;
+  codigo: string;
+  clienteNombre: string;
+  clienteTelefono: string;
+  tipoEntrega: 'DELIVERY' | 'PICKUP';
+  zonaNombre: string | null;
+  franja: string | null;
+  direccion: string | null;
+  total: number;
+  items: Array<{ concepto: string; unidad: string; cantidad: number }>;
+}
+
+/** Arma el texto (HTML de Telegram) del aviso de un pedido nuevo. Puro/testeable. */
+export function telegramNewOrderText(o: NewOrderMessage): string {
+  const hayPeso = o.items.some((i) => esPesoUnidad(i.unidad));
+  const entrega =
+    o.tipoEntrega === 'DELIVERY'
+      ? `🛵 Envío${o.zonaNombre ? ` · ${escapeHtml(o.zonaNombre)}` : ''}`
+      : '🏪 Retiro en el local';
+  const lineas = o.items
+    .map((i) => `• ${escapeHtml(i.concepto)} <b>${esPesoUnidad(i.unidad) ? `${i.cantidad.toFixed(3)} kg` : `×${i.cantidad}`}</b>`)
+    .join('\n');
+
+  return [
+    `🛒 <b>Nuevo pedido #${o.numero}</b>`,
+    `${escapeHtml(o.clienteNombre)} · ${escapeHtml(o.clienteTelefono)}`,
+    `${entrega}${o.franja ? ` · ${escapeHtml(o.franja)}` : ''}`,
+    ...(o.tipoEntrega === 'DELIVERY' && o.direccion ? [`📍 ${escapeHtml(o.direccion)}`] : []),
+    '—',
+    lineas,
+    '—',
+    `<b>Total ${fmtMoneyTg(o.total)}${hayPeso ? ' aprox.' : ''}</b>`,
+    `Código: <code>${o.codigo}</code>`,
+  ].join('\n');
+}
+
 /** Cantidad efectiva de una línea: la real si ya se pesó, si no la estimada. */
 export function cantidadEfectiva(cantidad: number, cantidadReal: number | null | undefined): number {
   return cantidadReal != null ? cantidadReal : cantidad;

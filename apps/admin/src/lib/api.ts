@@ -737,6 +737,7 @@ export interface StoreConfig {
   pickupActivo: boolean;
   franjas: string[];
   notaCheckout: string;
+  telegram: { disponible: boolean; vinculado: boolean };
   zonas: StoreZone[];
 }
 
@@ -779,6 +780,24 @@ export const deleteZone = async (id: string) =>
   ok<StoreConfig>(
     await fetch(`${API_BASE}/store/zonas/${id}`, { method: 'DELETE', headers: headers() }),
     'deleteZone',
+  );
+
+export const telegramLink = async () =>
+  ok<{ deepLink: string; botUsername: string }>(
+    await fetch(`${API_BASE}/store/telegram/link`, { method: 'POST', headers: headers() }),
+    'telegramLink',
+  );
+
+export const telegramTest = async () =>
+  ok<{ ok: boolean }>(
+    await fetch(`${API_BASE}/store/telegram/test`, { method: 'POST', headers: headers() }),
+    'telegramTest',
+  );
+
+export const telegramUnlink = async () =>
+  ok<{ vinculado: boolean }>(
+    await fetch(`${API_BASE}/store/telegram`, { method: 'DELETE', headers: headers() }),
+    'telegramUnlink',
   );
 
 // --- Pedidos de la tienda online --------------------------------------------
