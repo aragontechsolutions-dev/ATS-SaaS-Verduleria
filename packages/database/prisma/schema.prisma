@@ -235,6 +235,13 @@ model Tenant {
   /// null o 0 = sin límite.
   limiteEfectivoCaja Decimal? @db.Decimal(14, 2)
 
+  // --- Seguridad de caja (PIN de supervisor, centralizado) ---
+  /// SHA-256 de "ats:<PIN>" del supervisor. null = sin PIN. Lo configura el admin;
+  /// el POS lo cachea y lo exige offline (no se configura por dispositivo).
+  cajaPinHash String?
+  /// Qué acciones del POS exigen el PIN: { discount, price, void, return }.
+  cajaGates   Json @default("{\"discount\":false,\"price\":false,\"void\":false,\"return\":false}")
+
   // --- Fidelización (puntos) ---
   /// Programa de puntos activo.
   loyaltyActivo      Boolean @default(false)

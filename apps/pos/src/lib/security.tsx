@@ -1,12 +1,13 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 // ============================================================================
-// Permisos por PIN (autorización de supervisor). Local por dispositivo: el PIN
-// se guarda HASHEADO en localStorage y se exige para acciones sensibles según
-// una configuración de puertas (gates). Funciona offline. No es criptografía
-// fuerte (un técnico con devtools puede sortearlo), pero es un control real
-// frente al cajero. Se puede migrar a verificación por usuario/rol más adelante.
+// Permisos por PIN (autorización de supervisor). El PIN se configura de forma
+// CENTRAL en el panel de administración (un PIN por negocio) y viaja al POS
+// dentro del catálogo. Acá se CACHEA (localStorage) y se EXIGE para acciones
+// sensibles según las puertas (gates), funcionando offline. El cajero ya no lo
+// configura en la caja. No es criptografía fuerte, pero es un control real
+// frente al cajero (que ya no puede quitarlo borrando el almacenamiento local).
 // ============================================================================
 
 export type SecurityGate = 'discount' | 'void' | 'return' | 'price';
@@ -19,6 +20,7 @@ export interface SecurityConfig {
 }
 
 const KEY = 'ats.pos.security';
+const EVENT = 'ats:security-updated';
 
 const DEFAULT_CONFIG: SecurityConfig = {
   pinHash: null,
@@ -43,9 +45,25 @@ export function loadSecurity(): SecurityConfig {
   }
 }
 
-function saveSecurity(c: SecurityConfig): void {
+/**
+ * Cachea la config de seguridad recibida del backend (dentro del catálogo) y
+ * avisa al provider para que la aplique en caliente. La fuente de verdad es el
+ * panel de administración; acá solo se guarda para poder exigir el PIN offline.
+ */
+export function saveServerSecurity(config: { pinHash: string | null; gates: Record<string, boolean> } | undefined): void {
+  if (!config) return;
+  const normalized: SecurityConfig = {
+    pinHash: config.pinHash ?? null,
+    gates: {
+      discount: !!config.gates?.discount,
+      void: !!config.gates?.void,
+      return: !!config.gates?.return,
+      price: !!config.gates?.price,
+    },
+  };
   try {
-    localStorage.setItem(KEY, JSON.stringify(c));
+    localStorage.setItem(KEY, JSON.stringify(normalized));
+    window.dispatchEvent(new Event(EVENT));
   } catch {
     /* localStorage no disponible: no crítico */
   }
@@ -62,8 +80,6 @@ interface SecurityApi {
   config: SecurityConfig;
   /** Exige PIN si la puerta está activa y hay PIN. Devuelve true si autorizado. */
   requireAuth: (gate: SecurityGate) => Promise<boolean>;
-  /** Abre la configuración de seguridad (pide PIN si ya hay uno). */
-  openSettings: () => void;
 }
 
 const Ctx = createContext<SecurityApi | null>(null);
@@ -71,10 +87,14 @@ const Ctx = createContext<SecurityApi | null>(null);
 export function SecurityProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<SecurityConfig>(() => loadSecurity());
   const [gate, setGate] = useState<{ reason: string } | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const resolver = useRef<((ok: boolean) => void) | null>(null);
 
-  const persist = useCallback((c: SecurityConfig) => { setConfig(c); saveSecurity(c); }, []);
+  // Aplica en caliente la config que el catálogo cachea al refrescarse.
+  useEffect(() => {
+    const onUpdate = () => setConfig(loadSecurity());
+    window.addEventListener(EVENT, onUpdate);
+    return () => window.removeEventListener(EVENT, onUpdate);
+  }, []);
 
   const prompt = useCallback((reason: string): Promise<boolean> => {
     return new Promise<boolean>((resolve) => {
@@ -98,23 +118,12 @@ export function SecurityProvider({ children }: { children: ReactNode }) {
     [config, prompt],
   );
 
-  const openSettings = useCallback(async () => {
-    if (config.pinHash) {
-      const ok = await prompt('Configuración de seguridad');
-      if (!ok) return;
-    }
-    setSettingsOpen(true);
-  }, [config.pinHash, prompt]);
-
-  const api = useMemo<SecurityApi>(() => ({ config, requireAuth, openSettings }), [config, requireAuth, openSettings]);
+  const api = useMemo<SecurityApi>(() => ({ config, requireAuth }), [config, requireAuth]);
 
   return (
     <Ctx.Provider value={api}>
       {children}
       {gate && <AuthGate reason={gate.reason} pinHash={config.pinHash} onResult={finish} />}
-      {settingsOpen && (
-        <SecuritySettingsModal config={config} onSave={persist} onClose={() => setSettingsOpen(false)} />
-      )}
     </Ctx.Provider>
   );
 }
@@ -164,83 +173,6 @@ function AuthGate({ reason, pinHash, onResult }: { reason: string; pinHash: stri
         <div className="modal__actions">
           <button className="btn btn--ghost" onClick={() => onResult(false)}>Cancelar</button>
           <button className="btn btn--primary" onClick={() => void verificar()} disabled={!pin || verificando}>Autorizar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const GATES: SecurityGate[] = ['discount', 'price', 'void', 'return'];
-
-/** Configura el PIN de supervisor y qué acciones lo requieren. */
-function SecuritySettingsModal({
-  config,
-  onSave,
-  onClose,
-}: {
-  config: SecurityConfig;
-  onSave: (c: SecurityConfig) => void;
-  onClose: () => void;
-}) {
-  const [pin, setPin] = useState('');
-  const [pin2, setPin2] = useState('');
-  const [gates, setGates] = useState<Record<SecurityGate, boolean>>({ ...config.gates });
-  const [error, setError] = useState<string | null>(null);
-  const tienePin = !!config.pinHash;
-
-  async function guardar() {
-    let pinHash = config.pinHash;
-    if (pin || pin2 || !tienePin) {
-      // Se está fijando o cambiando el PIN.
-      if (pin.length < 4) return setError('El PIN debe tener al menos 4 dígitos.');
-      if (pin !== pin2) return setError('Los PIN no coinciden.');
-      pinHash = await hashPin(pin);
-    }
-    if (!pinHash && Object.values(gates).some(Boolean)) {
-      return setError('Configurá un PIN para poder exigir autorización.');
-    }
-    onSave({ pinHash, gates });
-    onClose();
-  }
-
-  function quitarPin() {
-    onSave({ pinHash: null, gates: { discount: false, void: false, return: false, price: false } });
-    onClose();
-  }
-
-  return (
-    <div className="modal-backdrop modal-backdrop--top">
-      <div className="modal">
-        <h3>Seguridad · PIN de supervisor</h3>
-        <p className="modal__sub">
-          {tienePin ? 'Hay un PIN configurado. Dejá los campos vacíos para conservarlo.' : 'Definí un PIN para exigir autorización en acciones sensibles.'}
-        </p>
-
-        <div className="row2">
-          <label className="field">
-            {tienePin ? 'Nuevo PIN' : 'PIN'}
-            <input type="password" inputMode="numeric" autoComplete="off" value={pin} onChange={(e) => { setPin(e.target.value); setError(null); }} placeholder="4+ dígitos" />
-          </label>
-          <label className="field">
-            Repetir
-            <input type="password" inputMode="numeric" autoComplete="off" value={pin2} onChange={(e) => { setPin2(e.target.value); setError(null); }} />
-          </label>
-        </div>
-
-        <p className="modal__hint">Acciones que exigen PIN:</p>
-        {GATES.map((g) => (
-          <label key={g} className="chk-row">
-            <input type="checkbox" checked={gates[g]} onChange={(e) => setGates((x) => ({ ...x, [g]: e.target.checked }))} />
-            {GATE_LABEL[g]}
-          </label>
-        ))}
-
-        {error && <p className="modal__hint modal__hint--warn">{error}</p>}
-
-        <div className="modal__actions modal__actions--wrap">
-          {tienePin && <button className="btn btn--ghost" onClick={quitarPin}>Quitar PIN</button>}
-          <button className="btn btn--ghost" onClick={onClose}>Cancelar</button>
-          <button className="btn btn--primary" onClick={() => void guardar()}>Guardar</button>
         </div>
       </div>
     </div>

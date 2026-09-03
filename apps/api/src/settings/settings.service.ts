@@ -2,6 +2,18 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, RegimenFiscal } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import type { UpdateSettingsDto } from './settings.dto';
+import { GATES_OFF, hashCajaPin, normalizeGates } from './settings.security';
+
+/** Fragmento de update para el PIN/puertas de caja según el DTO. */
+function cajaSeguridadData(dto: UpdateSettingsDto): Prisma.TenantUpdateInput {
+  if (dto.cajaPinClear) {
+    return { cajaPinHash: null, cajaGates: { ...GATES_OFF } as Prisma.InputJsonValue };
+  }
+  const data: Prisma.TenantUpdateInput = {};
+  if (dto.cajaPin) data.cajaPinHash = hashCajaPin(dto.cajaPin);
+  if (dto.cajaGates !== undefined) data.cajaGates = normalizeGates(dto.cajaGates) as Prisma.InputJsonValue;
+  return data;
+}
 
 /** Deriva el proveedor CFE y cod_montos_brutos del régimen fiscal. */
 function fiscalDefaults(regimen: RegimenFiscal): { provider: string; codMontosBrutos: number } {
@@ -35,6 +47,11 @@ export class SettingsService {
       loyaltyAcumulaCada: Number(tenant.loyaltyAcumulaCada),
       loyaltyValorPunto: Number(tenant.loyaltyValorPunto),
       tiendaOnlineActiva: tenant.tiendaOnlineActiva,
+      cajaSeguridad: {
+        // Nunca devolvemos el hash al panel: solo si hay PIN y qué acciones lo exigen.
+        tienePin: !!tenant.cajaPinHash,
+        gates: normalizeGates(tenant.cajaGates),
+      },
       cfe: tenant.cfeConfig
         ? {
             provider: tenant.cfeConfig.provider,
@@ -71,6 +88,7 @@ export class SettingsService {
         ...(dto.loyaltyAcumulaCada !== undefined ? { loyaltyAcumulaCada: new Prisma.Decimal(dto.loyaltyAcumulaCada) } : {}),
         ...(dto.loyaltyValorPunto !== undefined ? { loyaltyValorPunto: new Prisma.Decimal(dto.loyaltyValorPunto) } : {}),
         ...(dto.tiendaOnlineActiva !== undefined ? { tiendaOnlineActiva: dto.tiendaOnlineActiva } : {}),
+        ...cajaSeguridadData(dto),
       },
     });
 

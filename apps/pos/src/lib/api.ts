@@ -95,6 +95,8 @@ export interface CatalogApiResponse {
   promos?: import('./promo').Promo[];
   limiteEfectivoCaja?: number | null;
   loyalty?: { activo: boolean; acumulaCada: number; valorPunto: number };
+  /** Seguridad de caja (PIN centralizado en el admin). */
+  security?: { pinHash: string | null; gates: Record<string, boolean> };
 }
 
 export async function fetchCatalog(): Promise<CatalogApiResponse> {

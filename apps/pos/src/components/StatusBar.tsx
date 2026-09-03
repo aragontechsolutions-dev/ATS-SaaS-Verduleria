@@ -18,7 +18,6 @@ interface Props {
   onOpenOps: () => void;
   onOpenPrice?: () => void;
   onCobranza?: () => void;
-  onOpenSecurity?: () => void;
   onMovimiento?: () => void;
   onSangria?: () => void;
   onRelevo?: () => void;
@@ -43,7 +42,6 @@ export function StatusBar({
   onOpenOps,
   onOpenPrice,
   onCobranza,
-  onOpenSecurity,
   onMovimiento,
   onSangria,
   onRelevo,
@@ -97,9 +95,6 @@ export function StatusBar({
         </button>
         {onOpenPrinter && (
           <button className="sbtn" onClick={onOpenPrinter} title="Impresora / cajón">🖨</button>
-        )}
-        {onOpenSecurity && (
-          <button className="sbtn" onClick={onOpenSecurity} title="Seguridad / PIN de supervisor">🔒</button>
         )}
         {userEmail && <span className="statusbar__tenant" title={userEmail}>{userEmail}</span>}
         <button className="sbtn sbtn--ghost" onClick={onLogout} title="Cerrar sesión">Salir</button>

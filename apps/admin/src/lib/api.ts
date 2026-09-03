@@ -710,6 +710,7 @@ export interface Settings {
   loyaltyAcumulaCada: number;
   loyaltyValorPunto: number;
   tiendaOnlineActiva: boolean;
+  cajaSeguridad: { tienePin: boolean; gates: Record<string, boolean> };
   cfe: {
     provider: string;
     ambiente: 'test' | 'produccion';
@@ -874,6 +875,9 @@ export interface SettingsInput {
   loyaltyAcumulaCada?: number;
   loyaltyValorPunto?: number;
   tiendaOnlineActiva?: boolean;
+  cajaPin?: string;
+  cajaPinClear?: boolean;
+  cajaGates?: Record<string, boolean>;
   cfeAmbiente?: 'test' | 'produccion';
   emisorRut?: string;
   sucursalDefault?: number;
