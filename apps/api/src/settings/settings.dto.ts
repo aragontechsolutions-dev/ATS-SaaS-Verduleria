@@ -89,4 +89,9 @@ export class UpdateSettingsDto {
   @IsInt()
   @Min(1)
   sucursalDefault?: number;
+
+  /** Activa/desactiva la emisión electrónica real (interruptor de seguridad). */
+  @IsOptional()
+  @IsBoolean()
+  cfeEmisionActiva?: boolean;
 }

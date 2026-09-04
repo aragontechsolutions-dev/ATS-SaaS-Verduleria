@@ -59,6 +59,7 @@ export class SettingsService {
             emisorRut: tenant.cfeConfig.emisorRut,
             sucursalDefault: tenant.cfeConfig.sucursalDefault,
             certificadoEstado: tenant.cfeConfig.certificadoEstado,
+            emisionActiva: tenant.cfeConfig.emisionActiva,
           }
         : null,
     };
@@ -98,11 +99,15 @@ export class SettingsService {
     const emisorRut = dto.emisorRut ?? dto.rut ?? tenant.cfeConfig?.emisorRut ?? tenant.rut ?? '';
     const ambiente = dto.cfeAmbiente ?? tenant.cfeConfig?.ambiente ?? 'test';
     const sucursalDefault = dto.sucursalDefault ?? tenant.cfeConfig?.sucursalDefault ?? 1;
+    // Emisión electrónica: solo se activa a mano. Si el régimen pasa a exento, se apaga.
+    const emisionActiva = provider === 'SIN_CFE'
+      ? false
+      : dto.cfeEmisionActiva ?? tenant.cfeConfig?.emisionActiva ?? false;
 
     await this.prisma.cfeTenantConfig.upsert({
       where: { tenantId },
-      update: { provider, ambiente, emisorRut, sucursalDefault, codMontosBrutos },
-      create: { tenantId, provider, ambiente, emisorRut, sucursalDefault, codMontosBrutos },
+      update: { provider, ambiente, emisorRut, sucursalDefault, codMontosBrutos, emisionActiva },
+      create: { tenantId, provider, ambiente, emisorRut, sucursalDefault, codMontosBrutos, emisionActiva },
     });
 
     return this.get(tenantId);

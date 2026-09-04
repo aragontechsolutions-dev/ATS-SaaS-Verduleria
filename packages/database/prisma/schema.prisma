@@ -336,6 +336,10 @@ model CfeTenantConfig {
   certificadoEstado     CertificadoEstado @default(SIN_CARGAR)
   certificadoVencimiento DateTime?
 
+  /// Interruptor de seguridad: solo se emite CFE real cuando el admin lo activa.
+  /// Mientras esté en false, las ventas generan ticket interno (no fiscal).
+  emisionActiva Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

@@ -24,7 +24,7 @@ export function SettingsPage() {
     direccion: '', telefono: '', email: '', cfeAmbiente: 'test' as 'test' | 'produccion',
     emisorRut: '', sucursalDefault: 1, limiteEfectivoCaja: '',
     loyaltyActivo: false, loyaltyAcumulaCada: '', loyaltyValorPunto: '',
-    tiendaOnlineActiva: false,
+    tiendaOnlineActiva: false, cfeEmisionActiva: false,
   });
 
   useEffect(() => {
@@ -47,6 +47,7 @@ export function SettingsPage() {
           loyaltyAcumulaCada: data.loyaltyAcumulaCada ? String(data.loyaltyAcumulaCada) : '',
           loyaltyValorPunto: data.loyaltyValorPunto ? String(data.loyaltyValorPunto) : '',
           tiendaOnlineActiva: data.tiendaOnlineActiva,
+          cfeEmisionActiva: data.cfe?.emisionActiva ?? false,
         });
       })
       .catch((e) => { const m = e instanceof Error ? e.message : String(e); setError(m); toast.error(m); });
@@ -187,8 +188,19 @@ export function SettingsPage() {
             </label>
           </div>
         )}
-        {s?.cfe && !exento && (
-          <p className="hint">Proveedor: {s.cfe.provider} · Certificado: {s.cfe.certificadoEstado}</p>
+        {!exento && (
+          <>
+            <label className="field field--check" style={{ marginTop: 8 }}>
+              <input type="checkbox" checked={f.cfeEmisionActiva} onChange={(e) => setF({ ...f, cfeEmisionActiva: e.target.checked })} />
+              Activar emisión electrónica (FEU)
+            </label>
+            <p className="hint">
+              Mientras esté <strong>desactivada</strong>, cada venta genera un <strong>ticket interno</strong> (no fiscal). Al activarla,
+              el POS emite <strong>CFE reales</strong> vía FEU con el RUT emisor. Ambiente actual:
+              <strong> {f.cfeAmbiente === 'produccion' ? 'Producción' : 'Prueba (test)'}</strong>
+              {s?.cfe ? <> · Proveedor: {s.cfe.provider} · Certificado: {s.cfe.certificadoEstado}</> : null}
+            </p>
+          </>
         )}
       </section>
 

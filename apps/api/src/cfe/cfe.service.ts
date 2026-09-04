@@ -77,8 +77,10 @@ export class CfeService {
     const cfeConfig = tenant.cfeConfig;
     const emisorRut = cfeConfig.emisorRut;
 
-    // Caso Monotributo / sin CFE → ticket interno no fiscal.
-    if (!requiereCfe(tenant.regimenFiscal, cfeConfig.provider)) {
+    // Ticket interno (no fiscal) cuando:
+    //  - el régimen está exceptuado de CFE (Monotributo / sin CFE), o
+    //  - el admin todavía no activó la emisión electrónica (interruptor de seguridad).
+    if (!requiereCfe(tenant.regimenFiscal, cfeConfig.provider) || !cfeConfig.emisionActiva) {
       return this.prisma.cfeDocument.upsert({
         where: { tenantId_idExterno: { tenantId, idExterno: sale.idempotencyKey } },
         update: {},
