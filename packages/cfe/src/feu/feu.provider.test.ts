@@ -80,6 +80,31 @@ test('emitir: autentica una vez y envía X-Emisor + payload correcto', async () 
   assert.ok(calls.some((c) => c.url.endsWith('/token')));
 });
 
+test('emitir con cliente: manda los nombres de campo que exige FEU', async () => {
+  let bodyEnviado: Record<string, unknown> = {};
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const url = String(input);
+    if (url.endsWith('/token')) return jsonResponse({ access_token: fakeJwt(Date.now() / 1000 + 3600), token_type: 'bearer', refresh_token: 'r' });
+    if (url.endsWith('/comprobantes/crear')) {
+      bodyEnviado = JSON.parse(String(init?.body));
+      return jsonResponse({ id: 1, id_externo: 'x', comprobante_tipo: 111, serie: 'A', numero: 1, importe_total: 0, hash: '', cae_numero: 1, cae_rango_inicio: 1, cae_rango_final: 1, cae_vencimiento: '2050-01-01T00:00:00', url: '' });
+    }
+    throw new Error(`URL inesperada: ${url}`);
+  };
+  const provider = new FeuProvider({ username: 'u', password: 'p', fetchImpl });
+  await provider.emitir('218617380010', {
+    ...VENTA,
+    tipo: 'E_FACTURA',
+    cliente: { tipoDocumento: 'RUC', documento: '21-861738-0010', nombre: 'Ana', razonSocial: 'ALMACEN SRL', direccion: 'Calle 1' },
+  });
+  const cliente = bodyEnviado.cliente as Record<string, unknown>;
+  assert.equal(cliente.tipo_doc, 2); // RUC
+  assert.equal(cliente.cod_pais_doc, 'UY');
+  assert.equal(cliente.nro_doc, '218617380010'); // sin guiones
+  assert.equal(cliente.denominacion, 'ALMACEN SRL');
+  assert.ok(!('tipo_documento' in cliente) && !('razon_social' in cliente), 'no manda los nombres viejos');
+});
+
 test('request reintenta una vez ante 401 renovando token', async () => {
   let creado = false;
   let tokens = 0;
@@ -128,13 +153,18 @@ test('consultarEstado detecta estado final AE', async () => {
     if (url.endsWith('/token')) {
       return jsonResponse({ access_token: fakeJwt(Date.now() / 1000 + 3600), token_type: 'bearer', refresh_token: 'r' });
     }
-    if (url.includes('/comprobantes/539072')) {
-      return jsonResponse({ id: 539072, serie: 'A', numero: 878, estado_dgi: { codigo: 'AE', descripcion: 'Aceptado' } });
+    if (url.includes('/consulta/comprobantes/emitidos')) {
+      // El estado real vive en el listado por fecha; se busca por id.
+      return jsonResponse([
+        { id: 111, serie: 'A', numero: 1, estado_dgi: { codigo: 'NE' } },
+        { id: 539072, serie: 'A', numero: 878, estado_dgi: { codigo: 'AE', descripcion: 'Aceptado' } },
+      ]);
     }
     throw new Error(`URL inesperada: ${url}`);
   };
   const provider = new FeuProvider({ username: 'u', password: 'p', fetchImpl });
-  const estado = await provider.consultarEstado('218617380010', 539072);
+  const estado = await provider.consultarEstado('218617380010', 539072, '2026-09-04');
   assert.equal(estado.codigo, 'AE');
   assert.equal(estado.esFinal, true);
+  assert.equal(estado.numero, 878);
 });

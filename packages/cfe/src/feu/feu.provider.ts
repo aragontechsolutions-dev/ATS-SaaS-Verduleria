@@ -20,8 +20,8 @@ import { FeuClient, type FeuClientConfig } from './feu.client';
 import { fromFeuResponse, toFeuPayload } from './feu.mapper';
 import type {
   FeuActividadEmpresarial,
-  FeuComprobanteResponse,
   FeuCrearResponse,
+  FeuEmitidoItem,
   FeuPdfResponse,
 } from './feu.types';
 
@@ -45,22 +45,26 @@ export class FeuProvider implements CfeProvider {
 
   /**
    * Consulta el estado DGI de un comprobante ya emitido (para polling NE→AE).
-   * Usa GET /comprobantes/{id}, que trae estado_dgi. (El path verificado de
-   * polling en CONTEXTOFEU.md es el de emitidos por fecha; este por id es el
-   * camino directo. Si estado_dgi no viene, se reporta NE para reintentar.)
+   * VERIFICADO (sandbox 2026-09): GET /comprobantes/{id} NO trae estado_dgi;
+   * el estado real vive en GET /consulta/comprobantes/emitidos por fecha. Se
+   * busca el comprobante por su id dentro de la lista del día de emisión.
    */
-  async consultarEstado(emisorRut: string, providerId: number): Promise<EstadoDgiResult> {
-    const res = await this.client.request<FeuComprobanteResponse>('GET', `/comprobantes/${providerId}`, {
+  async consultarEstado(emisorRut: string, providerId: number, fechaEmision?: string): Promise<EstadoDgiResult> {
+    const fecha = fechaEmision ?? new Date().toISOString().slice(0, 10);
+    const res = await this.client.request<unknown>('GET', '/consulta/comprobantes/emitidos', {
       emisorRut,
+      query: { FechaDesde: fecha, FechaHasta: fecha },
     });
-    const estado = normalizarEstado(res);
+    const lista = extraerLista(res);
+    const item = lista.find((x) => x.id === providerId);
+    const codigo = item?.estado_dgi?.codigo ?? 'NE';
     return {
-      codigo: estado?.codigo ?? 'NE',
-      descripcion: estado?.descripcion,
-      esFinal: esEstadoFinal(estado?.codigo),
-      serie: res.serie,
-      numero: res.numero,
-      raw: res,
+      codigo,
+      descripcion: item?.estado_dgi?.descripcion,
+      esFinal: esEstadoFinal(codigo),
+      serie: item?.serie,
+      numero: item?.numero,
+      raw: item ?? res,
     };
   }
 
@@ -120,9 +124,11 @@ export class FeuProvider implements CfeProvider {
   }
 }
 
-function normalizarEstado(res: FeuComprobanteResponse): { codigo: string; descripcion?: string } | undefined {
-  if (res.estado_dgi) return res.estado_dgi;
-  if (typeof res.estado === 'string') return { codigo: res.estado };
-  if (res.estado && typeof res.estado === 'object') return res.estado;
-  return undefined;
+/** Extrae la lista de comprobantes de la respuesta de /emitidos (array o {comprobantes|items}). */
+function extraerLista(res: unknown): FeuEmitidoItem[] {
+  if (Array.isArray(res)) return res as FeuEmitidoItem[];
+  const obj = (res ?? {}) as { comprobantes?: unknown; items?: unknown };
+  if (Array.isArray(obj.comprobantes)) return obj.comprobantes as FeuEmitidoItem[];
+  if (Array.isArray(obj.items)) return obj.items as FeuEmitidoItem[];
+  return [];
 }
