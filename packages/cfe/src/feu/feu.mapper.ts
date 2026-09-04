@@ -27,11 +27,13 @@ export function toFeuPayload(input: CfeInput): FeuCrearPayload {
   };
 
   if (input.cliente) {
+    const c = input.cliente;
     payload.cliente = {
-      tipo_documento: TIPO_DOC_CLIENTE[input.cliente.tipoDocumento],
-      documento: input.cliente.documento,
-      ...(input.cliente.razonSocial ? { razon_social: input.cliente.razonSocial } : {}),
-      ...(input.cliente.direccion ? { direccion: input.cliente.direccion } : {}),
+      tipo_doc: TIPO_DOC_CLIENTE[c.tipoDocumento],
+      cod_pais_doc: c.codPais ?? 'UY',
+      nro_doc: c.documento.replace(/[^\dA-Za-z]/g, ''), // sin puntos/guiones/espacios
+      denominacion: c.razonSocial ?? c.nombre ?? 'Consumidor',
+      ...(c.direccion ? { direccion: c.direccion } : {}),
     };
   }
 

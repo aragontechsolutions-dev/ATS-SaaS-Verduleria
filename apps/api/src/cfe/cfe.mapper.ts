@@ -112,6 +112,7 @@ export function saleToCfeInput(sale: SaleConItems, cfeConfig: CfeTenantConfig, r
     input.cliente = {
       tipoDocumento: DOC_MAP[sale.customer.tipoDocumento],
       documento: sale.customer.documento,
+      nombre: sale.customer.nombre,
       ...(sale.customer.razonSocial ? { razonSocial: sale.customer.razonSocial } : {}),
       ...(sale.customer.direccion ? { direccion: sale.customer.direccion } : {}),
     };

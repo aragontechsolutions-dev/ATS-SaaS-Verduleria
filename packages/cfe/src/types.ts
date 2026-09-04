@@ -51,8 +51,12 @@ export interface CfeItemInput {
 export interface CfeClienteInput {
   tipoDocumento: TipoDocumentoCliente;
   documento: string;
+  /** Nombre del comprador (fallback de denominación si no hay razón social). */
+  nombre?: string;
   razonSocial?: string;
   direccion?: string;
+  /** Código de país del documento (ISO). Default UY. */
+  codPais?: string;
 }
 
 export interface CfeInput {
@@ -130,8 +134,11 @@ export interface CfeProvider {
   /** Emite un CFE. Idempotente por input.idExterno. */
   emitir(emisorRut: string, input: CfeInput): Promise<CfeResult>;
 
-  /** Consulta el estado DGI de un comprobante ya emitido (para polling). */
-  consultarEstado(emisorRut: string, providerId: number): Promise<EstadoDgiResult>;
+  /**
+   * Consulta el estado DGI de un comprobante ya emitido (para polling).
+   * `fechaEmision` (YYYY-MM-DD) acota la búsqueda al día de emisión.
+   */
+  consultarEstado(emisorRut: string, providerId: number, fechaEmision?: string): Promise<EstadoDgiResult>;
 
   /** Descarga el PDF (A4 por defecto o ticket 80mm). */
   obtenerPdf(emisorRut: string, providerId: number, tipo?: 'A4' | 'ticket80'): Promise<PdfResult>;

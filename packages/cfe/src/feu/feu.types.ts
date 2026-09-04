@@ -19,10 +19,12 @@ export interface FeuItemPayload {
   descuento?: number;
 }
 
+// Nombres de campo verificados contra api-test (errores 400 de FEU, 2026-09).
 export interface FeuClientePayload {
-  tipo_documento: number;
-  documento: string;
-  razon_social?: string;
+  tipo_doc: number;
+  cod_pais_doc: string; // "UY"
+  nro_doc: string; // 12 dígitos sin puntos/guiones
+  denominacion: string;
   direccion?: string;
 }
 
@@ -30,6 +32,16 @@ export interface FeuReferenciaPayload {
   tipo_comprobante: number;
   serie: string;
   numero: number;
+}
+
+/** Ítem de GET /consulta/comprobantes/emitidos (trae el estado DGI real). */
+export interface FeuEmitidoItem {
+  id: number;
+  id_externo?: string;
+  serie: string;
+  numero: number;
+  estado_dgi?: { codigo: string; descripcion?: string };
+  estado_receptor?: { codigo: string; descripcion?: string };
 }
 
 export interface FeuCrearPayload {

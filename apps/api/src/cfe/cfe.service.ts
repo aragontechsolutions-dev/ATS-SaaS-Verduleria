@@ -162,9 +162,12 @@ export class CfeService {
     const config = await this.prisma.cfeTenantConfig.findUnique({ where: { tenantId: doc.tenantId } });
     if (!config) return doc;
 
+    // Día de emisión (hora de Uruguay) para acotar la consulta por fecha.
+    const fechaEmision = new Date(doc.createdAt).toLocaleDateString('en-CA', { timeZone: 'America/Montevideo' });
+
     let estado: EstadoDgiResult;
     try {
-      estado = await this.provider.consultarEstado(config.emisorRut, doc.providerId);
+      estado = await this.provider.consultarEstado(config.emisorRut, doc.providerId, fechaEmision);
     } catch (err) {
       const mensaje = err instanceof CfeError ? err.message : String(err);
       return this.prisma.cfeDocument.update({
