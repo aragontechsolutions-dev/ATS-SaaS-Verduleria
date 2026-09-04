@@ -717,6 +717,7 @@ export interface Settings {
     emisorRut: string;
     sucursalDefault: number;
     certificadoEstado: string;
+    emisionActiva: boolean;
   } | null;
 }
 
@@ -881,6 +882,7 @@ export interface SettingsInput {
   cfeAmbiente?: 'test' | 'produccion';
   emisorRut?: string;
   sucursalDefault?: number;
+  cfeEmisionActiva?: boolean;
 }
 
 export const getSettings = async () =>
