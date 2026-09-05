@@ -1331,9 +1331,12 @@ model OnlineOrder {
   clienteNombre   String
   clienteTelefono String
   direccion       String?
+  /// Punto exacto de entrega marcado por el cliente en el mapa (para el repartidor).
+  entregaLat      Decimal? @db.Decimal(10, 7)
+  entregaLng      Decimal? @db.Decimal(10, 7)
   notas           String?
   /// Cliente registrado (fase login opcional). Null para invitados.
-  customerId      String? @db.Uuid
+  customerId      String?  @db.Uuid
 
   subtotal   Decimal @default(0) @db.Decimal(14, 2)
   costoEnvio Decimal @default(0) @db.Decimal(14, 2)

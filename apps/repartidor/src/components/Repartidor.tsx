@@ -149,9 +149,12 @@ function PedidoCard({ p, orden, busy, onEnCamino, onEntregado }: {
   onEnCamino: () => void;
   onEntregado: () => void;
 }) {
-  const mapsUrl = p.direccion
-    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(p.direccion)}`
-    : null;
+  // Preferimos el punto exacto marcado en el mapa; si no, la dirección escrita.
+  const mapsUrl = p.lat != null && p.lng != null
+    ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=driving`
+    : p.direccion
+      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(p.direccion)}`
+      : null;
 
   return (
     <div className={`ped ped--${p.estado.toLowerCase()}`}>

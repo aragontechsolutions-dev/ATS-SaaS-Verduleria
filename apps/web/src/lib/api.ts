@@ -81,13 +81,34 @@ export interface StorePublicConfig {
   notaCheckout: string | null;
 }
 
+export interface StoreLocal {
+  lat: number;
+  lng: number;
+  direccion: string | null;
+}
+
 export interface StoreCatalog {
   nombre: string;
   slug: string;
   config: StorePublicConfig;
+  /** Ubicación del local (mapa del checkout + "cómo llegar" en retiro). Null si no está cargada. */
+  local: StoreLocal | null;
   zonas: StoreZone[];
   categorias: Array<{ id: string; nombre: string }>;
   productos: StoreProduct[];
+}
+
+/**
+ * Normaliza un teléfono uruguayo a +598######## (o null si es inválido).
+ * Igual que el backend: acepta 09…, sin 0, con +598/598/00598, con separadores.
+ */
+export function normalizarTelefonoUy(raw: string): string | null {
+  let d = (raw ?? '').replace(/\D/g, '');
+  if (!d) return null;
+  if (d.startsWith('00598')) d = d.slice(5);
+  else if (d.startsWith('598')) d = d.slice(3);
+  else if (d.startsWith('0')) d = d.replace(/^0+/, '');
+  return d.length === 8 ? `+598${d}` : null;
 }
 
 /** Catálogo de la tienda online por slug. 404 si la tienda no está activa. */
@@ -107,6 +128,9 @@ export interface CreateOrderInput {
   clienteNombre: string;
   clienteTelefono: string;
   direccion?: string;
+  /** Punto exacto marcado en el mapa por el cliente (delivery). */
+  lat?: number;
+  lng?: number;
   notas?: string;
   guardarDireccion?: boolean;
   items: Array<{ productId: string; cantidad: number }>;

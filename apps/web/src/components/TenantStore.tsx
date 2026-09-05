@@ -8,7 +8,9 @@ import {
   getMyOrders,
   getOrder,
   getStoreCatalog,
+  gmapsDirUrl,
   loginCustomer,
+  normalizarTelefonoUy,
   NotFoundError,
   registerCustomer,
   type AccountView,
@@ -23,6 +25,7 @@ import {
   type TipoEntrega,
 } from '../lib/api';
 import { esPeso, formatMoney, unidadCorta } from '../lib/format';
+import { CheckoutMap } from './CheckoutMap';
 
 export interface Session {
   token: string;
@@ -348,8 +351,12 @@ function CheckoutView({
   const [direccion, setDireccion] = useState(dirs[0]?.direccion ?? '');
   const [guardarDir, setGuardarDir] = useState(false);
   const [notas, setNotas] = useState('');
+  // Punto exacto de entrega marcado en el mapa (opcional).
+  const [punto, setPunto] = useState<{ lat: number; lng: number } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const telNormalizado = normalizarTelefonoUy(telefono);
 
   const usaGuardada = !!session && dirSel !== 'nueva';
   const direccionFinal = usaGuardada ? (dirs.find((d) => d.id === dirSel)?.direccion ?? '') : direccion;
@@ -366,6 +373,7 @@ function CheckoutView({
     e.preventDefault();
     setErr(null);
     if (faltaMinimo) { setErr(`El pedido mínimo para ${zona!.nombre} es ${formatMoney(minimo)}.`); return; }
+    if (!telNormalizado) { setErr('El teléfono no es válido. Ingresá un número de Uruguay (ej. 099 123 456).'); return; }
     setBusy(true);
     try {
       await onConfirm({
@@ -373,8 +381,10 @@ function CheckoutView({
         zonaId: tipo === 'DELIVERY' ? zonaId : undefined,
         franja: cat.config.franjas.length ? franja : undefined,
         clienteNombre: nombre.trim(),
-        clienteTelefono: telefono.trim(),
+        clienteTelefono: telNormalizado,
         direccion: tipo === 'DELIVERY' ? direccionFinal.trim() : undefined,
+        lat: tipo === 'DELIVERY' && punto ? punto.lat : undefined,
+        lng: tipo === 'DELIVERY' && punto ? punto.lng : undefined,
         notas: notas.trim() || undefined,
         guardarDireccion: !!session && tipo === 'DELIVERY' && !usaGuardada && guardarDir,
         items: lines.map((l) => ({ productId: l.product.id, cantidad: l.cantidad })),
@@ -445,7 +455,20 @@ function CheckoutView({
               )}
             </>
           )}
+          <div className="sh-field">
+            <span>Marcá en el mapa dónde entregar (ayuda al repartidor a llegar)</span>
+            <CheckoutMap center={cat.local ?? null} value={punto} onPick={(lat, lng) => setPunto({ lat, lng })} />
+          </div>
         </>
+      )}
+
+      {tipo === 'PICKUP' && cat.local && (
+        <div className="sh-pickup">
+          <p>🏪 Retirás en el local{cat.local.direccion ? `: ${cat.local.direccion}` : ''}.</p>
+          <a className="sh-btn sh-btn--map" href={gmapsDirUrl(cat.local.lat, cat.local.lng)} target="_blank" rel="noreferrer">
+            🗺️ Cómo llegar con Google Maps
+          </a>
+        </div>
       )}
 
       {cat.config.franjas.length > 0 && (
@@ -460,7 +483,18 @@ function CheckoutView({
         <input value={nombre} onChange={(e) => setNombre(e.target.value)} required minLength={2} />
       </label>
       <label className="sh-field">Teléfono
-        <input value={telefono} onChange={(e) => setTelefono(e.target.value)} required minLength={6} inputMode="tel" placeholder="Para coordinar la entrega" />
+        <input
+          value={telefono}
+          onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ''))}
+          required
+          inputMode="numeric"
+          placeholder="Ej.: 099 123 456"
+        />
+        {telefono.trim() !== '' && (
+          telNormalizado
+            ? <small className="sh-hint sh-hint--ok">Se guardará como {telNormalizado}</small>
+            : <small className="sh-hint sh-hint--err">Número uruguayo inválido</small>
+        )}
       </label>
       <label className="sh-field">Notas (opcional)
         <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} placeholder="Ej.: bien maduro, timbre 2…" />
@@ -493,10 +527,31 @@ function TrackView({ slug, codigo }: { slug: string; codigo: string }) {
 
   useEffect(() => {
     let vivo = true;
-    getOrder(slug, codigo)
-      .then((o) => vivo && setSt({ e: 'ok', o }))
-      .catch((err) => vivo && setSt({ e: err instanceof NotFoundError ? '404' : 'error' }));
-    return () => { vivo = false; };
+    let timer: number | undefined;
+
+    const cargar = () => {
+      getOrder(slug, codigo)
+        .then((o) => {
+          if (!vivo) return;
+          setSt({ e: 'ok', o });
+          // Deja de refrescar cuando el pedido llega a un estado final.
+          if ((o.estado === 'ENTREGADO' || o.estado === 'CANCELADO') && timer) {
+            window.clearInterval(timer);
+            timer = undefined;
+          }
+        })
+        .catch((err) => {
+          // Un error puntual no pisa un estado ya cargado: se reintenta al próximo tick.
+          if (!vivo) return;
+          setSt((prev) => (prev.e === 'ok' ? prev : { e: err instanceof NotFoundError ? '404' : 'error' }));
+        });
+    };
+
+    cargar();
+    // Actualización "en vivo": reconsulta el estado cada 5 s.
+    timer = window.setInterval(cargar, 5000);
+    return () => { vivo = false; if (timer) window.clearInterval(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, codigo]);
 
   const style = useMemo(() => ({ '--sh-accent': ACCENT }) as CSSProperties, []);

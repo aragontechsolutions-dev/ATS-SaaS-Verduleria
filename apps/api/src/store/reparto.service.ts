@@ -58,6 +58,9 @@ export class RepartoService {
       cliente: o.clienteNombre,
       telefono: o.clienteTelefono,
       direccion: o.direccion,
+      // Punto exacto marcado en el mapa (si el cliente lo marcó): para navegar preciso.
+      lat: o.entregaLat != null ? Number(o.entregaLat) : null,
+      lng: o.entregaLng != null ? Number(o.entregaLng) : null,
       notas: o.notas,
       total: Number(o.total),
       items: o.items.map((it) => ({
@@ -115,7 +118,15 @@ export class RepartoService {
     }
     await this.prisma.onlineOrder.update({
       where: { id: orderId },
-      data: { listoParaRepartir: true, ...(o.repartidorId ? {} : { repartidorId: null }) },
+      data: {
+        listoParaRepartir: true,
+        // Al despachar, el pedido queda "listo para salir" (PREPARANDO): así entra
+        // en la ventana de asignación (EN_CURSO) y el repartidor lo puede arrancar.
+        // Sin esto, un pedido despachado en CONFIRMADO quedaba invisible al motor.
+        ...(o.estado === OnlineOrderEstado.NUEVO || o.estado === OnlineOrderEstado.CONFIRMADO
+          ? { estado: OnlineOrderEstado.PREPARANDO }
+          : {}),
+      },
     });
     await this.procesarCola(tenantId);
     return this.estado(tenantId);

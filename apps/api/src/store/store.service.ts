@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SalesService } from '../sales/sales.service';
 import { CfeService } from '../cfe/cfe.service';
 import { TelegramService } from './telegram.service';
+import { normalizarTelefonoUy } from './telefono';
 import {
   calcLine,
   cantidadEfectiva,
@@ -60,10 +61,18 @@ export interface StorePublicConfig {
   notaCheckout: string | null;
 }
 
+/** Ubicación del local (para el mapa del checkout y el "cómo llegar" del retiro). */
+export interface StoreLocal {
+  lat: number;
+  lng: number;
+  direccion: string | null;
+}
+
 export interface StoreCatalog {
   nombre: string;
   slug: string;
   config: StorePublicConfig;
+  local: StoreLocal | null;
   zonas: StoreZone[];
   categorias: StoreCategory[];
   productos: StoreProduct[];
@@ -105,7 +114,7 @@ export class StoreService {
   private async tiendaActiva(slug: string) {
     const tenant = await this.prisma.tenant.findFirst({
       where: { slug, activo: true },
-      select: { id: true, nombre: true, slug: true, tiendaOnlineActiva: true },
+      select: { id: true, nombre: true, slug: true, tiendaOnlineActiva: true, lat: true, lng: true, direccion: true },
     });
     if (!tenant || !tenant.tiendaOnlineActiva) throw new NotFoundException('Tienda no encontrada');
     return tenant;
@@ -171,6 +180,9 @@ export class StoreService {
       nombre: tenant.nombre,
       slug: tenant.slug,
       config,
+      local: tenant.lat != null && tenant.lng != null
+        ? { lat: Number(tenant.lat), lng: Number(tenant.lng), direccion: tenant.direccion }
+        : null,
       zonas: zonas.map((z) => ({
         id: z.id,
         nombre: z.nombre,
@@ -201,6 +213,12 @@ export class StoreService {
     // Franja: si hay franjas configuradas, exigir una válida.
     if (franjas.length && (!dto.franja || !franjas.includes(dto.franja))) {
       throw new BadRequestException('Elegí una franja horaria válida.');
+    }
+
+    // Teléfono: se guarda normalizado a +598######## (rechaza números inválidos).
+    const telefono = normalizarTelefonoUy(dto.clienteTelefono);
+    if (!telefono) {
+      throw new BadRequestException('El teléfono no es válido. Ingresá un número de Uruguay (ej. 099 123 456).');
     }
 
     // Recalcula las líneas con el catálogo (nunca confía en el precio del cliente).
@@ -238,6 +256,7 @@ export class StoreService {
 
     const order = await this.insertOrderWithNumero(tenant.id, {
       dto,
+      telefono,
       lines,
       subtotal,
       costoEnvio,
@@ -263,7 +282,7 @@ export class StoreService {
       numero: order.numero,
       codigo: order.codigo,
       clienteNombre: dto.clienteNombre.trim(),
-      clienteTelefono: dto.clienteTelefono.trim(),
+      clienteTelefono: telefono,
       tipoEntrega: dto.tipoEntrega,
       zonaNombre,
       franja: dto.franja ?? null,
@@ -313,6 +332,7 @@ export class StoreService {
     tenantId: string,
     data: {
       dto: CreateOrderDto;
+      telefono: string;
       lines: OrderLineCalc[];
       subtotal: number;
       costoEnvio: number;
@@ -322,7 +342,9 @@ export class StoreService {
       customerId: string | null;
     },
   ) {
-    const { dto, lines, subtotal, costoEnvio, total, zonaId, zonaNombre, customerId } = data;
+    const { dto, telefono, lines, subtotal, costoEnvio, total, zonaId, zonaNombre, customerId } = data;
+    // Punto de entrega marcado en el mapa (solo se guarda para delivery).
+    const conPunto = dto.tipoEntrega === TipoEntrega.DELIVERY && dto.lat != null && dto.lng != null;
     for (let intento = 0; intento < 5; intento++) {
       const last = await this.prisma.onlineOrder.findFirst({
         where: { tenantId },
@@ -342,8 +364,10 @@ export class StoreService {
             zonaNombre,
             franja: dto.franja ?? null,
             clienteNombre: dto.clienteNombre.trim(),
-            clienteTelefono: dto.clienteTelefono.trim(),
+            clienteTelefono: telefono,
             direccion: dto.direccion?.trim() || null,
+            entregaLat: conPunto ? new Prisma.Decimal(dto.lat as number) : null,
+            entregaLng: conPunto ? new Prisma.Decimal(dto.lng as number) : null,
             notas: dto.notas?.trim() || null,
             subtotal: new Prisma.Decimal(subtotal),
             costoEnvio: new Prisma.Decimal(costoEnvio),
