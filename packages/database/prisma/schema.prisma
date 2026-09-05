@@ -255,11 +255,14 @@ model Tenant {
 
   // --- Tienda online (e-commerce público) ---
   /// La tienda online está activa: el público puede ver el catálogo y (fase 2) pedir.
-  tiendaOnlineActiva Boolean @default(false)
+  tiendaOnlineActiva Boolean  @default(false)
   /// Chat de Telegram vinculado para avisar pedidos nuevos (null = sin vincular).
   telegramChatId     String?
   /// Código temporal de vinculación de Telegram (se limpia al vincular).
-  telegramLinkCode   String? @unique
+  telegramLinkCode   String?  @unique
+  /// Ubicación del local (para el motor de reparto: cercanía del repartidor al local).
+  lat                Decimal? @db.Decimal(10, 7)
+  lng                Decimal? @db.Decimal(10, 7)
 
   // Config de facturación (adaptador CFE)
   cfeConfig CfeTenantConfig?
@@ -294,6 +297,7 @@ model Tenant {
   storeConfig    StoreConfig?
   deliveryZones  DeliveryZone[]
   onlineOrders   OnlineOrder[]
+  repartidores   RepartidorEstado[]
 
   @@index([activo])
 }
@@ -1338,6 +1342,16 @@ model OnlineOrder {
   /// Venta generada al entregar el pedido (factura + descuenta stock). Null hasta entregar.
   saleId String? @unique @db.Uuid
 
+  // --- Reparto (motor de asignación) ---
+  /// El negocio lo despachó y está a la espera de repartidor (cola FIFO si no hay libre).
+  listoParaRepartir Boolean   @default(false)
+  /// Repartidor (User con rol REPARTIDOR) asignado. Null = en cola / sin asignar.
+  repartidorId      String?   @db.Uuid
+  /// Momento de la asignación al repartidor.
+  asignadoAt        DateTime?
+  /// Momento de la entrega efectiva.
+  entregadoAt       DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1350,6 +1364,34 @@ model OnlineOrder {
   @@unique([tenantId, numero])
   @@unique([tenantId, codigo])
   @@index([tenantId])
+  @@index([tenantId, estado])
+  @@index([tenantId, repartidorId])
+  @@index([tenantId, listoParaRepartir])
+}
+
+/// Estado de un repartidor (User con rol REPARTIDOR) para el motor de reparto.
+enum RepartidorEstadoTipo {
+  OFFLINE // no está trabajando (no recibe asignaciones)
+  DISPONIBLE // libre, puede recibir un pedido
+  EN_ENTREGA // tiene un pedido encima
+}
+
+/// Presencia y ubicación en vivo del repartidor (heartbeat desde la PWA).
+model RepartidorEstado {
+  id          String               @id @default(uuid()) @db.Uuid
+  tenantId    String               @db.Uuid
+  userId      String               @db.Uuid
+  estado      RepartidorEstadoTipo @default(OFFLINE)
+  /// Última ubicación conocida (para la cercanía al local).
+  lat         Decimal?             @db.Decimal(10, 7)
+  lng         Decimal?             @db.Decimal(10, 7)
+  /// Momento del último heartbeat de ubicación.
+  ubicacionAt DateTime?
+  updatedAt   DateTime             @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
   @@index([tenantId, estado])
 }
 

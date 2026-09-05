@@ -752,6 +752,10 @@ export class StoreService {
       comprobante: cfe
         ? { tipo: cfe.tipo, estado: cfe.estado, serie: cfe.serie, numero: cfe.numero }
         : null,
+      // Reparto: si está despachado (en cola) o ya asignado a un repartidor.
+      listoParaRepartir: o.listoParaRepartir,
+      repartidorId: o.repartidorId,
+      asignado: !!o.repartidorId,
       createdAt: o.createdAt.toISOString(),
       items: o.items.map((i) => ({
         id: i.id,
