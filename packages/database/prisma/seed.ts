@@ -18,12 +18,18 @@ import { seedIvaRules } from './iva-rules';
 const prisma = new PrismaClient();
 
 // Catálogo de planes (editable). Los módulos se activan por plan.
+//
+// El CFE NO va en los planes: es un ADD-ON que se concede por tenant
+// (Subscription.modulosExtra = [CFE]) porque tiene costo real por RUT (Surtec) y
+// una verdulería Monotributo está exenta. El plan FUNDADOR (interno, 1 cliente)
+// sí trae todos los módulos, CFE incluido.
 const PLANES: Array<{
   code: string;
   nombre: string;
   descripcion: string;
   precioMensual: number;
   orden: number;
+  publico: boolean;
   modules: ModuleKey[];
   maxUsuarios: number | null;
   maxSucursales: number | null;
@@ -32,11 +38,12 @@ const PLANES: Array<{
 }> = [
   {
     code: 'BASICO',
-    nombre: 'Básico',
-    descripcion: 'POS offline, catálogo y facturación electrónica para arrancar.',
-    precioMensual: 0,
+    nombre: 'Comercio',
+    descripcion: 'POS offline, catálogo, caja y control de stock. Ideal para arrancar (Monotributo).',
+    precioMensual: 990,
     orden: 1,
-    modules: [ModuleKey.POS, ModuleKey.CFE, ModuleKey.INVENTORY],
+    publico: true,
+    modules: [ModuleKey.POS, ModuleKey.INVENTORY],
     maxUsuarios: 2,
     maxSucursales: 1,
     maxProductos: 500,
@@ -45,12 +52,12 @@ const PLANES: Array<{
   {
     code: 'PRO',
     nombre: 'Pro',
-    descripcion: 'Suma compras, listas de precios, reportes avanzados y cuenta corriente.',
-    precioMensual: 990,
+    descripcion: 'Suma compras, listas de precios, reportes avanzados y cuenta corriente de mayoristas.',
+    precioMensual: 1990,
     orden: 2,
+    publico: true,
     modules: [
       ModuleKey.POS,
-      ModuleKey.CFE,
       ModuleKey.INVENTORY,
       ModuleKey.PURCHASES,
       ModuleKey.PRICING,
@@ -65,9 +72,35 @@ const PLANES: Array<{
   {
     code: 'FULL',
     nombre: 'Full',
-    descripcion: 'Todo: reparto con app, multi-sucursal y balanza en vivo.',
-    precioMensual: 1990,
+    descripcion: 'Todo: tienda online con reparto y app del repartidor, multi-sucursal y balanza en vivo.',
+    precioMensual: 3490,
     orden: 3,
+    publico: true,
+    modules: [
+      ModuleKey.POS,
+      ModuleKey.INVENTORY,
+      ModuleKey.PURCHASES,
+      ModuleKey.PRICING,
+      ModuleKey.REPORTS_ADVANCED,
+      ModuleKey.WHOLESALE,
+      ModuleKey.DELIVERY,
+      ModuleKey.MULTI_SUCURSAL,
+      ModuleKey.SCALE_LIVE,
+    ],
+    maxUsuarios: null,
+    maxSucursales: null,
+    maxProductos: null,
+    maxDispositivosPos: null,
+  },
+  {
+    // Interno: NO se muestra en la página de precios. Un único cliente fundador
+    // (todo gratis a cambio de caso de éxito + estudio de datos).
+    code: 'FUNDADOR',
+    nombre: 'Fundador',
+    descripcion: 'Acceso interno con todas las funcionalidades (incluye CFE), sin costo. Cliente fundador.',
+    precioMensual: 0,
+    orden: 99,
+    publico: false,
     modules: [
       ModuleKey.POS,
       ModuleKey.CFE,
@@ -169,6 +202,7 @@ async function main() {
         descripcion: p.descripcion,
         precioMensual: p.precioMensual,
         orden: p.orden,
+        publico: p.publico,
         modules: p.modules,
         maxUsuarios: p.maxUsuarios,
         maxSucursales: p.maxSucursales,
@@ -181,6 +215,7 @@ async function main() {
         descripcion: p.descripcion,
         precioMensual: p.precioMensual,
         orden: p.orden,
+        publico: p.publico,
         modules: p.modules,
         maxUsuarios: p.maxUsuarios,
         maxSucursales: p.maxSucursales,
@@ -191,10 +226,11 @@ async function main() {
     planesById.set(p.code, plan.id);
   }
 
+  // Tenant demo = Fundador (todos los módulos, incluido CFE) para probar todo en local.
   await prisma.subscription.upsert({
     where: { tenantId: tenant.id },
-    update: { planId: planesById.get('FULL')!, estado: SubscriptionStatus.ACTIVA },
-    create: { tenantId: tenant.id, planId: planesById.get('FULL')!, estado: SubscriptionStatus.ACTIVA },
+    update: { planId: planesById.get('FUNDADOR')!, estado: SubscriptionStatus.ACTIVA },
+    create: { tenantId: tenant.id, planId: planesById.get('FUNDADOR')!, estado: SubscriptionStatus.ACTIVA },
   });
 
   const priceList = await prisma.priceList.upsert({

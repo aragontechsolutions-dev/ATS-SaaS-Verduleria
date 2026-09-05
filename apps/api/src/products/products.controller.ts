@@ -52,6 +52,7 @@ export class ProductsController {
 
   /** Actualización masiva de precios (por % o fijo, opcional por categoría). */
   @Post('prices/bulk')
+  @RequiresModule('PRICING')
   bulkPrices(@CurrentTenant('tenantId') tenantId: string, @Body() dto: BulkPriceDto) {
     return this.products.bulkUpdatePrices(tenantId, dto);
   }

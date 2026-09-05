@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { IvaIndicador, MedioPago, OnlineOrderEstado, Prisma, TipoEntrega, TipoListaPrecio, UnidadMedida } from '@ats/database';
+import { IvaIndicador, MedioPago, ModuleKey, OnlineOrderEstado, Prisma, TipoEntrega, TipoListaPrecio, UnidadMedida } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { SalesService } from '../sales/sales.service';
 import { CfeService } from '../cfe/cfe.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import { TelegramService } from './telegram.service';
 import { normalizarTelefonoUy } from './telefono';
 import {
@@ -102,6 +103,7 @@ export class StoreService {
     private readonly sales: SalesService,
     private readonly cfe: CfeService,
     private readonly telegram: TelegramService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   /** Id del tenant de una tienda activa por slug (para los endpoints de cuenta). */
@@ -117,6 +119,11 @@ export class StoreService {
       select: { id: true, nombre: true, slug: true, tiendaOnlineActiva: true, lat: true, lng: true, direccion: true },
     });
     if (!tenant || !tenant.tiendaOnlineActiva) throw new NotFoundException('Tienda no encontrada');
+    // La tienda online + reparto es el módulo Delivery (plan Full): si el plan del
+    // tenant no lo incluye, la tienda pública no existe.
+    if (!(await this.entitlements.hasModule(tenant.id, ModuleKey.DELIVERY))) {
+      throw new NotFoundException('Tienda no encontrada');
+    }
     return tenant;
   }
 
