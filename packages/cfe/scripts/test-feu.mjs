@@ -23,16 +23,29 @@
  */
 
 // ---------------------------------------------------------------------------
-// CONFIGURACIÓN (credenciales de TEST del correo de Surtec)
+// CONFIGURACIÓN
+//   Las credenciales NUNCA se hardcodean: se leen del entorno para no
+//   filtrarlas al repo. Correr así (credenciales de TEST del correo de Surtec):
+//
+//     FEU_USER=api-feu@acme-api.com \
+//     FEU_PASS='****' \
+//     FEU_RUT=218617380010 \
+//     FEU_SUCURSAL=1 \
+//     node test-feu.mjs
 // ---------------------------------------------------------------------------
 const CONFIG = {
-  authUrl: "https://auth-test.facturaelectronica.com.uy/token",
-  apiBase: "https://api-test.facturaelectronica.com.uy",
-  username: "api-feu@acme-api.com",
-  password: "OiJSUzx1.DS",
-  rutEmisor: "218617380010", // RUT de la empresa de prueba
-  sucursal: 1,
+  authUrl: process.env.FEU_AUTH_URL || "https://auth-test.facturaelectronica.com.uy/token",
+  apiBase: process.env.FEU_API_BASE || "https://api-test.facturaelectronica.com.uy",
+  username: process.env.FEU_USER,
+  password: process.env.FEU_PASS,
+  rutEmisor: process.env.FEU_RUT || "218617380010", // RUT de la empresa de prueba
+  sucursal: Number(process.env.FEU_SUCURSAL || "1"),
 };
+
+if (!CONFIG.username || !CONFIG.password) {
+  console.error("Faltan credenciales: definí FEU_USER y FEU_PASS en el entorno.");
+  process.exit(1);
+}
 
 // Colorcitos para que se lea lindo en la terminal
 const c = {
