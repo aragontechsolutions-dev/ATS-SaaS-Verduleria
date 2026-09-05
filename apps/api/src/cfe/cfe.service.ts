@@ -134,10 +134,12 @@ export class CfeService {
       });
     } catch (err) {
       const mensaje = err instanceof CfeError ? err.message : String(err);
-      this.logger.error(`Fallo emitiendo CFE de venta ${saleId}: ${mensaje}`);
+      // Incluimos el detalle que devuelve FEU/DGI (errores de validación) para poder diagnosticar.
+      const detalle = err instanceof CfeError && err.detalle !== undefined ? ` · ${safeStringify(err.detalle)}` : '';
+      this.logger.error(`Fallo emitiendo CFE de venta ${saleId}: ${mensaje}${detalle}`);
       return this.prisma.cfeDocument.update({
         where: { id: doc.id },
-        data: { estado: EstadoDgi.ERROR, ultimoError: mensaje },
+        data: { estado: EstadoDgi.ERROR, ultimoError: `${mensaje}${detalle}`.slice(0, 900) },
       });
     }
   }
@@ -193,5 +195,15 @@ export class CfeService {
       orderBy: { updatedAt: 'asc' },
       take: limit,
     });
+  }
+}
+
+/** Serializa un detalle de error de forma segura (para logs/ultimoError). */
+function safeStringify(v: unknown): string {
+  if (typeof v === 'string') return v;
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return String(v);
   }
 }

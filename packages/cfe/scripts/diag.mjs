@@ -8,14 +8,21 @@
  * Correr:  node diag.mjs
  */
 
+// Credenciales por entorno (NO hardcodear):
+//   FEU_USER=... FEU_PASS='...' FEU_RUT=218617380010 node diag.mjs
 const CONFIG = {
-  authUrl: "https://auth-test.facturaelectronica.com.uy/token",
-  apiBase: "https://api-test.facturaelectronica.com.uy",
-  username: "api-feu@acme-api.com",
-  password: "OiJSUzx1.DS",
-  rutEmisor: "218617380010",
-  sucursal: 1,
+  authUrl: process.env.FEU_AUTH_URL || "https://auth-test.facturaelectronica.com.uy/token",
+  apiBase: process.env.FEU_API_BASE || "https://api-test.facturaelectronica.com.uy",
+  username: process.env.FEU_USER,
+  password: process.env.FEU_PASS,
+  rutEmisor: process.env.FEU_RUT || "218617380010",
+  sucursal: Number(process.env.FEU_SUCURSAL || "1"),
 };
+
+if (!CONFIG.username || !CONFIG.password) {
+  console.error("Faltan credenciales: definí FEU_USER y FEU_PASS en el entorno.");
+  process.exit(1);
+}
 
 async function main() {
   // 1. Auth

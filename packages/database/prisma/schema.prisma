@@ -63,19 +63,19 @@ enum IvaIndicador {
 /// el tenant). Clasifica un producto por su nombre en su tratamiento fiscal.
 /// Se siembra con la nómina oficial DGI (ver docs/CFE-IVA.md).
 model IvaRule {
-  id       String @id @default(uuid()) @db.Uuid
+  id              String       @id @default(uuid()) @db.Uuid
   /// Término a buscar en el nombre del producto (se normaliza; tolera plural).
-  termino  String @unique
+  termino         String       @unique
   ivaIndicador    IvaIndicador
-  esEstadoNatural Boolean @default(false)
-  esImportado     Boolean @default(false)
+  esEstadoNatural Boolean      @default(false)
+  esImportado     Boolean      @default(false)
   /// Ante varios matches gana la de mayor prioridad (luego término más largo).
-  prioridad Int     @default(0)
-  activo    Boolean @default(true)
+  prioridad       Int          @default(0)
+  activo          Boolean      @default(true)
   /// Nota interna / fuente (ej. "nómina DGF frutas").
-  nota      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  nota            String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   @@index([activo])
 }
@@ -224,7 +224,10 @@ model Tenant {
   updatedAt DateTime @updatedAt
 
   // Datos fiscales
-  rut           String?       @unique // RUT del emisor (X-Emisor en FEU)
+  // No es único: varios tenants pueden compartir RUT (p. ej. en el sandbox de
+  // FEU todas las pruebas usan el mismo). El RUT emisor real vive en
+  // CfeTenantConfig.emisorRut. El tenant se identifica siempre por id.
+  rut           String? // RUT del emisor (X-Emisor en FEU)
   razonSocial   String?
   regimenFiscal RegimenFiscal @default(LITERAL_E)
   direccion     String?
@@ -240,7 +243,7 @@ model Tenant {
   /// el POS lo cachea y lo exige offline (no se configura por dispositivo).
   cajaPinHash String?
   /// Qué acciones del POS exigen el PIN: { discount, price, void, return }.
-  cajaGates   Json @default("{\"discount\":false,\"price\":false,\"void\":false,\"return\":false}")
+  cajaGates   Json    @default("{\"discount\":false,\"price\":false,\"void\":false,\"return\":false}")
 
   // --- Fidelización (puntos) ---
   /// Programa de puntos activo.
@@ -262,35 +265,35 @@ model Tenant {
   cfeConfig CfeTenantConfig?
 
   // Suscripción / plan (módulos habilitados)
-  subscription Subscription?
+  subscription     Subscription?
   platformInvoices PlatformInvoice[]
 
-  memberships   Membership[]
-  sucursales    Sucursal[]
-  users         User[] // usuarios cuya "home" es este tenant (opcional)
-  products      Product[]
-  categorias    Categoria[]
-  priceLists    PriceList[]
-  promos        Promo[]
-  customers     Customer[]
-  suppliers     Supplier[]
-  purchases     Purchase[]
-  sales         Sale[]
-  cashSessions  CashSession[]
-  cashMovements CashMovement[]
-  cfeDocuments  CfeDocument[]
-  stockItems    Stock[]
-  stockMoves    StockMovement[]
-  wastes        Waste[]
-  vencimientos  Vencimiento[]
+  memberships    Membership[]
+  sucursales     Sucursal[]
+  users          User[] // usuarios cuya "home" es este tenant (opcional)
+  products       Product[]
+  categorias     Categoria[]
+  priceLists     PriceList[]
+  promos         Promo[]
+  customers      Customer[]
+  suppliers      Supplier[]
+  purchases      Purchase[]
+  sales          Sale[]
+  cashSessions   CashSession[]
+  cashMovements  CashMovement[]
+  cfeDocuments   CfeDocument[]
+  stockItems     Stock[]
+  stockMoves     StockMovement[]
+  wastes         Waste[]
+  vencimientos   Vencimiento[]
   deliveryOrders DeliveryOrder[]
-  routes        Route[]
-  accounts      AccountReceivable[]
-  landing       TenantLanding?
-  terminals     Terminal[]
-  storeConfig   StoreConfig?
-  deliveryZones DeliveryZone[]
-  onlineOrders  OnlineOrder[]
+  routes         Route[]
+  accounts       AccountReceivable[]
+  landing        TenantLanding?
+  terminals      Terminal[]
+  storeConfig    StoreConfig?
+  deliveryZones  DeliveryZone[]
+  onlineOrders   OnlineOrder[]
 
   @@index([activo])
 }
@@ -320,20 +323,20 @@ model CfeTenantConfig {
   tenantId String @unique @db.Uuid
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  provider  String  @default("FEU") // "FEU" | "HOST_FACTURA" | "SIN_CFE"
-  ambiente  String  @default("test") // "test" | "produccion"
-  emisorRut String // RUT que se manda en X-Emisor
-  sucursalDefault Int @default(1)
+  provider        String @default("FEU") // "FEU" | "HOST_FACTURA" | "SIN_CFE"
+  ambiente        String @default("test") // "test" | "produccion"
+  emisorRut       String // RUT que se manda en X-Emisor
+  sucursalDefault Int    @default(1)
 
   /// cod_montos_brutos derivado del régimen (1 IVA incluido / 3 IVA mínimo-monotributo).
   codMontosBrutos Int @default(1)
 
   // Credenciales del proveedor (referencia a secret store en prod)
-  apiUsername String?
-  apiPasswordRef String? // referencia al secreto, NO el password en claro
+  apiUsername     String?
+  apiPasswordRef  String? // referencia al secreto, NO el password en claro
   refreshTokenRef String?
 
-  certificadoEstado     CertificadoEstado @default(SIN_CARGAR)
+  certificadoEstado      CertificadoEstado @default(SIN_CARGAR)
   certificadoVencimiento DateTime?
 
   /// Interruptor de seguridad: solo se emite CFE real cuando el admin lo activa.
@@ -351,23 +354,23 @@ model CfeTenantConfig {
 /// Catálogo de planes (data-driven, editable sin tocar código).
 /// Cada plan incluye un set de módulos y límites numéricos.
 model Plan {
-  id          String  @id @default(uuid()) @db.Uuid
-  code        String  @unique // "BASICO" | "PRO" | "FULL" | ...
-  nombre      String
-  descripcion String?
+  id            String  @id @default(uuid()) @db.Uuid
+  code          String  @unique // "BASICO" | "PRO" | "FULL" | ...
+  nombre        String
+  descripcion   String?
   precioMensual Decimal @default(0) @db.Decimal(12, 2)
-  moneda      String  @default("UYU")
-  orden       Int     @default(0)
-  publico     Boolean @default(true) // visible en la página de precios
-  activo      Boolean @default(true)
+  moneda        String  @default("UYU")
+  orden         Int     @default(0)
+  publico       Boolean @default(true) // visible en la página de precios
+  activo        Boolean @default(true)
 
   /// Módulos incluidos en el plan.
   modules ModuleKey[]
 
   // Límites (null = ilimitado).
-  maxUsuarios     Int?
-  maxSucursales   Int?
-  maxProductos    Int?
+  maxUsuarios        Int?
+  maxSucursales      Int?
+  maxProductos       Int?
   maxDispositivosPos Int?
 
   createdAt DateTime @default(now())
@@ -392,16 +395,16 @@ model Subscription {
   modulosExcluidos ModuleKey[] // módulos revocados del plan
 
   /// Overrides de límites (null = usar el del plan).
-  overrideMaxUsuarios     Int?
-  overrideMaxSucursales   Int?
-  overrideMaxProductos    Int?
+  overrideMaxUsuarios        Int?
+  overrideMaxSucursales      Int?
+  overrideMaxProductos       Int?
   overrideMaxDispositivosPos Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  plan   Plan   @relation(fields: [planId], references: [id])
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan     Plan              @relation(fields: [planId], references: [id])
   invoices PlatformInvoice[]
 
   @@index([planId])
@@ -440,33 +443,33 @@ model PlatformInvoice {
 }
 
 model User {
-  id        String   @id @default(uuid()) @db.Uuid
-  email     String   @unique
-  nombre    String
+  id                  String   @id @default(uuid()) @db.Uuid
+  email               String   @unique
+  nombre              String
   /// Hash de contraseña (si se usa auth propia) o null si es SSO/Supabase Auth.
-  passwordHash String?
+  passwordHash        String?
   /// Id externo del proveedor de auth (Supabase auth.users.id), opcional.
-  authUserId String? @unique
-  activo    Boolean  @default(true)
+  authUserId          String?  @unique
+  activo              Boolean  @default(true)
   /// Primer acceso: obliga a cambiar la contraseña temporal en el POS.
-  mustChangePassword Boolean @default(false)
+  mustChangePassword  Boolean  @default(false)
   /// Intentos de login fallidos consecutivos (se resetea al entrar bien).
-  failedLoginAttempts Int @default(0)
+  failedLoginAttempts Int      @default(0)
   /// Usuario bloqueado por intentos fallidos (lo desbloquea un admin).
-  bloqueado Boolean @default(false)
+  bloqueado           Boolean  @default(false)
   /// Super-admin de la PLATAFORMA (Aragon), por encima de los tenants.
-  isPlatformAdmin Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isPlatformAdmin     Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   // Tenant "principal" (opcional; el acceso real se define por memberships)
   homeTenantId String? @db.Uuid
   homeTenant   Tenant? @relation(fields: [homeTenantId], references: [id])
 
-  memberships Membership[]
-  cashSessions CashSession[]
-  salesAsCajero Sale[] @relation("SaleCajero")
-  cashMovements CashMovement[]
+  memberships        Membership[]
+  cashSessions       CashSession[]
+  salesAsCajero      Sale[]             @relation("SaleCajero")
+  cashMovements      CashMovement[]
   terminalOperadores TerminalOperador[]
 }
 
@@ -530,29 +533,29 @@ model Categoria {
 }
 
 model Product {
-  id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String   @db.Uuid
-  nombre    String
+  id          String  @id @default(uuid()) @db.Uuid
+  tenantId    String  @db.Uuid
+  nombre      String
   categoriaId String? @db.Uuid
 
   /// PLU / código interno usado en balanza y código de peso variable.
-  plu    Int?
+  plu          Int?
   /// Código de barras (EAN) para productos empaquetados.
   codigoBarras String?
   /// Foto del producto (URL en Supabase Storage). Se usa en la web del tenant.
-  imagenUrl String?
+  imagenUrl    String?
 
   /// Unidades: se compra en una unidad y se vende en otra con factor.
-  unidadCompra    UnidadMedida @default(CAJON)
-  unidadVenta     UnidadMedida @default(KG)
+  unidadCompra     UnidadMedida @default(CAJON)
+  unidadVenta      UnidadMedida @default(KG)
   /// Cuántas unidades de venta rinde una unidad de compra (ej: cajón 20kg → 20).
-  factorConversion Decimal     @default(1) @db.Decimal(12, 4)
+  factorConversion Decimal      @default(1) @db.Decimal(12, 4)
 
   /// Se vende por peso (usa balanza / código de peso variable).
   esPesable Boolean @default(true)
 
   /// Visible en la tienda online (e-commerce público del tenant). Curado por el admin.
-  visibleOnline Boolean @default(false)
+  visibleOnline     Boolean @default(false)
   /// Descripción para la ficha de la tienda online (opcional).
   descripcionOnline String?
 
@@ -564,19 +567,19 @@ model Product {
   /// Fruta/verdura/flor en estado natural (define el trato en suspenso en B2B).
   esEstadoNatural Boolean @default(true)
   /// Producto importado (en B2B a empresa va a tasa básica 22%).
-  esImportado Boolean @default(false)
+  esImportado     Boolean @default(false)
 
   /// El IVA lo fijó el contador a mano (override): el motor NO lo reclasifica.
   /// Si es false, el motor de IVA (reglas globales) asigna y mantiene la tasa.
   ivaOverride Boolean @default(false)
   /// Término de la regla del motor que asignó el IVA (trazabilidad). null si override o sin regla.
-  ivaRegla String?
+  ivaRegla    String?
 
   /// % de merma estimada para calcular costo real = costo / (1 - merma).
   mermaPct Decimal @default(0) @db.Decimal(5, 4)
 
   /// Proveedor habitual (para agrupar el sugerido de compra). Opcional.
-  proveedorId String? @db.Uuid
+  proveedorId String?  @db.Uuid
   /// Stock mínimo (unidad de venta) para disparar reposición. Opcional.
   stockMinimo Decimal? @db.Decimal(14, 3)
 
@@ -584,18 +587,18 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  categoria   Categoria?      @relation(fields: [categoriaId], references: [id])
-  proveedor   Supplier?       @relation(fields: [proveedorId], references: [id])
-  priceItems  PriceListItem[]
-  promos      Promo[]
-  saleItems   SaleItem[]
-  purchaseItems PurchaseItem[]
-  stockItems  Stock[]
-  stockMoves  StockMovement[]
-  wastes      Waste[]
-  vencimientos Vencimiento[]
-  deliveryItems DeliveryItem[]
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  categoria        Categoria?        @relation(fields: [categoriaId], references: [id])
+  proveedor        Supplier?         @relation(fields: [proveedorId], references: [id])
+  priceItems       PriceListItem[]
+  promos           Promo[]
+  saleItems        SaleItem[]
+  purchaseItems    PurchaseItem[]
+  stockItems       Stock[]
+  stockMoves       StockMovement[]
+  wastes           Waste[]
+  vencimientos     Vencimiento[]
+  deliveryItems    DeliveryItem[]
   onlineOrderItems OnlineOrderItem[]
 
   @@unique([tenantId, plu])
@@ -659,17 +662,17 @@ enum PromoTipo {
 
 /// Promoción por producto (se aplica automáticamente en el POS).
 model Promo {
-  id        String    @id @default(uuid()) @db.Uuid
-  tenantId  String    @db.Uuid
-  productId String    @db.Uuid
-  nombre    String
-  tipo      PromoTipo
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @db.Uuid
+  productId   String    @db.Uuid
+  nombre      String
+  tipo        PromoTipo
   /// Cantidad que dispara la promo (N).
-  llevaN    Int
+  llevaN      Int
   /// NXM: cuántas se pagan (M).
-  pagaM     Int?
+  pagaM       Int?
   /// CANTIDAD: precio total por llevar N.
-  precioTotal Decimal? @db.Decimal(14, 2)
+  precioTotal Decimal?  @db.Decimal(14, 2)
 
   desde  DateTime?
   hasta  DateTime?
@@ -703,10 +706,10 @@ model PriceList {
 }
 
 model PriceListItem {
-  id          String  @id @default(uuid()) @db.Uuid
-  tenantId    String  @db.Uuid
-  priceListId String  @db.Uuid
-  productId   String  @db.Uuid
+  id          String @id @default(uuid()) @db.Uuid
+  tenantId    String @db.Uuid
+  priceListId String @db.Uuid
+  productId   String @db.Uuid
 
   /// Precio de venta por unidad de venta (con IVA incluido salvo config).
   precio Decimal @db.Decimal(14, 4)
@@ -800,16 +803,16 @@ model Waste {
 /// Vencimiento próximo declarado por el encargado: qué producto y cuánto vence
 /// y cuándo. Sirve para alertar antes de que se pierda y, al vencer, pasar a merma.
 model Vencimiento {
-  id               String    @id @default(uuid()) @db.Uuid
-  tenantId         String    @db.Uuid
-  productId        String    @db.Uuid
-  sucursalId       String?   @db.Uuid
-  cantidad         Decimal   @db.Decimal(14, 3)
-  fechaVencimiento DateTime  @db.Date
+  id               String   @id @default(uuid()) @db.Uuid
+  tenantId         String   @db.Uuid
+  productId        String   @db.Uuid
+  sucursalId       String?  @db.Uuid
+  cantidad         Decimal  @db.Decimal(14, 3)
+  fechaVencimiento DateTime @db.Date
   nota             String?
   /// true cuando ya se vendió/descartó (sale de las alertas).
-  resuelto         Boolean   @default(false)
-  createdAt        DateTime  @default(now())
+  resuelto         Boolean  @default(false)
+  createdAt        DateTime @default(now())
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   product  Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -841,15 +844,15 @@ model Supplier {
 }
 
 model Purchase {
-  id         String   @id @default(uuid()) @db.Uuid
-  tenantId   String   @db.Uuid
-  supplierId String?  @db.Uuid
-  fecha      DateTime @default(now())
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @db.Uuid
+  supplierId    String?  @db.Uuid
+  fecha         DateTime @default(now())
   /// Referencia al CFE recibido del proveedor (para conciliación).
   cfeRecibidoId String?
-  total      Decimal  @default(0) @db.Decimal(14, 4)
-  notas      String?
-  createdAt  DateTime @default(now())
+  total         Decimal  @default(0) @db.Decimal(14, 4)
+  notas         String?
+  createdAt     DateTime @default(now())
 
   tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   supplier Supplier?      @relation(fields: [supplierId], references: [id])
@@ -860,17 +863,17 @@ model Purchase {
 }
 
 model PurchaseItem {
-  id         String  @id @default(uuid()) @db.Uuid
-  tenantId   String  @db.Uuid
-  purchaseId String  @db.Uuid
-  productId  String  @db.Uuid
+  id         String @id @default(uuid()) @db.Uuid
+  tenantId   String @db.Uuid
+  purchaseId String @db.Uuid
+  productId  String @db.Uuid
 
   /// Cantidad comprada en unidad de compra (ej: 3 cajones).
-  cantidadCompra Decimal @db.Decimal(14, 3)
+  cantidadCompra  Decimal  @db.Decimal(14, 3)
   /// Costo por unidad de compra (ej: precio del cajón).
-  costoUnitCompra Decimal @db.Decimal(14, 4)
+  costoUnitCompra Decimal  @db.Decimal(14, 4)
   /// Peso/rinde real recibido en unidad de venta (para recalcular costo/kg).
-  rindeVenta Decimal? @db.Decimal(14, 3)
+  rindeVenta      Decimal? @db.Decimal(14, 3)
 
   purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
   product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -884,32 +887,32 @@ model PurchaseItem {
 // ============================================================================
 
 model CashSession {
-  id         String            @id @default(uuid()) @db.Uuid
-  tenantId   String            @db.Uuid
-  sucursalId String?           @db.Uuid
-  userId     String            @db.Uuid // cajero que abre
+  id            String            @id @default(uuid()) @db.Uuid
+  tenantId      String            @db.Uuid
+  sucursalId    String?           @db.Uuid
+  userId        String            @db.Uuid // cajero que abre
   /// Nombre de la caja física / terminal donde se opera (ej. "Caja 1").
   /// Snapshot del nombre al abrir; se conserva aunque la caja se renombre/elimine.
-  terminal   String?
+  terminal      String?
   /// Caja gestionada desde el Panel (opcional; null en aperturas sin caja asignada).
-  terminalId String?           @db.Uuid
-  status     CashSessionStatus @default(ABIERTA)
-  aperturaAt DateTime          @default(now())
-  cierreAt   DateTime?
-  montoApertura Decimal        @default(0) @db.Decimal(14, 2)
-  montoCierre   Decimal?       @db.Decimal(14, 2)
+  terminalId    String?           @db.Uuid
+  status        CashSessionStatus @default(ABIERTA)
+  aperturaAt    DateTime          @default(now())
+  cierreAt      DateTime?
+  montoApertura Decimal           @default(0) @db.Decimal(14, 2)
+  montoCierre   Decimal?          @db.Decimal(14, 2)
   /// Diferencia de arqueo del EFECTIVO (contado - esperado).
-  diferencia Decimal?          @db.Decimal(14, 2)
+  diferencia    Decimal?          @db.Decimal(14, 2)
   /// Conciliación por medio de pago: { MEDIO: { esperado, contado, diferencia } }.
   arqueoDetalle Json?
-  notas      String?
+  notas         String?
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sucursal Sucursal? @relation(fields: [sucursalId], references: [id])
-  user     User      @relation(fields: [userId], references: [id])
-  terminalRef Terminal? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
-  sales    Sale[]
-  movements CashMovement[]
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sucursal    Sucursal?      @relation(fields: [sucursalId], references: [id])
+  user        User           @relation(fields: [userId], references: [id])
+  terminalRef Terminal?      @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  sales       Sale[]
+  movements   CashMovement[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -983,26 +986,26 @@ model CashMovement {
 }
 
 model Sale {
-  id         String     @id @default(uuid()) @db.Uuid
-  tenantId   String     @db.Uuid
-  sucursalId String?    @db.Uuid
+  id            String  @id @default(uuid()) @db.Uuid
+  tenantId      String  @db.Uuid
+  sucursalId    String? @db.Uuid
   cashSessionId String? @db.Uuid
-  cajeroId   String?    @db.Uuid
-  customerId String?    @db.Uuid
+  cajeroId      String? @db.Uuid
+  customerId    String? @db.Uuid
 
   /// Número correlativo interno (distinto del número CFE).
   numeroInterno Int?
-  status     SaleStatus @default(COMPLETADA)
-  forma      FormaPago  @default(CONTADO)
+  status        SaleStatus @default(COMPLETADA)
+  forma         FormaPago  @default(CONTADO)
 
   /// Devolución (nota de crédito): importes y pagos negativos; referencia a la venta original.
   esDevolucion     Boolean @default(false)
   referenciaSaleId String? @db.Uuid
 
-  subtotal   Decimal @default(0) @db.Decimal(14, 4)
-  descuento  Decimal @default(0) @db.Decimal(14, 4)
-  ivaTotal   Decimal @default(0) @db.Decimal(14, 4)
-  total      Decimal @default(0) @db.Decimal(14, 4)
+  subtotal  Decimal @default(0) @db.Decimal(14, 4)
+  descuento Decimal @default(0) @db.Decimal(14, 4)
+  ivaTotal  Decimal @default(0) @db.Decimal(14, 4)
+  total     Decimal @default(0) @db.Decimal(14, 4)
 
   /// Clave de idempotencia para el sync offline (== id_externo en FEU).
   idempotencyKey String @unique
@@ -1055,14 +1058,14 @@ model SaleItem {
 }
 
 model Payment {
-  id       String    @id @default(uuid()) @db.Uuid
-  tenantId String    @db.Uuid
-  saleId   String    @db.Uuid
-  medio    MedioPago
-  monto    Decimal   @db.Decimal(14, 2)
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @db.Uuid
+  saleId     String    @db.Uuid
+  medio      MedioPago
+  monto      Decimal   @db.Decimal(14, 2)
   /// Referencia externa (id de Mercado Pago, últimos dígitos, etc.).
   referencia String?
-  createdAt DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
@@ -1075,9 +1078,9 @@ model Payment {
 // ============================================================================
 
 model Customer {
-  id       String  @id @default(uuid()) @db.Uuid
-  tenantId String  @db.Uuid
-  nombre   String
+  id          String  @id @default(uuid()) @db.Uuid
+  tenantId    String  @db.Uuid
+  nombre      String
   esMayorista Boolean @default(false)
 
   tipoDocumento TipoDocumentoCliente @default(CI)
@@ -1087,7 +1090,7 @@ model Customer {
   telefono      String?
   email         String?
 
-  priceListId String? @db.Uuid // lista de precios asignada
+  priceListId   String? @db.Uuid // lista de precios asignada
   /// Límite de crédito para cuenta corriente.
   limiteCredito Decimal @default(0) @db.Decimal(14, 2)
 
@@ -1095,21 +1098,21 @@ model Customer {
   puntos Int @default(0)
 
   /// Cuenta creada por el cliente desde la tienda online (self-service).
-  esOnline Boolean @default(false)
+  esOnline     Boolean @default(false)
   /// Hash de la contraseña (bcrypt) para el login de la tienda online. Null = sin cuenta.
   passwordHash String?
 
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  priceList PriceList?         @relation(fields: [priceListId], references: [id])
-  sales     Sale[]
-  account   AccountReceivable?
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  priceList        PriceList?         @relation(fields: [priceListId], references: [id])
+  sales            Sale[]
+  account          AccountReceivable?
   loyaltyMovements LoyaltyMovement[]
-  deliveryOrders DeliveryOrder[]
-  onlineOrders OnlineOrder[]
-  addresses CustomerAddress[]
+  deliveryOrders   DeliveryOrder[]
+  onlineOrders     OnlineOrder[]
+  addresses        CustomerAddress[]
 
   @@index([tenantId])
   @@index([tenantId, esMayorista])
@@ -1118,10 +1121,10 @@ model Customer {
 
 /// Dirección guardada por un cliente de la tienda online (para el checkout).
 model CustomerAddress {
-  id         String  @id @default(uuid()) @db.Uuid
-  tenantId   String  @db.Uuid
-  customerId String  @db.Uuid
-  etiqueta   String  // "Casa", "Trabajo", …
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @db.Uuid
+  customerId String   @db.Uuid
+  etiqueta   String // "Casa", "Trabajo", …
   direccion  String
   referencia String?
   createdAt  DateTime @default(now())
@@ -1158,15 +1161,15 @@ model LoyaltyMovement {
 }
 
 model AccountReceivable {
-  id         String  @id @default(uuid()) @db.Uuid
-  tenantId   String  @db.Uuid
-  customerId String  @unique @db.Uuid
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @db.Uuid
+  customerId String   @unique @db.Uuid
   /// Saldo actual (positivo = el cliente debe).
-  saldo      Decimal @default(0) @db.Decimal(14, 2)
+  saldo      Decimal  @default(0) @db.Decimal(14, 2)
   updatedAt  DateTime @updatedAt
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer  Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
   movements AccountMovement[]
 
   @@index([tenantId])
@@ -1199,15 +1202,15 @@ model DeliveryOrder {
   routeId    String?        @db.Uuid
   status     DeliveryStatus @default(PENDIENTE)
 
-  direccion  String?
-  telefono   String?
-  notas      String?
-  total      Decimal        @default(0) @db.Decimal(14, 2)
-  medioPago  MedioPago?
+  direccion String?
+  telefono  String?
+  notas     String?
+  total     Decimal    @default(0) @db.Decimal(14, 2)
+  medioPago MedioPago?
 
   fechaEntrega DateTime?
   entregadoAt  DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
   tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   customer Customer?      @relation(fields: [customerId], references: [id])
@@ -1219,12 +1222,12 @@ model DeliveryOrder {
 }
 
 model DeliveryItem {
-  id        String  @id @default(uuid()) @db.Uuid
-  tenantId  String  @db.Uuid
-  orderId   String  @db.Uuid
-  productId String? @db.Uuid
-  concepto  String
-  cantidad  Decimal @db.Decimal(14, 3)
+  id         String  @id @default(uuid()) @db.Uuid
+  tenantId   String  @db.Uuid
+  orderId    String  @db.Uuid
+  productId  String? @db.Uuid
+  concepto   String
+  cantidad   Decimal @db.Decimal(14, 3)
   precioUnit Decimal @db.Decimal(14, 4)
 
   order   DeliveryOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -1235,12 +1238,12 @@ model DeliveryItem {
 }
 
 model Route {
-  id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String   @db.Uuid
-  nombre    String
-  fecha     DateTime @default(now())
-  repartidorId String? @db.Uuid
-  createdAt DateTime @default(now())
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  nombre       String
+  fecha        DateTime @default(now())
+  repartidorId String?  @db.Uuid
+  createdAt    DateTime @default(now())
 
   tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   orders DeliveryOrder[]
@@ -1350,20 +1353,20 @@ model OnlineOrder {
 }
 
 model OnlineOrderItem {
-  id         String  @id @default(uuid()) @db.Uuid
-  tenantId   String  @db.Uuid
-  orderId    String  @db.Uuid
-  productId  String? @db.Uuid
-  concepto   String
-  unidad     String
-  esPesable  Boolean @default(false)
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  orderId      String   @db.Uuid
+  productId    String?  @db.Uuid
+  concepto     String
+  unidad       String
+  esPesable    Boolean  @default(false)
   /// Cantidad pedida por el cliente (kg estimados si es pesable).
-  cantidad   Decimal @db.Decimal(14, 3)
+  cantidad     Decimal  @db.Decimal(14, 3)
   /// Cantidad real tras pesar/preparar (kg reales). Null hasta que se prepara.
   cantidadReal Decimal? @db.Decimal(14, 3)
-  precioUnit Decimal @db.Decimal(14, 4)
+  precioUnit   Decimal  @db.Decimal(14, 4)
   /// Subtotal efectivo (usa cantidadReal si está, si no la estimada).
-  subtotal   Decimal @db.Decimal(14, 2)
+  subtotal     Decimal  @db.Decimal(14, 2)
 
   order   OnlineOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product?    @relation(fields: [productId], references: [id])
@@ -1388,19 +1391,19 @@ model CfeDocument {
   idExterno String
 
   // Datos devueltos por el proveedor (FEU) tras emitir
-  providerId  Int? // id interno de FEU
-  serie       String?
-  numero      Int?
-  hash        String?
-  caeNumero   String?
+  providerId     Int? // id interno de FEU
+  serie          String?
+  numero         Int?
+  hash           String?
+  caeNumero      String?
   caeRangoInicio Int?
   caeRangoFinal  Int?
   caeVencimiento DateTime?
-  importeTotal   Decimal? @db.Decimal(14, 2)
-  qrUrl       String? // url de consulta QR en DGI
+  importeTotal   Decimal?  @db.Decimal(14, 2)
+  qrUrl          String? // url de consulta QR en DGI
 
   /// Nº de reintentos de polling de estado.
-  pollingIntentos Int      @default(0)
+  pollingIntentos Int     @default(0)
   ultimoError     String?
 
   createdAt DateTime @default(now())
