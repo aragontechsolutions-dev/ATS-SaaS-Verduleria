@@ -77,7 +77,8 @@ export class SettingsService {
       data: {
         nombre: dto.nombre,
         razonSocial: dto.razonSocial,
-        rut: dto.rut,
+        // RUT es único: un valor vacío se guarda como null (varios "" chocarían).
+        ...(dto.rut !== undefined ? { rut: dto.rut.trim() || null } : {}),
         regimenFiscal: dto.regimenFiscal,
         direccion: dto.direccion,
         telefono: dto.telefono,
