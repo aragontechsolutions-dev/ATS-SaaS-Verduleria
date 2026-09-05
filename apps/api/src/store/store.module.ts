@@ -11,9 +11,11 @@ import {
   StoreAdminController,
   TelegramWebhookController,
 } from './store.controller';
+import { RepartidorController, RepartoAdminController } from './reparto.controller';
 import { StoreService } from './store.service';
 import { TelegramService } from './telegram.service';
 import { CustomerService } from './customer.service';
+import { RepartoService } from './reparto.service';
 
 @Module({
   imports: [
@@ -27,7 +29,14 @@ import { CustomerService } from './customer.service';
       }),
     }),
   ],
-  controllers: [PublicStoreController, PublicCustomerController, StoreAdminController, TelegramWebhookController],
-  providers: [StoreService, TelegramService, CustomerService, RolesGuard],
+  controllers: [
+    PublicStoreController,
+    PublicCustomerController,
+    StoreAdminController,
+    TelegramWebhookController,
+    RepartidorController,
+    RepartoAdminController,
+  ],
+  providers: [StoreService, TelegramService, CustomerService, RepartoService, RolesGuard],
 })
 export class StoreModule {}

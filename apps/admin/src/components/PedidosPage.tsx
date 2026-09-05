@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getOrders, pesajeOrder, setOrderEstado } from '../lib/api';
-import type { OnlineOrderEstado, OrderAdmin, OrderItemAdmin, OrdersResponse } from '../lib/api';
+import { despacharPedido, getOrders, getReparto, pesajeOrder, setLocalUbicacion, setOrderEstado } from '../lib/api';
+import type { OnlineOrderEstado, OrderAdmin, OrderItemAdmin, OrdersResponse, RepartoEstado } from '../lib/api';
 import { Spinner } from './Skeleton';
 import { useToast } from '../lib/toast';
 
@@ -42,12 +42,14 @@ export function PedidosPage() {
     try { return localStorage.getItem(SOUND_KEY) === '1'; } catch { return false; }
   });
   const [pesando, setPesando] = useState<OrderAdmin | null>(null);
+  const [reparto, setReparto] = useState<RepartoEstado | null>(null);
   const prevNuevos = useRef<number | null>(null);
 
   const cargar = useCallback(async () => {
     try {
-      const d = await getOrders();
+      const [d, r] = await Promise.all([getOrders(), getReparto().catch(() => null)]);
       setData(d);
+      if (r) setReparto(r);
       const nuevos = d.counts.NUEVO ?? 0;
       if (prevNuevos.current != null && nuevos > prevNuevos.current && sonido) {
         beep();
@@ -59,6 +61,18 @@ export function PedidosPage() {
       setError(m);
     }
   }, [sonido, toast]);
+
+  async function despachar(o: OrderAdmin) {
+    try {
+      const r = await despacharPedido(o.id);
+      setReparto(r);
+      const asignado = !r.enCola.some((c) => c.id === o.id);
+      toast.success(asignado ? `Pedido #${o.numero} asignado a un repartidor` : `Pedido #${o.numero} en cola de reparto`);
+      void cargar();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo despachar');
+    }
+  }
 
   useEffect(() => {
     void cargar();
@@ -106,12 +120,14 @@ export function PedidosPage() {
         </button>
       </div>
 
+      <RepartoPanel reparto={reparto} onChange={setReparto} />
+
       {orders.length === 0 ? (
         <p className="ped-empty">No hay pedidos {filtro !== 'TODOS' ? `en “${ESTADO_LABEL[filtro]}”` : ''}.</p>
       ) : (
         <div className="ped-list">
           {orders.map((o) => (
-            <OrderCard key={o.id} o={o} onEstado={cambiarEstado} onPesar={() => setPesando(o)} />
+            <OrderCard key={o.id} o={o} onEstado={cambiarEstado} onPesar={() => setPesando(o)} onDespachar={() => despachar(o)} />
           ))}
         </div>
       )}
@@ -127,12 +143,88 @@ export function PedidosPage() {
   );
 }
 
-function OrderCard({ o, onEstado, onPesar }: {
+const REP_ESTADO_LABEL: Record<string, string> = {
+  DISPONIBLE: '🟢 Disponible', EN_ENTREGA: '🛵 En entrega', OFFLINE: '⚪ Desconectado',
+};
+
+/** Panorama del reparto: ubicación del local, repartidores y cola. */
+function RepartoPanel({ reparto, onChange }: { reparto: RepartoEstado | null; onChange: (r: RepartoEstado) => void }) {
+  const toast = useToast();
+  const [abierto, setAbierto] = useState(false);
+  const [ubicando, setUbicando] = useState(false);
+  if (!reparto) return null;
+
+  const reps = reparto.repartidores;
+  const activos = reps.filter((r) => r.estado !== 'OFFLINE').length;
+
+  function usarMiUbicacion() {
+    if (!navigator.geolocation) return toast.error('Este navegador no da ubicación');
+    setUbicando(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const r = await setLocalUbicacion(pos.coords.latitude, pos.coords.longitude);
+          onChange(r);
+          toast.success('Ubicación del local guardada');
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+        } finally { setUbicando(false); }
+      },
+      () => { setUbicando(false); toast.error('No se pudo obtener la ubicación'); },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }
+
+  return (
+    <section className="reparto-panel">
+      <button className="reparto-panel__head" onClick={() => setAbierto((v) => !v)}>
+        <span>🛵 Reparto — {activos} repartidor{activos === 1 ? '' : 'es'} activo{activos === 1 ? '' : 's'}
+          {reparto.enCola.length > 0 ? ` · ${reparto.enCola.length} en cola` : ''}</span>
+        <span>{abierto ? '▲' : '▼'}</span>
+      </button>
+      {abierto && (
+        <div className="reparto-panel__body">
+          <div className="reparto-local">
+            <span>{reparto.local ? `📍 Local ubicado (${reparto.local.lat.toFixed(4)}, ${reparto.local.lng.toFixed(4)})` : '⚠️ El local no tiene ubicación — la asignación no usará cercanía.'}</span>
+            <button className="btn btn--sm btn--ghost" onClick={usarMiUbicacion} disabled={ubicando}>
+              {ubicando ? 'Ubicando…' : '📍 Usar mi ubicación'}
+            </button>
+          </div>
+
+          <div className="reparto-reps">
+            {reps.length === 0 && <p className="muted">Ningún repartidor se conectó todavía.</p>}
+            {reps.map((r) => (
+              <div key={r.userId} className="reparto-rep">
+                <strong>{r.nombre}</strong>
+                <span>{REP_ESTADO_LABEL[r.estado] ?? r.estado}</span>
+                <span className="muted">{r.pedidosEncima > 0 ? `${r.pedidosEncima} pedido(s)` : '—'}</span>
+                <span className="muted">{r.ubicacionAt ? new Date(r.ubicacionAt).toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }) : 'sin GPS'}</span>
+              </div>
+            ))}
+          </div>
+
+          {reparto.enCola.length > 0 && (
+            <div className="reparto-cola">
+              <p className="muted">En cola (esperando repartidor libre):</p>
+              {reparto.enCola.map((c) => (
+                <div key={c.id} className="reparto-cola__item">#{c.numero} · {c.cliente} · {c.direccion ?? ''}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function OrderCard({ o, onEstado, onPesar, onDespachar }: {
   o: OrderAdmin;
   onEstado: (o: OrderAdmin, e: OnlineOrderEstado) => void;
   onPesar: () => void;
+  onDespachar: () => void;
 }) {
   const terminal = o.estado === 'ENTREGADO' || o.estado === 'CANCELADO';
+  const puedeDespachar = o.tipoEntrega === 'DELIVERY' && !o.asignado && (o.estado === 'CONFIRMADO' || o.estado === 'PREPARANDO');
   const hora = new Date(o.createdAt).toLocaleString('es-UY', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const hayPeso = o.items.some((i) => i.esPesable);
 
@@ -181,12 +273,18 @@ function OrderCard({ o, onEstado, onPesar }: {
         </div>
       )}
 
+      {o.tipoEntrega === 'DELIVERY' && !terminal && (o.asignado || o.listoParaRepartir) && (
+        <div className="ped-card__reparto">
+          {o.asignado ? '🛵 Asignado a un repartidor' : '⏳ En cola de reparto (esperando repartidor libre)'}
+        </div>
+      )}
+
       {!terminal && (
         <div className="ped-card__actions">
           {o.estado === 'NUEVO' && <button className="btn btn--sm" onClick={() => onEstado(o, 'CONFIRMADO')}>Confirmar</button>}
           <button className="btn btn--sm btn--primary" onClick={onPesar}>⚖ Preparar / pesar</button>
-          {o.tipoEntrega === 'DELIVERY' && (o.estado === 'PREPARANDO' || o.estado === 'CONFIRMADO') && (
-            <button className="btn btn--sm" onClick={() => onEstado(o, 'EN_CAMINO')}>🛵 En camino</button>
+          {puedeDespachar && (
+            <button className="btn btn--sm" title="Asigna automáticamente al repartidor libre más cercano al local" onClick={onDespachar}>🛵 Despachar</button>
           )}
           <button
             className="btn btn--sm"

@@ -836,6 +836,9 @@ export interface OrderAdmin {
   total: number;
   saleId: string | null;
   comprobante: { tipo: string; estado: string; serie: string | null; numero: number | null } | null;
+  listoParaRepartir: boolean;
+  repartidorId: string | null;
+  asignado: boolean;
   createdAt: string;
   items: OrderItemAdmin[];
 }
@@ -861,6 +864,39 @@ export const pesajeOrder = async (id: string, items: Array<{ itemId: string; can
   ok<OrderAdmin>(
     await fetch(`${API_BASE}/store/pedidos/${id}/pesaje`, { method: 'PATCH', headers: headers(), body: JSON.stringify({ items }) }),
     'pesajeOrder',
+  );
+
+// --- Reparto (motor de asignación) ------------------------------------------
+
+export type RepartidorEstadoTipo = 'OFFLINE' | 'DISPONIBLE' | 'EN_ENTREGA';
+
+export interface RepartoEstado {
+  local: { lat: number; lng: number } | null;
+  repartidores: Array<{
+    userId: string;
+    nombre: string;
+    estado: RepartidorEstadoTipo;
+    lat: number | null;
+    lng: number | null;
+    ubicacionAt: string | null;
+    pedidosEncima: number;
+  }>;
+  enCola: Array<{ id: string; numero: number; cliente: string; direccion: string | null; total: number }>;
+}
+
+export const getReparto = async () =>
+  ok<RepartoEstado>(await fetch(`${API_BASE}/store/reparto/estado`, { headers: headers() }), 'reparto');
+
+export const despacharPedido = async (id: string) =>
+  ok<RepartoEstado>(
+    await fetch(`${API_BASE}/store/reparto/pedidos/${id}/despachar`, { method: 'POST', headers: headers() }),
+    'despachar',
+  );
+
+export const setLocalUbicacion = async (lat: number, lng: number) =>
+  ok<RepartoEstado>(
+    await fetch(`${API_BASE}/store/reparto/local`, { method: 'PUT', headers: headers(), body: JSON.stringify({ lat, lng }) }),
+    'setLocal',
   );
 
 // La config fiscal (RUT, régimen, ambiente, emisión, sucursal) NO se edita desde
