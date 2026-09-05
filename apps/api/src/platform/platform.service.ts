@@ -4,12 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AuditEventTipo, Prisma, Role, SubscriptionStatus, TipoListaPrecio } from '@ats/database';
+import { AuditEventTipo, CertificadoEstado, Prisma, Role, SubscriptionStatus, TipoListaPrecio } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
 import { AuditService } from '../audit/audit.service';
 import { generateTempPassword } from '../common/password.util';
-import type { CreateTenantDto, UpdateTenantDto } from './platform.dto';
+import { getTenantContext } from '../tenant/tenant-context';
+import { CfeGateError, diffCfeConfig, resolverCfeConfig, type CfeConfigActual } from '../cfe/fiscal-config';
+import type { CreateTenantDto, UpdateCfeConfigDto, UpdateTenantDto } from './platform.dto';
 
 @Injectable()
 export class PlatformService {
@@ -203,5 +205,111 @@ export class PlatformService {
       where: { id },
       include: { subscription: { include: { plan: true } } },
     });
+  }
+
+  /** Config fiscal (CFE) de un tenant, para la Consola (solo lectura + edición Aragon). */
+  async getCfeConfig(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { cfeConfig: true },
+    });
+    if (!tenant) throw new NotFoundException('Cliente no encontrado');
+    const c = tenant.cfeConfig;
+    return {
+      tenantId,
+      nombre: tenant.nombre,
+      razonSocial: tenant.razonSocial,
+      rut: tenant.rut,
+      regimenFiscal: tenant.regimenFiscal,
+      cfe: {
+        provider: c?.provider ?? 'SIN_CFE',
+        ambiente: c?.ambiente ?? 'test',
+        emisorRut: c?.emisorRut ?? '',
+        sucursalDefault: c?.sucursalDefault ?? 1,
+        certificadoEstado: c?.certificadoEstado ?? CertificadoEstado.SIN_CARGAR,
+        emisionActiva: c?.emisionActiva ?? false,
+        codMontosBrutos: c?.codMontosBrutos ?? 1,
+      },
+    };
+  }
+
+  /**
+   * Actualiza la config fiscal de un tenant (solo desde la Consola). Deriva
+   * provider/cod_montos_brutos del régimen, valida el doble gate de producción
+   * y deja registro en la bitácora del tenant (quién y qué cambió).
+   */
+  async updateCfeConfig(tenantId: string, dto: UpdateCfeConfigDto) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { cfeConfig: true },
+    });
+    if (!tenant) throw new NotFoundException('Cliente no encontrado');
+
+    const actual: CfeConfigActual = {
+      regimenFiscal: tenant.regimenFiscal,
+      rut: tenant.rut,
+      emisorRut: tenant.cfeConfig?.emisorRut ?? '',
+      ambiente: tenant.cfeConfig?.ambiente ?? 'test',
+      sucursalDefault: tenant.cfeConfig?.sucursalDefault ?? 1,
+      emisionActiva: tenant.cfeConfig?.emisionActiva ?? false,
+      certificadoEstado: tenant.cfeConfig?.certificadoEstado ?? CertificadoEstado.SIN_CARGAR,
+    };
+
+    let resolved;
+    try {
+      resolved = resolverCfeConfig(actual, dto);
+    } catch (e) {
+      if (e instanceof CfeGateError) throw new BadRequestException(e.message);
+      throw e;
+    }
+
+    const cfeData = {
+      provider: resolved.cfe.provider,
+      ambiente: resolved.cfe.ambiente,
+      emisorRut: resolved.cfe.emisorRut,
+      sucursalDefault: resolved.cfe.sucursalDefault,
+      codMontosBrutos: resolved.cfe.codMontosBrutos,
+      emisionActiva: resolved.cfe.emisionActiva,
+      certificadoEstado: resolved.cfe.certificadoEstado as CertificadoEstado,
+    };
+
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { rut: resolved.tenant.rut, regimenFiscal: resolved.tenant.regimenFiscal },
+    });
+    await this.prisma.cfeTenantConfig.upsert({
+      where: { tenantId },
+      update: cfeData,
+      create: { tenantId, ...cfeData },
+    });
+
+    // Bitácora: registrar el diff bajo el tenant afectado (quién = admin de plataforma).
+    const antes = {
+      regimenFiscal: actual.regimenFiscal, rut: actual.rut, emisorRut: actual.emisorRut,
+      ambiente: actual.ambiente, sucursalDefault: actual.sucursalDefault,
+      emisionActiva: actual.emisionActiva, certificadoEstado: actual.certificadoEstado,
+    };
+    const despues = {
+      regimenFiscal: resolved.tenant.regimenFiscal, rut: resolved.tenant.rut, emisorRut: cfeData.emisorRut,
+      ambiente: cfeData.ambiente, sucursalDefault: cfeData.sucursalDefault,
+      emisionActiva: cfeData.emisionActiva, certificadoEstado: cfeData.certificadoEstado,
+    };
+    const cambios = diffCfeConfig(antes, despues);
+    if (Object.keys(cambios).length) {
+      const ctx = getTenantContext();
+      const actor = ctx?.userId
+        ? await this.prisma.user.findUnique({ where: { id: ctx.userId }, select: { email: true, nombre: true } })
+        : null;
+      await this.audit.log({
+        tipo: AuditEventTipo.CFE_CONFIG_MODIFICADA,
+        tenantId,
+        userId: ctx?.userId,
+        usuario: actor?.email ?? actor?.nombre ?? 'consola',
+        descripcion: 'Configuración fiscal (CFE) modificada desde la Consola',
+        meta: { cambios },
+      });
+    }
+
+    return this.getCfeConfig(tenantId);
   }
 }

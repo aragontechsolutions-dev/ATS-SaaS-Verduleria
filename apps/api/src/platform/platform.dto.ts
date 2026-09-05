@@ -1,9 +1,14 @@
+import { CertificadoEstado, RegimenFiscal } from '@ats/database';
 import {
   IsBoolean,
   IsEmail,
+  IsEnum,
+  IsIn,
+  IsInt,
   IsOptional,
   IsString,
   Matches,
+  Min,
   MinLength,
 } from 'class-validator';
 
@@ -51,4 +56,46 @@ export class UpdateTenantDto {
   @IsOptional()
   @IsString()
   planCode?: string;
+}
+
+/**
+ * Config fiscal (CFE) del tenant. Se edita SOLO desde la Consola (Aragon); el
+ * panel del tenant la ve en modo lectura. El proveedor y cod_montos_brutos se
+ * derivan del régimen (no se piden). Activar la emisión en producción exige el
+ * checklist (confirmarProduccion + certificado vigente + RUT emisor).
+ */
+export class UpdateCfeConfigDto {
+  @IsOptional()
+  @IsEnum(RegimenFiscal)
+  regimenFiscal?: RegimenFiscal;
+
+  @IsOptional()
+  @IsString()
+  rut?: string;
+
+  @IsOptional()
+  @IsString()
+  emisorRut?: string;
+
+  @IsOptional()
+  @IsIn(['test', 'produccion'])
+  ambiente?: 'test' | 'produccion';
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  sucursalDefault?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  emisionActiva?: boolean;
+
+  @IsOptional()
+  @IsEnum(CertificadoEstado)
+  certificadoEstado?: CertificadoEstado;
+
+  /** Confirmación explícita del checklist para prender la emisión en producción. */
+  @IsOptional()
+  @IsBoolean()
+  confirmarProduccion?: boolean;
 }
