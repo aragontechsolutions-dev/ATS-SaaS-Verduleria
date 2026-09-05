@@ -58,6 +58,9 @@ export class RepartoService {
       cliente: o.clienteNombre,
       telefono: o.clienteTelefono,
       direccion: o.direccion,
+      // Punto exacto marcado en el mapa (si el cliente lo marcó): para navegar preciso.
+      lat: o.entregaLat != null ? Number(o.entregaLat) : null,
+      lng: o.entregaLng != null ? Number(o.entregaLng) : null,
       notas: o.notas,
       total: Number(o.total),
       items: o.items.map((it) => ({

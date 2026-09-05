@@ -53,6 +53,17 @@ export class CreateOrderDto {
   @IsString()
   direccion?: string;
 
+  /** Punto exacto marcado en el mapa por el cliente (opcional, para delivery). */
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  lat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  lng?: number;
+
   @IsOptional()
   @IsString()
   notas?: string;

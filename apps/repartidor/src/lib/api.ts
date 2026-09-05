@@ -48,6 +48,9 @@ export interface Pedido {
   cliente: string;
   telefono: string;
   direccion: string | null;
+  /** Punto exacto marcado por el cliente en el mapa (si lo marcó). */
+  lat: number | null;
+  lng: number | null;
   notas: string | null;
   total: number;
   items: PedidoItem[];
