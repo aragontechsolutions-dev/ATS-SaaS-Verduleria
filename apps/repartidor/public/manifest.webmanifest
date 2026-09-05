@@ -1,0 +1,14 @@
+{
+  "name": "Aragon · Reparto",
+  "short_name": "Reparto",
+  "description": "App del repartidor — entregas asignadas de la verdulería.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#128C7E",
+  "theme_color": "#128C7E",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
