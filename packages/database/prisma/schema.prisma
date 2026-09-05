@@ -626,6 +626,7 @@ enum AuditEventTipo {
   CAJON_ABIERTO
   ANULACION_LINEA
   PRECIO_MODIFICADO
+  CFE_CONFIG_MODIFICADA // cambio de config fiscal desde la Consola (Aragon)
 }
 
 /// Bitácora de auditoría: registro append-only de operaciones sensibles.

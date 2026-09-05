@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, RegimenFiscal } from '@ats/database';
+import { Prisma } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import type { UpdateSettingsDto } from './settings.dto';
 import { GATES_OFF, hashCajaPin, normalizeGates } from './settings.security';
@@ -13,14 +13,6 @@ function cajaSeguridadData(dto: UpdateSettingsDto): Prisma.TenantUpdateInput {
   if (dto.cajaPin) data.cajaPinHash = hashCajaPin(dto.cajaPin);
   if (dto.cajaGates !== undefined) data.cajaGates = normalizeGates(dto.cajaGates) as Prisma.InputJsonValue;
   return data;
-}
-
-/** Deriva el proveedor CFE y cod_montos_brutos del régimen fiscal. */
-function fiscalDefaults(regimen: RegimenFiscal): { provider: string; codMontosBrutos: number } {
-  const exento = regimen === RegimenFiscal.MONOTRIBUTO || regimen === RegimenFiscal.MONOTRIBUTO_MIDES;
-  return exento
-    ? { provider: 'SIN_CFE', codMontosBrutos: 3 } // exceptuado de CFE (ticket interno)
-    : { provider: 'FEU', codMontosBrutos: 1 }; // obligado a CFE (IVA incluido)
 }
 
 @Injectable()
@@ -66,20 +58,17 @@ export class SettingsService {
   }
 
   async update(tenantId: string, dto: UpdateSettingsDto) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      include: { cfeConfig: true },
-    });
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) throw new NotFoundException('Verdulería no encontrada');
 
+    // Datos comerciales y de caja. La config FISCAL (RUT, régimen, ambiente,
+    // emisión, sucursal) se gestiona SOLO desde la Consola de Aragon; acá el
+    // panel del tenant es de solo lectura para esos campos.
     await this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
         nombre: dto.nombre,
         razonSocial: dto.razonSocial,
-        // RUT es único: un valor vacío se guarda como null (varios "" chocarían).
-        ...(dto.rut !== undefined ? { rut: dto.rut.trim() || null } : {}),
-        regimenFiscal: dto.regimenFiscal,
         direccion: dto.direccion,
         telefono: dto.telefono,
         email: dto.email,
@@ -92,23 +81,6 @@ export class SettingsService {
         ...(dto.tiendaOnlineActiva !== undefined ? { tiendaOnlineActiva: dto.tiendaOnlineActiva } : {}),
         ...cajaSeguridadData(dto),
       },
-    });
-
-    // Config CFE: se deriva del régimen resultante. El emisorRut cae al RUT.
-    const regimen = dto.regimenFiscal ?? tenant.regimenFiscal;
-    const { provider, codMontosBrutos } = fiscalDefaults(regimen);
-    const emisorRut = dto.emisorRut ?? dto.rut ?? tenant.cfeConfig?.emisorRut ?? tenant.rut ?? '';
-    const ambiente = dto.cfeAmbiente ?? tenant.cfeConfig?.ambiente ?? 'test';
-    const sucursalDefault = dto.sucursalDefault ?? tenant.cfeConfig?.sucursalDefault ?? 1;
-    // Emisión electrónica: solo se activa a mano. Si el régimen pasa a exento, se apaga.
-    const emisionActiva = provider === 'SIN_CFE'
-      ? false
-      : dto.cfeEmisionActiva ?? tenant.cfeConfig?.emisionActiva ?? false;
-
-    await this.prisma.cfeTenantConfig.upsert({
-      where: { tenantId },
-      update: { provider, ambiente, emisorRut, sucursalDefault, codMontosBrutos, emisionActiva },
-      create: { tenantId, provider, ambiente, emisorRut, sucursalDefault, codMontosBrutos, emisionActiva },
     });
 
     return this.get(tenantId);

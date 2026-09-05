@@ -105,6 +105,48 @@ export const updateTenant = async (id: string, patch: { activo?: boolean; planCo
     'updateTenant',
   );
 
+// --- Config fiscal (CFE) del tenant — la gestiona Aragon ---------------------
+
+export type RegimenFiscal = 'MONOTRIBUTO' | 'MONOTRIBUTO_MIDES' | 'LITERAL_E' | 'IVA_MINIMO' | 'REGIMEN_GENERAL';
+export type CertificadoEstado = 'SIN_CARGAR' | 'VIGENTE' | 'POR_VENCER' | 'VENCIDO';
+
+export interface CfeConfig {
+  tenantId: string;
+  nombre: string;
+  razonSocial: string | null;
+  rut: string | null;
+  regimenFiscal: RegimenFiscal;
+  cfe: {
+    provider: string;
+    ambiente: 'test' | 'produccion';
+    emisorRut: string;
+    sucursalDefault: number;
+    certificadoEstado: CertificadoEstado;
+    emisionActiva: boolean;
+    codMontosBrutos: number;
+  };
+}
+
+export interface CfeConfigInput {
+  regimenFiscal?: RegimenFiscal;
+  rut?: string;
+  emisorRut?: string;
+  ambiente?: 'test' | 'produccion';
+  sucursalDefault?: number;
+  emisionActiva?: boolean;
+  certificadoEstado?: CertificadoEstado;
+  confirmarProduccion?: boolean;
+}
+
+export const getTenantCfe = async (id: string) =>
+  ok<CfeConfig>(await fetch(`${API_BASE}/platform/tenants/${id}/cfe`, { headers: headers() }), 'tenantCfe');
+
+export const updateTenantCfe = async (id: string, patch: CfeConfigInput) =>
+  ok<CfeConfig>(
+    await fetch(`${API_BASE}/platform/tenants/${id}/cfe`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) }),
+    'updateTenantCfe',
+  );
+
 // --- Facturación del SaaS ---------------------------------------------------
 
 export interface BillingSummary {

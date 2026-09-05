@@ -1,6 +1,8 @@
-import { RegimenFiscal } from '@ats/database';
-import { IsBoolean, IsEnum, IsInt, IsNumber, IsObject, IsOptional, IsString, Length, Min } from 'class-validator';
+import { IsBoolean, IsNumber, IsObject, IsOptional, IsString, Length, Min } from 'class-validator';
 
+// NOTA: la config FISCAL (RUT, régimen, ambiente, emisión, sucursal) NO se edita
+// desde el panel del tenant — se gestiona en la Consola de Aragon
+// (PATCH /platform/tenants/:id/cfe). Acá solo van datos comerciales y de caja.
 export class UpdateSettingsDto {
   @IsOptional()
   @IsString()
@@ -9,14 +11,6 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsString()
   razonSocial?: string;
-
-  @IsOptional()
-  @IsString()
-  rut?: string;
-
-  @IsOptional()
-  @IsEnum(RegimenFiscal)
-  regimenFiscal?: RegimenFiscal;
 
   @IsOptional()
   @IsString()
@@ -75,23 +69,4 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsObject()
   cajaGates?: Record<string, boolean>;
-
-  // --- Facturación electrónica (CFE) ---
-  @IsOptional()
-  @IsString()
-  cfeAmbiente?: 'test' | 'produccion';
-
-  @IsOptional()
-  @IsString()
-  emisorRut?: string;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  sucursalDefault?: number;
-
-  /** Activa/desactiva la emisión electrónica real (interruptor de seguridad). */
-  @IsOptional()
-  @IsBoolean()
-  cfeEmisionActiva?: boolean;
 }

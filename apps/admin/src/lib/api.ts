@@ -863,11 +863,11 @@ export const pesajeOrder = async (id: string, items: Array<{ itemId: string; can
     'pesajeOrder',
   );
 
+// La config fiscal (RUT, régimen, ambiente, emisión, sucursal) NO se edita desde
+// el panel del tenant — se gestiona en la Consola de Aragon. Acá solo comercial + caja.
 export interface SettingsInput {
   nombre?: string;
   razonSocial?: string;
-  rut?: string;
-  regimenFiscal?: RegimenFiscal;
   direccion?: string;
   telefono?: string;
   email?: string;
@@ -879,10 +879,6 @@ export interface SettingsInput {
   cajaPin?: string;
   cajaPinClear?: boolean;
   cajaGates?: Record<string, boolean>;
-  cfeAmbiente?: 'test' | 'produccion';
-  emisorRut?: string;
-  sucursalDefault?: number;
-  cfeEmisionActiva?: boolean;
 }
 
 export const getSettings = async () =>

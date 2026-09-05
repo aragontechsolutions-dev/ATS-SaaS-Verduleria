@@ -4,13 +4,13 @@ import type { RegimenFiscal, Settings } from '../lib/api';
 import { Spinner } from './Skeleton';
 import { useToast } from '../lib/toast';
 
-const REGIMENES: Array<{ v: RegimenFiscal; label: string }> = [
-  { v: 'LITERAL_E', label: 'Literal E (IVA mínimo) — emite CFE' },
-  { v: 'IVA_MINIMO', label: 'IVA Mínimo — emite CFE' },
-  { v: 'REGIMEN_GENERAL', label: 'Régimen General (IRAE) — emite CFE' },
-  { v: 'MONOTRIBUTO', label: 'Monotributo — exento de CFE' },
-  { v: 'MONOTRIBUTO_MIDES', label: 'Monotributo MIDES — exento de CFE' },
-];
+const REGIMEN_LABEL: Record<RegimenFiscal, string> = {
+  LITERAL_E: 'Literal E (IVA mínimo) — emite CFE',
+  IVA_MINIMO: 'IVA Mínimo — emite CFE',
+  REGIMEN_GENERAL: 'Régimen General (IRAE) — emite CFE',
+  MONOTRIBUTO: 'Monotributo — exento de CFE',
+  MONOTRIBUTO_MIDES: 'Monotributo MIDES — exento de CFE',
+};
 
 export function SettingsPage() {
   const toast = useToast();
@@ -18,13 +18,12 @@ export function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Campos del formulario
+  // Campos EDITABLES del formulario (solo comercial + caja + fidelización).
   const [f, setF] = useState({
-    nombre: '', razonSocial: '', rut: '', regimenFiscal: 'LITERAL_E' as RegimenFiscal,
-    direccion: '', telefono: '', email: '', cfeAmbiente: 'test' as 'test' | 'produccion',
-    emisorRut: '', sucursalDefault: 1, limiteEfectivoCaja: '',
+    nombre: '', razonSocial: '', direccion: '', telefono: '', email: '',
+    limiteEfectivoCaja: '',
     loyaltyActivo: false, loyaltyAcumulaCada: '', loyaltyValorPunto: '',
-    tiendaOnlineActiva: false, cfeEmisionActiva: false,
+    tiendaOnlineActiva: false,
   });
 
   useEffect(() => {
@@ -34,20 +33,14 @@ export function SettingsPage() {
         setF({
           nombre: data.nombre ?? '',
           razonSocial: data.razonSocial ?? '',
-          rut: data.rut ?? '',
-          regimenFiscal: data.regimenFiscal,
           direccion: data.direccion ?? '',
           telefono: data.telefono ?? '',
           email: data.email ?? '',
-          cfeAmbiente: data.cfe?.ambiente ?? 'test',
-          emisorRut: data.cfe?.emisorRut ?? '',
-          sucursalDefault: data.cfe?.sucursalDefault ?? 1,
           limiteEfectivoCaja: data.limiteEfectivoCaja != null ? String(data.limiteEfectivoCaja) : '',
           loyaltyActivo: data.loyaltyActivo,
           loyaltyAcumulaCada: data.loyaltyAcumulaCada ? String(data.loyaltyAcumulaCada) : '',
           loyaltyValorPunto: data.loyaltyValorPunto ? String(data.loyaltyValorPunto) : '',
           tiendaOnlineActiva: data.tiendaOnlineActiva,
-          cfeEmisionActiva: data.cfe?.emisionActiva ?? false,
         });
       })
       .catch((e) => { const m = e instanceof Error ? e.message : String(e); setError(m); toast.error(m); });
@@ -61,7 +54,6 @@ export function SettingsPage() {
       const { limiteEfectivoCaja, loyaltyAcumulaCada, loyaltyValorPunto, ...rest } = f;
       const data = await updateSettings({
         ...rest,
-        sucursalDefault: Number(f.sucursalDefault),
         limiteEfectivoCaja: limiteEfectivoCaja.trim() ? Number(limiteEfectivoCaja.replace(',', '.')) : 0,
         loyaltyAcumulaCada: loyaltyAcumulaCada.trim() ? Number(loyaltyAcumulaCada.replace(',', '.')) : 0,
         loyaltyValorPunto: loyaltyValorPunto.trim() ? Number(loyaltyValorPunto.replace(',', '.')) : 0,
@@ -79,8 +71,6 @@ export function SettingsPage() {
 
   if (!s && !error) return <p className="loading-row"><Spinner /> Cargando ajustes…</p>;
 
-  const exento = f.regimenFiscal === 'MONOTRIBUTO' || f.regimenFiscal === 'MONOTRIBUTO_MIDES';
-
   return (
     <form onSubmit={submit}>
       {error && <div className="banner banner--err">{error}</div>}
@@ -95,12 +85,10 @@ export function SettingsPage() {
             <input value={f.razonSocial} onChange={(e) => setF({ ...f, razonSocial: e.target.value })} />
           </label>
           <label className="field">RUT
-            <input value={f.rut} onChange={(e) => setF({ ...f, rut: e.target.value })} placeholder="12 dígitos" />
+            <input value={s?.rut ?? '—'} readOnly disabled />
           </label>
           <label className="field">Régimen fiscal
-            <select value={f.regimenFiscal} onChange={(e) => setF({ ...f, regimenFiscal: e.target.value as RegimenFiscal })}>
-              {REGIMENES.map((r) => <option key={r.v} value={r.v}>{r.label}</option>)}
-            </select>
+            <input value={s ? REGIMEN_LABEL[s.regimenFiscal] : '—'} readOnly disabled />
           </label>
           <label className="field">Dirección
             <input value={f.direccion} onChange={(e) => setF({ ...f, direccion: e.target.value })} />
@@ -165,44 +153,7 @@ export function SettingsPage() {
         </p>
       </section>
 
-      <section className="panel">
-        <div className="panel__head"><h2>Facturación electrónica (CFE)</h2></div>
-        {exento ? (
-          <p className="muted">
-            Con este régimen la verdulería está <strong>exenta de CFE</strong>: el POS emite ticket
-            interno (no fiscal). No hace falta configurar facturación.
-          </p>
-        ) : (
-          <div className="form-grid">
-            <label className="field">RUT emisor (X-Emisor)
-              <input value={f.emisorRut} onChange={(e) => setF({ ...f, emisorRut: e.target.value })} placeholder="usa el RUT del negocio" />
-            </label>
-            <label className="field">Ambiente
-              <select value={f.cfeAmbiente} onChange={(e) => setF({ ...f, cfeAmbiente: e.target.value as 'test' | 'produccion' })}>
-                <option value="test">Prueba (test)</option>
-                <option value="produccion">Producción</option>
-              </select>
-            </label>
-            <label className="field">Sucursal por defecto
-              <input type="number" min={1} value={f.sucursalDefault} onChange={(e) => setF({ ...f, sucursalDefault: Number(e.target.value) })} />
-            </label>
-          </div>
-        )}
-        {!exento && (
-          <>
-            <label className="field field--check" style={{ marginTop: 8 }}>
-              <input type="checkbox" checked={f.cfeEmisionActiva} onChange={(e) => setF({ ...f, cfeEmisionActiva: e.target.checked })} />
-              Activar emisión electrónica (FEU)
-            </label>
-            <p className="hint">
-              Mientras esté <strong>desactivada</strong>, cada venta genera un <strong>ticket interno</strong> (no fiscal). Al activarla,
-              el POS emite <strong>CFE reales</strong> vía FEU con el RUT emisor. Ambiente actual:
-              <strong> {f.cfeAmbiente === 'produccion' ? 'Producción' : 'Prueba (test)'}</strong>
-              {s?.cfe ? <> · Proveedor: {s.cfe.provider} · Certificado: {s.cfe.certificadoEstado}</> : null}
-            </p>
-          </>
-        )}
-      </section>
+      <CfeReadOnlyPanel settings={s} />
 
       <div className="modal__actions" style={{ justifyContent: 'flex-start' }}>
         <button className="btn btn--primary" type="submit" disabled={saving}>
@@ -210,6 +161,55 @@ export function SettingsPage() {
         </button>
       </div>
     </form>
+  );
+}
+
+/** Vista de solo lectura de la config fiscal (la gestiona Aragon en la Consola). */
+function CfeReadOnlyPanel({ settings }: { settings: Settings | null }) {
+  const cfe = settings?.cfe;
+  const exento = !cfe || cfe.provider === 'SIN_CFE';
+  const ambienteLabel = cfe?.ambiente === 'produccion' ? 'Producción' : 'Prueba (test)';
+  return (
+    <section className="panel">
+      <div className="panel__head"><h2>Facturación electrónica (CFE)</h2></div>
+      <p className="hint">
+        🔒 Esta configuración la gestiona <strong>Aragon Tech Solutions</strong>. Para cambiar el RUT emisor,
+        el ambiente o activar la emisión electrónica, escribinos. Acá la ves solo para consulta.
+      </p>
+      {exento ? (
+        <p className="muted">
+          Con el régimen actual la verdulería está <strong>exenta de CFE</strong>: el POS emite ticket
+          interno (no fiscal).
+        </p>
+      ) : (
+        <>
+          <div className="form-grid">
+            <label className="field">RUT emisor (X-Emisor)
+              <input value={cfe?.emisorRut || '—'} readOnly disabled />
+            </label>
+            <label className="field">Ambiente
+              <input value={ambienteLabel} readOnly disabled />
+            </label>
+            <label className="field">Sucursal por defecto
+              <input value={cfe?.sucursalDefault ?? 1} readOnly disabled />
+            </label>
+            <label className="field">Proveedor
+              <input value={cfe?.provider ?? '—'} readOnly disabled />
+            </label>
+            <label className="field">Certificado
+              <input value={cfe?.certificadoEstado ?? '—'} readOnly disabled />
+            </label>
+            <label className="field">Emisión electrónica
+              <input value={cfe?.emisionActiva ? 'Activada' : 'Desactivada'} readOnly disabled />
+            </label>
+          </div>
+          <p className="hint">
+            Mientras la emisión está <strong>desactivada</strong>, cada venta genera un <strong>ticket interno</strong> (no fiscal).
+            Con ella activada, el POS emite <strong>CFE reales</strong> vía FEU con el RUT emisor.
+          </p>
+        </>
+      )}
+    </section>
   );
 }
 

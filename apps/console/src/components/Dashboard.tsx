@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { getOverview, getPlans, getTenants, updateTenant } from '../lib/api';
 import type { Overview, Plan, TenantRow } from '../lib/api';
 import { NewClientModal } from './NewClientModal';
+import { CfeConfigModal } from './CfeConfigModal';
 
 export function Dashboard() {
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -10,6 +11,7 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [cfeTenant, setCfeTenant] = useState<TenantRow | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -101,6 +103,7 @@ export function Dashboard() {
                       <td>{t.usuarios}</td>
                       <td>{t.productos}</td>
                       <td>
+                        <button className="btn btn--sm btn--ghost" onClick={() => setCfeTenant(t)}>Fiscal</button>{' '}
                         <button className="btn btn--sm btn--ghost" onClick={() => toggleActivo(t)}>
                           {t.activo ? 'Suspender' : 'Reactivar'}
                         </button>
@@ -124,6 +127,14 @@ export function Dashboard() {
             setCreating(false);
             void load();
           }}
+        />
+      )}
+
+      {cfeTenant && (
+        <CfeConfigModal
+          tenant={cfeTenant}
+          onClose={() => setCfeTenant(null)}
+          onSaved={() => void load()}
         />
       )}
     </>
