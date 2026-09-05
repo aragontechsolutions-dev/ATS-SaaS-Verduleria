@@ -4,6 +4,8 @@ import { CurrentTenant } from '../tenant/current-tenant.decorator';
 import { TenantGuard } from '../tenant/tenant.guard';
 import { RolesGuard } from '../tenant/roles.guard';
 import { Roles } from '../tenant/roles.decorator';
+import { EntitlementsGuard } from '../entitlements/entitlements.guard';
+import { RequiresModule } from '../entitlements/requires-module.decorator';
 import { StoreService } from './store.service';
 import { CustomerService } from './customer.service';
 import {
@@ -109,7 +111,8 @@ export class TelegramWebhookController {
 
 /** Gestión de la tienda (config + zonas) — solo el ADMIN del tenant. */
 @Controller('store')
-@UseGuards(TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, EntitlementsGuard, RolesGuard)
+@RequiresModule('DELIVERY') // tienda online + reparto = módulo Delivery (plan Full)
 @Roles(Role.ADMIN)
 export class StoreAdminController {
   constructor(private readonly store: StoreService) {}

@@ -4,12 +4,15 @@ import { CurrentTenant } from '../tenant/current-tenant.decorator';
 import { TenantGuard } from '../tenant/tenant.guard';
 import { RolesGuard } from '../tenant/roles.guard';
 import { Roles } from '../tenant/roles.decorator';
+import { EntitlementsGuard } from '../entitlements/entitlements.guard';
+import { RequiresModule } from '../entitlements/requires-module.decorator';
 import { RepartoService } from './reparto.service';
 import { LocalUbicacionDto, PresenciaDto } from './reparto.dto';
 
 /** PWA del repartidor. Requiere usuario con rol REPARTIDOR. */
 @Controller('reparto')
-@UseGuards(TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, EntitlementsGuard, RolesGuard)
+@RequiresModule('DELIVERY')
 @Roles(Role.REPARTIDOR)
 export class RepartidorController {
   constructor(private readonly reparto: RepartoService) {}
@@ -50,7 +53,8 @@ export class RepartidorController {
 
 /** Panel del negocio: despacho y panorama de reparto. */
 @Controller('store/reparto')
-@UseGuards(TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, EntitlementsGuard, RolesGuard)
+@RequiresModule('DELIVERY')
 @Roles(Role.ADMIN, Role.ENCARGADO)
 export class RepartoAdminController {
   constructor(private readonly reparto: RepartoService) {}
