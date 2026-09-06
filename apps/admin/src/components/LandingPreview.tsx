@@ -1,7 +1,24 @@
 import type { CSSProperties } from 'react';
-import type { LandingConfig } from '../lib/api';
+import type { LandingConfig, LandingProducto } from '../lib/api';
 import { tieneUbicacion } from '../lib/mapPhone';
 import { LandingMapView } from './LandingMapView';
+
+/** Agrupa los productos por categoría preservando el orden de aparición. */
+function agruparPorCategoria(items: LandingProducto[]): Array<{ categoria: string; items: LandingProducto[] }> {
+  const grupos: Array<{ categoria: string; items: LandingProducto[] }> = [];
+  const idx = new Map<string, number>();
+  for (const it of items) {
+    const cat = (it.categoria ?? '').trim();
+    let i = idx.get(cat);
+    if (i === undefined) {
+      i = grupos.length;
+      idx.set(cat, i);
+      grupos.push({ categoria: cat, items: [] });
+    }
+    grupos[i].items.push(it);
+  }
+  return grupos;
+}
 
 /** Render de la landing a partir de la config. Es el mismo contenido que verá
  *  el público; acá se usa como preview en vivo del editor. */
@@ -32,17 +49,26 @@ export function LandingPreview({ config }: { config: LandingConfig }) {
           {config.productos.items.length === 0 ? (
             <p className="lp-empty">Agregá productos u ofertas para mostrar.</p>
           ) : (
-            <div className="lp-prods">
-              {config.productos.items.map((p, i) => (
-                <div className="lp-prod" key={i}>
-                  {p.imagenUrl && <div className="lp-prod__img" style={{ backgroundImage: `url(${p.imagenUrl})` }} />}
-                  <div className="lp-prod__body">
-                    <strong>{p.nombre || 'Producto'}</strong>
-                    {p.precio && <span className="lp-prod__price">{p.precio}</span>}
+            (() => {
+              const grupos = agruparPorCategoria(config.productos.items);
+              const mostrarTitulos = grupos.length > 1;
+              return grupos.map((g, gi) => (
+                <div className="lp-catgroup" key={gi}>
+                  {mostrarTitulos && <h3 className="lp-catgroup__title">{g.categoria || 'Más productos'}</h3>}
+                  <div className="lp-carousel">
+                    {g.items.map((p, i) => (
+                      <div className="lp-prod" key={i}>
+                        {p.imagenUrl && <div className="lp-prod__img" style={{ backgroundImage: `url(${p.imagenUrl})` }} />}
+                        <div className="lp-prod__body">
+                          <strong>{p.nombre || 'Producto'}</strong>
+                          {p.precio && <span className="lp-prod__price">{p.precio}</span>}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
+              ));
+            })()
           )}
         </section>
       )}

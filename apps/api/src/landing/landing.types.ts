@@ -7,6 +7,8 @@ export interface LandingProducto {
   nombre: string;
   precio: string;
   imagenUrl: string;
+  /** Categoría del producto: la web agrupa los items en carruseles por categoría. */
+  categoria?: string;
 }
 
 export interface LandingConfig {
@@ -23,7 +25,7 @@ export interface LandingConfig {
   contacto: { mostrar: boolean; whatsapp: string; telefono: string; instagram: string; facebook: string };
 }
 
-const MAX_ITEMS = 24;
+const MAX_ITEMS = 60;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
 const str = (v: unknown, max = 300): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -95,7 +97,7 @@ export function normalizeLanding(raw: unknown, fallbackNombre = 'Mi verdulería'
         .slice(0, MAX_ITEMS),
       items: items.slice(0, MAX_ITEMS).map((it) => {
         const p = obj(it);
-        return { nombre: str(p.nombre, 80), precio: str(p.precio, 40), imagenUrl: str(p.imagenUrl, 500) };
+        return { nombre: str(p.nombre, 80), precio: str(p.precio, 40), imagenUrl: str(p.imagenUrl, 500), categoria: str(p.categoria, 60) };
       }),
     },
     horarios: {

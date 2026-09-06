@@ -195,6 +195,15 @@ section { padding: 60px 0; }
 .lp-madeby__link { color: var(--muted); }
 @media (min-width: 760px) { .lp-prods { grid-template-columns: repeat(3, 1fr); } }
 
+/* Carruseles por categoría: con muchos productos la página no se hace larga. */
+.lp-catgroup { margin-bottom: 26px; }
+.lp-catgroup + .lp-catgroup { margin-top: 4px; }
+.lp-catgroup__title { font-family: var(--font-head); font-size: clamp(16px, 3.6vw, 20px); color: var(--text); margin: 0 0 12px; text-align: left; }
+.lp-carousel { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding: 8px 2px 14px; scrollbar-width: thin; }
+.lp-carousel .lp-prod { flex: 0 0 auto; width: 170px; scroll-snap-align: start; }
+.lp-carousel .lp-prod__img { height: 120px; }
+@media (min-width: 760px) { .lp-carousel .lp-prod { width: 200px; } }
+
 /* Estados públicos */
 .pub-center { min-height: 100vh; display: grid; place-content: center; text-align: center; gap: 8px; padding: 40px; color: var(--muted); }
 .pub-404 h1 { font-size: 26px; color: var(--ink); }

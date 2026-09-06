@@ -20,6 +20,9 @@ function formatPrecio(precio: number, unidad: string): string {
   return `$${monto} /${UNIDAD_CORTA[unidad] ?? unidad.toLowerCase()}`;
 }
 
+/** Tope de productos que se pueden mostrar en la web (coincide con el backend). */
+const LIMITE_PRODUCTOS = 60;
+
 /** Producto del catálogo con su stock/precio actual, para el selector de la web. */
 interface CatalogoItem {
   id: string;
@@ -28,6 +31,7 @@ interface CatalogoItem {
   imagenUrl: string;
   cantidad: number;
   precio: number;
+  categoria: string;
 }
 
 type SectionId = 'portada' | 'productos' | 'horarios' | 'contacto';
@@ -37,6 +41,20 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: string }> = [
   { id: 'horarios', label: 'Horarios y ubicación', icon: '📍' },
   { id: 'contacto', label: 'Contacto y redes', icon: '💬' },
 ];
+
+/** Agrupa los productos del catálogo por categoría (orden alfabético, "" al final). */
+function agruparCatalogo(items: CatalogoItem[]): Array<{ categoria: string; items: CatalogoItem[] }> {
+  const map = new Map<string, CatalogoItem[]>();
+  for (const it of items) {
+    const cat = (it.categoria ?? '').trim();
+    const arr = map.get(cat);
+    if (arr) arr.push(it);
+    else map.set(cat, [it]);
+  }
+  return [...map.entries()]
+    .sort((a, b) => (a[0] ? 0 : 1) - (b[0] ? 0 : 1) || a[0].localeCompare(b[0], 'es'))
+    .map(([categoria, items]) => ({ categoria, items }));
+}
 
 export function LandingPage() {
   const toast = useToast();
@@ -51,6 +69,7 @@ export function LandingPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [active, setActive] = useState<SectionId>('portada');
   const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
+  const [pickQ, setPickQ] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -86,6 +105,7 @@ export function LandingPage() {
               imagenUrl: p.imagenUrl ?? '',
               cantidad: s ? s.cantidad : 0,
               precio: s ? s.precio : p.precio,
+              categoria: p.categoriaNombre ?? '',
             };
           })
           .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
@@ -224,7 +244,7 @@ export function LandingPage() {
       seleccion
         .map((id) => catById.get(id))
         .filter((c): c is CatalogoItem => !!c && c.cantidad > 0)
-        .map((c) => ({ nombre: c.nombre, precio: formatPrecio(c.precio, c.unidadVenta), imagenUrl: c.imagenUrl })),
+        .map((c) => ({ nombre: c.nombre, precio: formatPrecio(c.precio, c.unidadVenta), imagenUrl: c.imagenUrl, categoria: c.categoria })),
     [seleccion, catById],
   );
   const previewConfig: LandingConfig | null = useMemo(
@@ -232,11 +252,26 @@ export function LandingPage() {
     [config, previewItems],
   );
 
-  function toggleProducto(id: string) {
+  function agregarProductos(ids: string[]) {
     if (!config) return;
     const cur = config.productos.productIds;
-    const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
-    update('productos', { productIds: next });
+    const set = new Set(cur);
+    const next = [...cur];
+    for (const id of ids) if (!set.has(id)) { next.push(id); set.add(id); }
+    if (next.length > LIMITE_PRODUCTOS) {
+      toast.info(`La web muestra hasta ${LIMITE_PRODUCTOS} productos. Se agregaron los primeros.`);
+    }
+    update('productos', { productIds: next.slice(0, LIMITE_PRODUCTOS) });
+  }
+  function quitarProductos(ids: string[]) {
+    if (!config) return;
+    const rm = new Set(ids);
+    update('productos', { productIds: config.productos.productIds.filter((x) => !rm.has(x)) });
+  }
+  function toggleProducto(id: string) {
+    if (!config) return;
+    if (config.productos.productIds.includes(id)) quitarProductos([id]);
+    else agregarProductos([id]);
   }
 
   if (!config) {
@@ -311,36 +346,76 @@ export function LandingPage() {
           <section className="miweb-sec" data-id="productos">
             <SectionHead label="Productos / ofertas" on={config.productos.mostrar} onToggle={(v) => update('productos', { mostrar: v })} />
             <label className="field">Título de la sección<input value={config.productos.titulo} onChange={(e) => update('productos', { titulo: e.target.value })} /></label>
-            <p className="hint">Elegí de tu catálogo qué mostrar en la web. Se usa la foto y el precio que cargaste en cada producto. <strong>Sin stock no se publican.</strong></p>
+            <p className="hint">Elegí de tu catálogo qué mostrar en la web. Se usa la foto y el precio que cargaste en cada producto. <strong>Sin stock no se publican.</strong> En la web se agrupan en carruseles por categoría.</p>
             {catalogo.length === 0 ? (
               <p className="lp-empty">No hay productos todavía. Cargalos en <strong>Productos</strong> y volvé acá.</p>
-            ) : (
-              <div className="miweb-pick">
-                {catalogo.map((c) => {
-                  const sel = config.productos.productIds.includes(c.id);
-                  const sinStock = c.cantidad <= 0;
-                  return (
-                    <button
-                      type="button"
-                      key={c.id}
-                      className={`miweb-pick__card ${sel ? 'is-sel' : ''} ${sinStock ? 'is-off' : ''}`}
-                      onClick={() => toggleProducto(c.id)}
-                      title={sinStock ? 'Sin stock: no se va a publicar hasta que cargues stock' : undefined}
-                    >
-                      <span className="miweb-pick__img" style={c.imagenUrl ? { backgroundImage: `url(${c.imagenUrl})` } : undefined}>
-                        {!c.imagenUrl && <span className="miweb-pick__ph">🥬</span>}
-                        {sel && <span className="miweb-pick__check">✓</span>}
-                      </span>
-                      <span className="miweb-pick__name">{c.nombre}</span>
-                      <span className="miweb-pick__meta">
-                        {formatPrecio(c.precio, c.unidadVenta) || 'sin precio'}
-                        {sinStock ? <em className="miweb-pick__off"> · sin stock</em> : <span className="miweb-pick__stk"> · {c.cantidad} {UNIDAD_CORTA[c.unidadVenta] ?? ''}</span>}
-                      </span>
+            ) : (() => {
+              const seleccionados = new Set(config.productos.productIds);
+              const term = pickQ.trim().toLowerCase();
+              const visible = term
+                ? catalogo.filter((c) => c.nombre.toLowerCase().includes(term) || c.categoria.toLowerCase().includes(term))
+                : catalogo;
+              const grupos = agruparCatalogo(visible);
+              const conStockVisible = visible.filter((c) => c.cantidad > 0).map((c) => c.id);
+              return (
+                <>
+                  <div className="miweb-picktools">
+                    <input className="search" placeholder="Buscar producto o categoría…" value={pickQ} onChange={(e) => setPickQ(e.target.value)} />
+                    <span className="miweb-pickcount"><strong>{seleccion.length}</strong>/{LIMITE_PRODUCTOS} elegidos</span>
+                    <span className="bulkbar__spacer" />
+                    <button type="button" className="btn btn--sm btn--primary" disabled={!conStockVisible.length} onClick={() => agregarProductos(conStockVisible)}>
+                      Seleccionar {term ? 'los del filtro' : 'todos'} (con stock)
                     </button>
-                  );
-                })}
-              </div>
-            )}
+                    <button type="button" className="btn btn--sm btn--ghost" disabled={!visible.length} onClick={() => quitarProductos(visible.map((c) => c.id))}>
+                      Quitar {term ? 'los del filtro' : 'todos'}
+                    </button>
+                  </div>
+
+                  {grupos.length === 0 ? (
+                    <p className="lp-empty">Sin resultados para “{pickQ}”.</p>
+                  ) : grupos.map((g) => {
+                    const conStockCat = g.items.filter((c) => c.cantidad > 0).map((c) => c.id);
+                    const enCat = g.items.filter((c) => seleccionados.has(c.id)).length;
+                    return (
+                      <div className="miweb-catblock" key={g.categoria || '—'}>
+                        <div className="miweb-cathead">
+                          <h4>{g.categoria || 'Sin categoría'} <span className="muted">· {enCat}/{g.items.length}</span></h4>
+                          <div className="miweb-cathead__act">
+                            <button type="button" className="btn btn--sm btn--ghost" disabled={!conStockCat.length} onClick={() => agregarProductos(conStockCat)}>+ Todos</button>
+                            <button type="button" className="btn btn--sm btn--ghost" disabled={!enCat} onClick={() => quitarProductos(g.items.map((c) => c.id))}>Quitar</button>
+                          </div>
+                        </div>
+                        <div className="miweb-pick">
+                          {g.items.map((c) => {
+                            const sel = seleccionados.has(c.id);
+                            const sinStock = c.cantidad <= 0;
+                            return (
+                              <button
+                                type="button"
+                                key={c.id}
+                                className={`miweb-pick__card ${sel ? 'is-sel' : ''} ${sinStock ? 'is-off' : ''}`}
+                                onClick={() => toggleProducto(c.id)}
+                                title={sinStock ? 'Sin stock: no se va a publicar hasta que cargues stock' : undefined}
+                              >
+                                <span className="miweb-pick__img" style={c.imagenUrl ? { backgroundImage: `url(${c.imagenUrl})` } : undefined}>
+                                  {!c.imagenUrl && <span className="miweb-pick__ph">🥬</span>}
+                                  {sel && <span className="miweb-pick__check">✓</span>}
+                                </span>
+                                <span className="miweb-pick__name">{c.nombre}</span>
+                                <span className="miweb-pick__meta">
+                                  {formatPrecio(c.precio, c.unidadVenta) || 'sin precio'}
+                                  {sinStock ? <em className="miweb-pick__off"> · sin stock</em> : <span className="miweb-pick__stk"> · {c.cantidad} {UNIDAD_CORTA[c.unidadVenta] ?? ''}</span>}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              );
+            })()}
             {seleccion.length > 0 && previewItems.length === 0 && (
               <p className="hint hint--warn">Los productos elegidos no tienen stock: no se mostrarán hasta que cargues stock.</p>
             )}

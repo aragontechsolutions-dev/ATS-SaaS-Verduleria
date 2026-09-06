@@ -556,6 +556,7 @@ export interface LandingProducto {
   nombre: string;
   precio: string;
   imagenUrl: string;
+  categoria?: string;
 }
 
 export interface LandingConfig {

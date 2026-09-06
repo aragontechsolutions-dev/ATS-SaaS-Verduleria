@@ -26,18 +26,18 @@ test('normalizeLanding valida el color y usa el default si es inválido', () => 
   assert.equal(normalizeLanding({ tema: { color: '#AABBCC' } }).tema.color, '#AABBCC');
 });
 
-test('normalizeLanding limita la cantidad de productos a 24', () => {
-  const items = Array.from({ length: 50 }, (_, i) => ({ nombre: `P${i}` }));
+test('normalizeLanding limita la cantidad de productos a 60', () => {
+  const items = Array.from({ length: 80 }, (_, i) => ({ nombre: `P${i}` }));
   const c = normalizeLanding({ productos: { items } });
-  assert.equal(c.productos.items.length, 24);
+  assert.equal(c.productos.items.length, 60);
   assert.equal(c.productos.items[0].nombre, 'P0');
   assert.equal(c.productos.items[0].precio, '');
 });
 
-test('normalizeLanding: productIds solo strings, sin vacíos y hasta 24', () => {
-  const ids = Array.from({ length: 30 }, (_, i) => `id-${i}`);
+test('normalizeLanding: productIds solo strings, sin vacíos y hasta 60', () => {
+  const ids = Array.from({ length: 80 }, (_, i) => `id-${i}`);
   const c = normalizeLanding({ productos: { productIds: [...ids, '', 123, null] } });
-  assert.equal(c.productos.productIds.length, 24);
+  assert.equal(c.productos.productIds.length, 60);
   assert.equal(c.productos.productIds[0], 'id-0');
   assert.ok(!c.productos.productIds.includes(''));
 });
