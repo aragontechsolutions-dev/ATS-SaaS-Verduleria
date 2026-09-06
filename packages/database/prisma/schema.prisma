@@ -404,6 +404,12 @@ model Subscription {
   overrideMaxProductos       Int?
   overrideMaxDispositivosPos Int?
 
+  /// Descuento/cupón sobre el precio del plan (ej. promo Fundadores 50%).
+  /// Se aplica a las facturas cuyo período sea <= descuentoHasta (o siempre si es null).
+  descuentoPct    Int? // 1-100; null o 0 = sin descuento
+  descuentoHasta  DateTime? // vigencia del descuento (null = sin vencimiento)
+  descuentoMotivo String? // etiqueta ("Fundadores Maldonado 50%")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -631,6 +637,7 @@ enum AuditEventTipo {
   ANULACION_LINEA
   PRECIO_MODIFICADO
   CFE_CONFIG_MODIFICADA // cambio de config fiscal desde la Consola (Aragon)
+  SUSCRIPCION_MODIFICADA // cambio de plan/descuento de la suscripción (Consola)
 }
 
 /// Bitácora de auditoría: registro append-only de operaciones sensibles.

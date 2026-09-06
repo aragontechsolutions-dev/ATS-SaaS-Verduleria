@@ -52,11 +52,24 @@ export interface TenantRow {
   rut: string | null;
   plan: string | null;
   estado: string;
+  descuento: { pct: number; hasta: string | null; motivo: string | null } | null;
   usuarios: number;
   productos: number;
   sucursales: number;
   createdAt: string;
 }
+
+export interface DescuentoInput {
+  pct: number | null;
+  hasta: string | null;
+  motivo: string | null;
+}
+
+export const setDescuento = async (id: string, dto: DescuentoInput) =>
+  ok<{ ok: boolean }>(
+    await fetch(`${API_BASE}/platform/tenants/${id}/descuento`, { method: 'PATCH', headers: headers(), body: JSON.stringify(dto) }),
+    'setDescuento',
+  );
 
 export interface CreateTenantInput {
   nombre: string;

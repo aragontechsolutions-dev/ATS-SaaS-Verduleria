@@ -163,3 +163,6 @@ code { font-family: ui-monospace, monospace; }
 .addon-box__badge { font-weight: 700; color: #1b7a3e; font-size: 14px; }
 .addon-box__hint { margin: 0; font-size: 12.5px; color: var(--muted, #6b726b); line-height: 1.4; }
 .field--check { display: flex; flex-direction: row; align-items: center; gap: 8px; }
+
+/* Badge de descuento en la lista de clientes */
+.badge--desc { margin-left: 6px; background: #eaf5d8; color: #4f7a17; border: 1px solid #cfe6a8; }

@@ -105,3 +105,20 @@ export class SetCfeAddonDto {
   @IsBoolean()
   enabled!: boolean;
 }
+
+/** Descuento/cupón de la suscripción. pct null/0 = quitar el descuento. */
+export class SetDescuentoDto {
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  pct?: number | null;
+
+  /** Vigencia del descuento en formato YYYY-MM-DD (o null = sin vencimiento). */
+  @IsOptional()
+  @IsString()
+  hasta?: string | null;
+
+  @IsOptional()
+  @IsString()
+  motivo?: string | null;
+}
