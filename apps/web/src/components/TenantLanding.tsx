@@ -1,9 +1,56 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { getPublicLanding, gmapsDirUrl, NotFoundError, tieneUbicacion } from '../lib/api';
-import type { PublicLanding } from '../lib/api';
+import type { LandingProducto, PublicLanding } from '../lib/api';
 import { ADMIN_URL, secretLogin } from '../lib/secretLogin';
 import { LandingMap } from './LandingMap';
+
+/** Agrupa los productos por categoría preservando el orden de aparición. */
+function agruparPorCategoria(items: LandingProducto[]): Array<{ categoria: string; items: LandingProducto[] }> {
+  const grupos: Array<{ categoria: string; items: LandingProducto[] }> = [];
+  const idx = new Map<string, number>();
+  for (const it of items) {
+    const cat = (it.categoria ?? '').trim();
+    let i = idx.get(cat);
+    if (i === undefined) {
+      i = grupos.length;
+      idx.set(cat, i);
+      grupos.push({ categoria: cat, items: [] });
+    }
+    grupos[i].items.push(it);
+  }
+  return grupos;
+}
+
+/**
+ * Productos en carruseles horizontales por categoría: con muchos productos la
+ * página no se hace larguísima hacia abajo y se navega deslizando cada fila.
+ */
+function ProductosCarruseles({ items }: { items: LandingProducto[] }) {
+  const grupos = useMemo(() => agruparPorCategoria(items), [items]);
+  const mostrarTitulos = grupos.length > 1;
+
+  return (
+    <>
+      {grupos.map((g, gi) => (
+        <div className="lp-catgroup" key={gi}>
+          {mostrarTitulos && <h3 className="lp-catgroup__title">{g.categoria || 'Más productos'}</h3>}
+          <div className="lp-carousel">
+            {g.items.map((p, i) => (
+              <div className="lp-prod" key={i}>
+                {p.imagenUrl && <div className="lp-prod__img" style={{ backgroundImage: `url(${p.imagenUrl})` }} />}
+                <div className="lp-prod__body">
+                  <strong>{p.nombre || 'Producto'}</strong>
+                  {p.precio && <span className="lp-prod__price">{p.precio}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
 
 type State = { estado: 'load' } | { estado: 'ok'; data: PublicLanding } | { estado: '404' } | { estado: 'error' };
 
@@ -87,17 +134,7 @@ function LandingView({
       {config.productos.mostrar && config.productos.items.length > 0 && (
         <section className="lp-sec">
           <h2>{config.productos.titulo || 'Productos'}</h2>
-          <div className="lp-prods">
-            {config.productos.items.map((p, i) => (
-              <div className="lp-prod" key={i}>
-                {p.imagenUrl && <div className="lp-prod__img" style={{ backgroundImage: `url(${p.imagenUrl})` }} />}
-                <div className="lp-prod__body">
-                  <strong>{p.nombre || 'Producto'}</strong>
-                  {p.precio && <span className="lp-prod__price">{p.precio}</span>}
-                </div>
-              </div>
-            ))}
-          </div>
+          <ProductosCarruseles items={config.productos.items} />
         </section>
       )}
 

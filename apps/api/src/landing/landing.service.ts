@@ -106,18 +106,27 @@ export class LandingService {
     const listId = await this.mostradorListId(tenantId);
     const products = await this.prisma.product.findMany({
       where: { tenantId, id: { in: ids }, activo: true },
-      include: { priceItems: { where: { priceListId: listId } }, stockItems: true },
+      include: {
+        priceItems: { where: { priceListId: listId } },
+        stockItems: true,
+        categoria: { select: { nombre: true } },
+      },
     });
     const byId = new Map(products.map((p) => [p.id, p]));
 
-    const out: Array<{ nombre: string; precio: string; imagenUrl: string }> = [];
+    const out: Array<{ nombre: string; precio: string; imagenUrl: string; categoria: string }> = [];
     for (const id of ids) {
       const p = byId.get(id);
       if (!p) continue;
       const stock = p.stockItems.reduce((s, x) => s + Number(x.cantidad), 0);
       if (stock <= 0) continue; // sin stock → no se publica
       const precio = Number(p.priceItems[0]?.precio ?? 0);
-      out.push({ nombre: p.nombre, precio: formatPrecio(precio, p.unidadVenta), imagenUrl: p.imagenUrl ?? '' });
+      out.push({
+        nombre: p.nombre,
+        precio: formatPrecio(precio, p.unidadVenta),
+        imagenUrl: p.imagenUrl ?? '',
+        categoria: p.categoria?.nombre ?? '',
+      });
     }
     return out;
   }

@@ -278,6 +278,15 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 .miweb-pick__off { color: #b23; font-style: normal; }
 .hint--warn { color: #b23; }
 
+/* Picker de productos de la web: buscador, contador y bloques por categoría */
+.miweb-picktools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 8px; }
+.miweb-picktools .search { flex: 1; min-width: 180px; }
+.miweb-pickcount { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.miweb-catblock { margin-top: 10px; }
+.miweb-cathead { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 2px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.miweb-cathead h4 { margin: 0; font-size: 14px; font-family: var(--font-head); }
+.miweb-cathead__act { display: flex; gap: 6px; flex: none; }
+
 /* Layout ancho: nav + editor + preview en 3 columnas */
 @media (min-width: 1080px) {
   .miweb { grid-template-columns: 210px minmax(0,1fr) 380px; }
@@ -320,6 +329,11 @@ th.num, td.num { text-align: right; white-space: nowrap; }
   .lp-prod:hover, .miweb-pick__card:hover { transform: none; }
   .lp-prod:hover .lp-prod__img { transform: none; }
 }
+/* Preview: carruseles por categoría (igual que la web pública). */
+.lp-catgroup { margin-bottom: 18px; }
+.lp-catgroup__title { font-family: var(--font-head); font-size: 15px; color: var(--text); margin: 0 0 8px; }
+.lp-carousel { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding: 4px 2px 10px; scrollbar-width: thin; }
+.lp-carousel .lp-prod { flex: 0 0 auto; width: 140px; scroll-snap-align: start; }
 .lp-line { margin: 4px 0; }
 .lp-link { color: var(--lp-accent); font-weight: 600; text-decoration: none; }
 .lp-foot { padding: 26px 22px; border-top: 1px solid #e3e9df; }
