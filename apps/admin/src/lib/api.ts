@@ -865,9 +865,29 @@ export interface OrderAdmin {
   listoParaRepartir: boolean;
   repartidorId: string | null;
   asignado: boolean;
+  pago: { total: number; pagado: number; saldo: number; cubierto: boolean };
   createdAt: string;
   items: OrderItemAdmin[];
 }
+
+export type MedioPago = 'EFECTIVO' | 'DEBITO' | 'CREDITO' | 'MERCADO_PAGO' | 'TRANSFERENCIA' | 'DINERO_ELECTRONICO' | 'CUENTA_CORRIENTE';
+export type PaymentProviderKind = 'MANUAL' | 'MERCADO_PAGO' | 'HANDY' | 'GETNET' | 'FISERV' | 'SCANNTECH' | 'OTRO';
+
+export interface RegistrarPagoInput {
+  saleId?: string;
+  onlineOrderId?: string;
+  medio: MedioPago;
+  monto: number;
+  provider?: PaymentProviderKind;
+  referencia?: string;
+  nota?: string;
+}
+
+export const registrarPago = async (input: RegistrarPagoInput) =>
+  ok<unknown>(
+    await fetch(`${API_BASE}/pagos`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
+    'registrarPago',
+  );
 
 export interface OrdersResponse {
   counts: Record<string, number>;

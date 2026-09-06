@@ -6,6 +6,7 @@ import { CfeService } from '../cfe/cfe.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { TelegramService } from './telegram.service';
 import { normalizarTelefonoUy } from './telefono';
+import { estaPagado, saldoPendiente, sumaAprobados } from '../payments/payments.util';
 import {
   calcLine,
   cantidadEfectiva,
@@ -87,7 +88,7 @@ const DEFAULT_CONFIG: StorePublicConfig = {
 };
 
 /** Include estándar de un pedido para la vista de administración. */
-const ORDER_INCLUDE = { items: true, sale: { include: { cfeDocument: true } } } as const;
+const ORDER_INCLUDE = { items: true, sale: { include: { cfeDocument: true } }, payments: true } as const;
 
 /**
  * Tienda online (e-commerce del tenant). Catálogo público, checkout de invitado
@@ -787,6 +788,12 @@ export class StoreService {
       listoParaRepartir: o.listoParaRepartir,
       repartidorId: o.repartidorId,
       asignado: !!o.repartidorId,
+      // Pagos registrados (efectivo, transferencia, o vías externas cargadas a mano).
+      pago: (() => {
+        const pagosLike = o.payments.map((p) => ({ monto: Number(p.monto), estado: p.estado as string }));
+        const total = Number(o.total);
+        return { total, pagado: sumaAprobados(pagosLike), saldo: saldoPendiente(total, pagosLike), cubierto: estaPagado(total, pagosLike) };
+      })(),
       createdAt: o.createdAt.toISOString(),
       items: o.items.map((i) => ({
         id: i.id,

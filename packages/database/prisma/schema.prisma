@@ -134,6 +134,28 @@ enum MedioPago {
   PUNTOS // canje de puntos de fidelización (no es dinero)
 }
 
+/// Quién procesó el pago. MANUAL/OTRO = cargado a mano (vía no integrada al SaaS:
+/// Getnet, Handy, Scanntech, Fiserv, transferencia…). El resto, procesadores.
+enum PaymentProviderKind {
+  MANUAL
+  MERCADO_PAGO
+  HANDY
+  GETNET
+  FISERV
+  SCANNTECH
+  OTRO
+}
+
+/// Estado de un pago (relevante para los procesadores integrados; los manuales
+/// se cargan ya APROBADO).
+enum PaymentEstado {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+  REEMBOLSADO
+  CANCELADO
+}
+
 enum TipoDocumentoCliente {
   NIE // 1
   RUC // 2 (UY)
@@ -1070,19 +1092,30 @@ model SaleItem {
 }
 
 model Payment {
-  id         String    @id @default(uuid()) @db.Uuid
-  tenantId   String    @db.Uuid
-  saleId     String    @db.Uuid
-  medio      MedioPago
-  monto      Decimal   @db.Decimal(14, 2)
-  /// Referencia externa (id de Mercado Pago, últimos dígitos, etc.).
-  referencia String?
-  createdAt  DateTime  @default(now())
+  id            String              @id @default(uuid()) @db.Uuid
+  tenantId      String              @db.Uuid
+  /// Un pago pertenece a una venta (POS) o a un pedido online (delivery).
+  saleId        String?             @db.Uuid
+  onlineOrderId String?             @db.Uuid
+  provider      PaymentProviderKind @default(MANUAL)
+  medio         MedioPago
+  monto         Decimal             @db.Decimal(14, 2)
+  estado        PaymentEstado       @default(APROBADO)
+  /// true = procesado FUERA del SaaS y cargado a mano (Getnet/Handy/transferencia…).
+  externo       Boolean             @default(true)
+  /// Referencia externa (id de Mercado Pago, nº de lote/cupón del posnet, etc.).
+  referencia    String?
+  nota          String?
+  raw           Json?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
 
-  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  sale        Sale?        @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  onlineOrder OnlineOrder? @relation(fields: [onlineOrderId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([saleId])
+  @@index([onlineOrderId])
 }
 
 // ============================================================================
@@ -1370,6 +1403,7 @@ model OnlineOrder {
   customer Customer?         @relation(fields: [customerId], references: [id])
   sale     Sale?             @relation(fields: [saleId], references: [id])
   items    OnlineOrderItem[]
+  payments Payment[]
 
   @@unique([tenantId, numero])
   @@unique([tenantId, codigo])
