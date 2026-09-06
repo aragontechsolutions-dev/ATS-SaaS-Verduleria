@@ -126,85 +126,109 @@ export class PurchasesService {
 
     const sucursalId = await this.resolveSucursalId(tenantId, dto.sucursalId);
 
-    return this.prisma.$transaction(async (tx) => {
-      let total = 0;
-      const purchase = await tx.purchase.create({
-        data: {
-          tenantId,
-          supplierId: dto.supplierId,
-          fecha: dto.fecha ? new Date(dto.fecha) : new Date(),
-          notas: dto.notas,
-          total: new Prisma.Decimal(0),
-        },
-      });
+    // Pre-leemos el stock de todos los productos de la compra FUERA de la
+    // transacción. Antes se hacía un `stock.findUnique` por línea dentro de la
+    // transacción, lo que sumaba ~4 round-trips por línea; con varias líneas y
+    // la instancia "fría" (Render/Supabase) se superaba el timeout por defecto
+    // (5 s) y Prisma cerraba la transacción (error P2028). Dejando adentro solo
+    // las escrituras, la transacción es mucho más corta y robusta.
+    const stockRows = await this.prisma.stock.findMany({
+      where: { sucursalId, productId: { in: productIds } },
+    });
+    const stockByProduct = new Map(stockRows.map((s) => [s.productId, s]));
 
-      for (const it of dto.items) {
-        const prod = byId.get(it.productId)!;
-        const factor = num(prod.factorConversion) || 1;
-        const rinde = it.rindeVenta && it.rindeVenta > 0 ? it.rindeVenta : it.cantidadCompra * factor;
-        if (rinde <= 0) throw new BadRequestException(`Rinde inválido para ${prod.nombre}`);
-
-        const costoLinea = it.cantidadCompra * it.costoUnitCompra;
-        total += costoLinea;
-
-        const costoUnitVenta = costoUnitConMerma(costoLinea, rinde, num(prod.mermaPct));
-
-        await tx.purchaseItem.create({
+    return this.prisma.$transaction(
+      async (tx) => {
+        let total = 0;
+        const purchase = await tx.purchase.create({
           data: {
             tenantId,
-            purchaseId: purchase.id,
-            productId: it.productId,
-            cantidadCompra: new Prisma.Decimal(it.cantidadCompra),
-            costoUnitCompra: new Prisma.Decimal(it.costoUnitCompra),
-            rindeVenta: new Prisma.Decimal(rinde),
+            supplierId: dto.supplierId,
+            fecha: dto.fecha ? new Date(dto.fecha) : new Date(),
+            notas: dto.notas,
+            total: new Prisma.Decimal(0),
           },
         });
 
-        // Stock: promedio ponderado sobre el stock físico existente.
-        const stock = await tx.stock.findUnique({
-          where: { productId_sucursalId: { productId: it.productId, sucursalId } },
-        });
-        const prevCant = num(stock?.cantidad);
-        const prevCosto = num(stock?.costoPromedio);
-        const nuevaCant = prevCant + rinde;
-        const nuevoCosto = promedioPonderado(prevCant, prevCosto, rinde, costoUnitVenta);
+        // Estado de stock acumulado en memoria: soporta que un mismo producto
+        // aparezca en varias líneas (el promedio ponderado se encadena).
+        const acumulado = new Map<string, { cantidad: number; costoPromedio: number; stockId: string | null }>();
 
-        if (stock) {
-          await tx.stock.update({
-            where: { id: stock.id },
-            data: { cantidad: new Prisma.Decimal(nuevaCant), costoPromedio: new Prisma.Decimal(nuevoCosto) },
+        for (const it of dto.items) {
+          const prod = byId.get(it.productId)!;
+          const factor = num(prod.factorConversion) || 1;
+          const rinde = it.rindeVenta && it.rindeVenta > 0 ? it.rindeVenta : it.cantidadCompra * factor;
+          if (rinde <= 0) throw new BadRequestException(`Rinde inválido para ${prod.nombre}`);
+
+          const costoLinea = it.cantidadCompra * it.costoUnitCompra;
+          total += costoLinea;
+
+          const costoUnitVenta = costoUnitConMerma(costoLinea, rinde, num(prod.mermaPct));
+
+          await tx.purchaseItem.create({
+            data: {
+              tenantId,
+              purchaseId: purchase.id,
+              productId: it.productId,
+              cantidadCompra: new Prisma.Decimal(it.cantidadCompra),
+              costoUnitCompra: new Prisma.Decimal(it.costoUnitCompra),
+              rindeVenta: new Prisma.Decimal(rinde),
+            },
           });
-        } else {
-          await tx.stock.create({
+
+          // Stock: promedio ponderado sobre el stock físico existente.
+          const base =
+            acumulado.get(it.productId) ??
+            (() => {
+              const s = stockByProduct.get(it.productId);
+              return { cantidad: num(s?.cantidad), costoPromedio: num(s?.costoPromedio), stockId: s?.id ?? null };
+            })();
+          const nuevaCant = base.cantidad + rinde;
+          const nuevoCosto = promedioPonderado(base.cantidad, base.costoPromedio, rinde, costoUnitVenta);
+          acumulado.set(it.productId, { cantidad: nuevaCant, costoPromedio: nuevoCosto, stockId: base.stockId });
+
+          await tx.stockMovement.create({
             data: {
               tenantId,
               productId: it.productId,
-              sucursalId,
-              cantidad: new Prisma.Decimal(nuevaCant),
-              costoPromedio: new Prisma.Decimal(nuevoCosto),
+              tipo: StockMovementType.COMPRA,
+              cantidad: new Prisma.Decimal(rinde),
+              costoUnit: new Prisma.Decimal(costoUnitVenta),
+              motivo: 'Compra',
+              refId: purchase.id,
             },
           });
         }
 
-        await tx.stockMovement.create({
-          data: {
-            tenantId,
-            productId: it.productId,
-            tipo: StockMovementType.COMPRA,
-            cantidad: new Prisma.Decimal(rinde),
-            costoUnit: new Prisma.Decimal(costoUnitVenta),
-            motivo: 'Compra',
-            refId: purchase.id,
-          },
-        });
-      }
+        // Persistimos el stock final una sola vez por producto.
+        for (const [productId, s] of acumulado) {
+          if (s.stockId) {
+            await tx.stock.update({
+              where: { id: s.stockId },
+              data: { cantidad: new Prisma.Decimal(s.cantidad), costoPromedio: new Prisma.Decimal(s.costoPromedio) },
+            });
+          } else {
+            await tx.stock.create({
+              data: {
+                tenantId,
+                productId,
+                sucursalId,
+                cantidad: new Prisma.Decimal(s.cantidad),
+                costoPromedio: new Prisma.Decimal(s.costoPromedio),
+              },
+            });
+          }
+        }
 
-      const updated = await tx.purchase.update({
-        where: { id: purchase.id },
-        data: { total: new Prisma.Decimal(total) },
-      });
-      return { id: updated.id, total: num(updated.total) };
-    });
+        const updated = await tx.purchase.update({
+          where: { id: purchase.id },
+          data: { total: new Prisma.Decimal(total) },
+        });
+        return { id: updated.id, total: num(updated.total) };
+      },
+      // Red de seguridad ante latencia de la instancia fría.
+      { maxWait: 15000, timeout: 30000 },
+    );
   }
 
   // --- Stock ----------------------------------------------------------------
