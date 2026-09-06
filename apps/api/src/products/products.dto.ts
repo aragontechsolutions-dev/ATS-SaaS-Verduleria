@@ -1,5 +1,8 @@
 import { IvaIndicador, PromoTipo, UnidadMedida } from '@ats/database';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsEnum,
   IsIn,
@@ -10,7 +13,9 @@ import {
   IsString,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateProductDto {
   @IsString()
@@ -278,4 +283,25 @@ export class UpdatePromoDto {
   @IsOptional()
   @IsBoolean()
   activo?: boolean;
+}
+
+/** Una fila del importador de catálogo. Todo llega como texto (parseo tolerante en el server). */
+export class ImportRowDto {
+  @IsOptional() @IsString() nombre?: string;
+  @IsOptional() @IsString() precio?: string;
+  @IsOptional() @IsString() categoria?: string;
+  @IsOptional() @IsString() unidad?: string;
+  @IsOptional() @IsString() pesable?: string;
+  @IsOptional() @IsString() plu?: string;
+  @IsOptional() @IsString() codigoBarras?: string;
+  @IsOptional() @IsString() visibleOnline?: string;
+}
+
+export class ImportCatalogDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(5000)
+  @ValidateNested({ each: true })
+  @Type(() => ImportRowDto)
+  items!: ImportRowDto[];
 }

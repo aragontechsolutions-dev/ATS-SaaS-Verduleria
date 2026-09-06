@@ -150,6 +150,32 @@ export const updateProduct = async (id: string, patch: Partial<ProductInput> & {
     'updateProduct',
   );
 
+// --- Importador de catálogo (onboarding) ------------------------------------
+
+export interface ImportRow {
+  nombre?: string;
+  precio?: string;
+  categoria?: string;
+  unidad?: string;
+  pesable?: string;
+  plu?: string;
+  codigoBarras?: string;
+  visibleOnline?: string;
+}
+
+export interface ImportResult {
+  total: number;
+  creados: number;
+  actualizados: number;
+  errores: Array<{ fila: number; motivo: string }>;
+}
+
+export const importCatalog = async (items: ImportRow[]) =>
+  ok<ImportResult>(
+    await fetch(`${API_BASE}/products/import`, { method: 'POST', headers: headers(), body: JSON.stringify({ items }) }),
+    'importCatalog',
+  );
+
 // --- Compras / Stock / Merma ------------------------------------------------
 
 export interface Supplier {

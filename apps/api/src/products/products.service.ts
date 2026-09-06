@@ -7,11 +7,13 @@ import { getTenantContext } from '../tenant/tenant-context';
 /** Solo estos roles pueden fijar el IVA a mano (override del motor). */
 const ROLES_OVERRIDE_IVA = new Set(['ADMIN', 'CONTADOR']);
 import { PromoTipo } from '@ats/database';
+import { normalizarFila, normalizarNombre } from './catalog-import';
 import type {
   BulkPriceDto,
   CreateCategoriaDto,
   CreatePromoDto,
   CreateProductDto,
+  ImportCatalogDto,
   UpdateCategoriaDto,
   UpdateProductDto,
   UpdatePromoDto,
@@ -122,6 +124,110 @@ export class ProductsService {
       },
     });
     return { id: product.id };
+  }
+
+  /**
+   * Importación masiva de catálogo (onboarding). Crea/actualiza productos y su
+   * precio de mostrador desde filas ya parseadas por el panel. Coincide un
+   * producto existente por PLU (si viene) o por nombre normalizado. El IVA de los
+   * productos nuevos lo asigna el motor; los existentes conservan su IVA.
+   */
+  async importCatalog(tenantId: string, dto: ImportCatalogDto) {
+    const listId = await this.mostradorListId(tenantId);
+
+    // Precargar categorías y productos existentes para no consultar por fila.
+    const [cats, prods] = await Promise.all([
+      this.prisma.categoria.findMany({ where: { tenantId }, select: { id: true, nombre: true } }),
+      this.prisma.product.findMany({ where: { tenantId }, select: { id: true, nombre: true, plu: true } }),
+    ]);
+    const catByName = new Map(cats.map((c) => [normalizarNombre(c.nombre), c.id]));
+    const prodByPlu = new Map<number, string>();
+    const prodByName = new Map<string, string>();
+    for (const p of prods) {
+      if (p.plu != null) prodByPlu.set(p.plu, p.id);
+      prodByName.set(normalizarNombre(p.nombre), p.id);
+    }
+
+    let creados = 0;
+    let actualizados = 0;
+    const errores: Array<{ fila: number; motivo: string }> = [];
+
+    for (let i = 0; i < dto.items.length; i++) {
+      const fila = i + 1;
+      const r = normalizarFila(dto.items[i]);
+      if (!r.ok) {
+        errores.push({ fila, motivo: r.motivo });
+        continue;
+      }
+      const f = r.fila;
+      try {
+        // Categoría: reutiliza la existente (por nombre) o la crea.
+        let categoriaId: string | null = null;
+        if (f.categoria) {
+          const key = normalizarNombre(f.categoria);
+          categoriaId = catByName.get(key) ?? null;
+          if (!categoriaId) {
+            const c = await this.prisma.categoria.create({ data: { tenantId, nombre: f.categoria } });
+            categoriaId = c.id;
+            catByName.set(key, c.id);
+          }
+        }
+
+        const existingId =
+          (f.plu != null ? prodByPlu.get(f.plu) : undefined) ?? prodByName.get(normalizarNombre(f.nombre));
+
+        if (existingId) {
+          await this.prisma.product.update({
+            where: { id: existingId },
+            data: {
+              nombre: f.nombre,
+              unidadVenta: f.unidad,
+              esPesable: f.pesable,
+              visibleOnline: f.visibleOnline,
+              ...(categoriaId ? { categoriaId } : {}),
+              ...(f.plu != null ? { plu: f.plu } : {}),
+              ...(f.codigoBarras ? { codigoBarras: f.codigoBarras } : {}),
+            },
+          });
+          await this.prisma.priceListItem.upsert({
+            where: { priceListId_productId: { priceListId: listId, productId: existingId } },
+            update: { precio: new Prisma.Decimal(f.precio) },
+            create: { tenantId, priceListId: listId, productId: existingId, precio: new Prisma.Decimal(f.precio) },
+          });
+          actualizados++;
+        } else {
+          const c = await this.iva.clasificar(f.nombre);
+          const p = await this.prisma.product.create({
+            data: {
+              tenantId,
+              nombre: f.nombre,
+              unidadVenta: f.unidad,
+              esPesable: f.pesable,
+              ivaIndicador: c.ivaIndicador as IvaIndicador,
+              esEstadoNatural: c.esEstadoNatural,
+              esImportado: c.esImportado,
+              ivaOverride: false,
+              ivaRegla: c.regla,
+              categoriaId,
+              plu: f.plu,
+              codigoBarras: f.codigoBarras,
+              visibleOnline: f.visibleOnline,
+              priceItems: { create: { tenantId, priceListId: listId, precio: new Prisma.Decimal(f.precio) } },
+            },
+          });
+          prodByName.set(normalizarNombre(f.nombre), p.id);
+          if (f.plu != null) prodByPlu.set(f.plu, p.id);
+          creados++;
+        }
+      } catch (e) {
+        const msg = e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002'
+          ? 'PLU o código de barras duplicado'
+          : e instanceof Error ? e.message : 'Error al guardar';
+        errores.push({ fila, motivo: msg });
+      }
+    }
+
+    return { total: dto.items.length, creados, actualizados, errores };
   }
 
   async update(tenantId: string, id: string, dto: UpdateProductDto) {

@@ -3,6 +3,7 @@ import { getCategorias, getMe, getProducts, updateProduct } from '../lib/api';
 import type { Categoria, Product } from '../lib/api';
 import { ProductModal } from './ProductModal';
 import { BulkPriceModal } from './BulkPriceModal';
+import { ImportCatalogModal } from './ImportCatalogModal';
 import { SkeletonRows } from './Skeleton';
 import { useToast } from '../lib/toast';
 
@@ -18,6 +19,7 @@ export function ProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
   const [bulk, setBulk] = useState(false);
+  const [importar, setImportar] = useState(false);
   const [canOverrideIva, setCanOverrideIva] = useState(false);
 
   const load = useCallback(async () => {
@@ -74,6 +76,7 @@ export function ProductsPage() {
             <h2>Productos</h2>
             <div style={{ display: 'flex', gap: 10 }}>
               <input className="search" placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
+              <button className="btn btn--ghost" onClick={() => setImportar(true)}>Importar CSV</button>
               <button className="btn btn--ghost" onClick={() => setBulk(true)}>Precios en masa</button>
               <button className="btn btn--primary" onClick={() => setCreating(true)}>+ Nuevo producto</button>
             </div>
@@ -147,6 +150,9 @@ export function ProductsPage() {
           onClose={() => setBulk(false)}
           onDone={(n) => { setBulk(false); toast.success(`Precios actualizados: ${n} producto${n === 1 ? '' : 's'}`); void load(); }}
         />
+      )}
+      {importar && (
+        <ImportCatalogModal onClose={() => setImportar(false)} onImported={() => void load()} />
       )}
     </>
   );
