@@ -73,5 +73,19 @@ export function useCatalog(): CatalogState {
     })();
   }, [loadLocal, refresh]);
 
+  // Refresco casi en tiempo real: re-consulta el catálogo cada 60 s y al volver
+  // el foco o la conexión, para reflejar cambios de precio/stock hechos en el panel.
+  useEffect(() => {
+    const iv = window.setInterval(() => { void refresh(); }, 60_000);
+    const onWake = () => { void refresh(); };
+    window.addEventListener('focus', onWake);
+    window.addEventListener('online', onWake);
+    return () => {
+      window.clearInterval(iv);
+      window.removeEventListener('focus', onWake);
+      window.removeEventListener('online', onWake);
+    };
+  }, [refresh]);
+
   return { products, promos, listaPrecio, updatedAt, limiteEfectivoCaja, loyalty, loading, fromCache, refresh };
 }
