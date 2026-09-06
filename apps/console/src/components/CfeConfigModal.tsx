@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getTenantCfe, updateTenantCfe } from '../lib/api';
+import { getTenantCfe, setCfeAddon, updateTenantCfe } from '../lib/api';
 import type { CertificadoEstado, CfeConfig, RegimenFiscal, TenantRow } from '../lib/api';
 
 interface Props {
@@ -34,6 +34,8 @@ export function CfeConfigModal({ tenant, onClose, onSaved }: Props) {
 
   // Estado tal como está persistido (para saber si "prende" prod ahora).
   const [inicial, setInicial] = useState<CfeConfig['cfe'] | null>(null);
+  const [cfeModulo, setCfeModulo] = useState<CfeConfig['cfeModulo']>({ activo: false, origen: 'ninguno' });
+  const [addonBusy, setAddonBusy] = useState(false);
 
   useEffect(() => {
     getTenantCfe(tenant.id)
@@ -46,10 +48,25 @@ export function CfeConfigModal({ tenant, onClose, onSaved }: Props) {
         setCertificado(c.cfe.certificadoEstado);
         setEmision(c.cfe.emisionActiva);
         setInicial(c.cfe);
+        setCfeModulo(c.cfeModulo);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
   }, [tenant.id]);
+
+  async function toggleAddon(enabled: boolean) {
+    setAddonBusy(true);
+    setError(null);
+    try {
+      const c = await setCfeAddon(tenant.id, enabled);
+      setCfeModulo(c.cfeModulo);
+      onSaved?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo cambiar el add-on');
+    } finally {
+      setAddonBusy(false);
+    }
+  }
 
   const exento = regimenFiscal === 'MONOTRIBUTO' || regimenFiscal === 'MONOTRIBUTO_MIDES';
   const yaEnProd = !!inicial && inicial.ambiente === 'produccion' && inicial.emisionActiva;
@@ -90,6 +107,29 @@ export function CfeConfigModal({ tenant, onClose, onSaved }: Props) {
           <p className="muted">Cargando…</p>
         ) : (
           <>
+            <div className="addon-box">
+              {cfeModulo.origen === 'plan' ? (
+                <span className="addon-box__badge">✓ CFE incluido en el plan</span>
+              ) : (
+                <label className="field field--check" style={{ margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={cfeModulo.activo}
+                    disabled={addonBusy}
+                    onChange={(e) => void toggleAddon(e.target.checked)}
+                  />
+                  <span><strong>Add-on CFE</strong> — habilitar facturación electrónica para este cliente</span>
+                </label>
+              )}
+              <p className="addon-box__hint">
+                {cfeModulo.origen === 'plan'
+                  ? 'Su plan ya incluye el módulo de facturación electrónica.'
+                  : cfeModulo.activo
+                    ? 'El cliente tiene el add-on de CFE activo. La configuración de abajo aplica.'
+                    : 'Sin el add-on, el POS emite ticket interno (no fiscal). Activalo para que pueda emitir CFE.'}
+              </p>
+            </div>
+
             <label className="field">
               Régimen fiscal
               <select value={regimenFiscal} onChange={(e) => setRegimen(e.target.value as RegimenFiscal)}>

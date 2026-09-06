@@ -99,3 +99,9 @@ export class UpdateCfeConfigDto {
   @IsBoolean()
   confirmarProduccion?: boolean;
 }
+
+/** Activa/desactiva el add-on de CFE (módulo extra en la suscripción del tenant). */
+export class SetCfeAddonDto {
+  @IsBoolean()
+  enabled!: boolean;
+}
