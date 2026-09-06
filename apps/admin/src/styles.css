@@ -523,3 +523,7 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 .ped-pago { font-size: 12.5px; font-weight: 600; color: var(--muted); }
 .ped-pago--ok { color: #1b7a3e; }
 .ped-pago--pend { color: var(--warn); }
+
+/* Paginador de tablas del panel */
+.pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px 4px 2px; }
+.pager__info { font-size: 13.5px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 120px; text-align: center; }
