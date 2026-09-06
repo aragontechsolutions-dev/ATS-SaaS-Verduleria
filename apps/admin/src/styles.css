@@ -503,3 +503,17 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 .reparto-cola { display: flex; flex-direction: column; gap: 4px; }
 .reparto-cola__item { font-size: 13px; color: var(--text); padding: 4px 8px; background: #fff7e6; border: 1px solid #ffe0a3; border-radius: 6px; }
 .ped-card__reparto { font-size: 12.5px; color: var(--primary-dark); font-weight: 600; margin-top: 4px; }
+
+/* --- Importador de catálogo --- */
+.modal--wide { max-width: 680px; width: 100%; }
+.import-tools { display: flex; gap: 8px; margin: 4px 0 10px; }
+.import-tools .btn { display: inline-flex; align-items: center; }
+.import-ta { width: 100%; border: 1px solid var(--border-strong); border-radius: 10px; padding: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; resize: vertical; }
+.import-meta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 12px 0 6px; font-size: 13px; }
+.import-prev { max-height: 240px; overflow: auto; }
+.import-prev .table { font-size: 12.5px; }
+.import-res { display: flex; gap: 14px; margin: 8px 0 4px; font-weight: 700; font-family: var(--font-head); }
+.import-res__ok { color: #1b7a3e; }
+.import-res__err { color: var(--warn); }
+.import-errs { max-height: 180px; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-top: 8px; font-size: 13px; }
+.import-errs__row { color: var(--warn); padding: 2px 0; }

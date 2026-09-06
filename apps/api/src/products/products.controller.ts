@@ -12,6 +12,7 @@ import {
   CreateCategoriaDto,
   CreatePromoDto,
   CreateProductDto,
+  ImportCatalogDto,
   UpdateCategoriaDto,
   UpdateProductDto,
   UpdatePromoDto,
@@ -55,6 +56,13 @@ export class ProductsController {
   @RequiresModule('PRICING')
   bulkPrices(@CurrentTenant('tenantId') tenantId: string, @Body() dto: BulkPriceDto) {
     return this.products.bulkUpdatePrices(tenantId, dto);
+  }
+
+  /** Importación masiva de catálogo (onboarding): crea/actualiza productos + precio. */
+  @Post('import')
+  @Roles(Role.ADMIN, Role.ENCARGADO)
+  importCatalog(@CurrentTenant('tenantId') tenantId: string, @Body() dto: ImportCatalogDto) {
+    return this.products.importCatalog(tenantId, dto);
   }
 
   @Get('categorias/all')
