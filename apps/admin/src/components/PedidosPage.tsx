@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { despacharPedido, getOrders, getReparto, pesajeOrder, setLocalUbicacion, setOrderEstado } from '../lib/api';
-import type { OnlineOrderEstado, OrderAdmin, OrderItemAdmin, OrdersResponse, RepartoEstado } from '../lib/api';
+import { despacharPedido, getOrders, getReparto, pesajeOrder, registrarPago, setLocalUbicacion, setOrderEstado } from '../lib/api';
+import type { MedioPago, OnlineOrderEstado, OrderAdmin, OrderItemAdmin, OrdersResponse, PaymentProviderKind, RepartoEstado } from '../lib/api';
 import { Spinner } from './Skeleton';
 import { useToast } from '../lib/toast';
 
@@ -42,6 +42,7 @@ export function PedidosPage() {
     try { return localStorage.getItem(SOUND_KEY) === '1'; } catch { return false; }
   });
   const [pesando, setPesando] = useState<OrderAdmin | null>(null);
+  const [pagando, setPagando] = useState<OrderAdmin | null>(null);
   const [reparto, setReparto] = useState<RepartoEstado | null>(null);
   const prevNuevos = useRef<number | null>(null);
 
@@ -127,7 +128,7 @@ export function PedidosPage() {
       ) : (
         <div className="ped-list">
           {orders.map((o) => (
-            <OrderCard key={o.id} o={o} onEstado={cambiarEstado} onPesar={() => setPesando(o)} onDespachar={() => despachar(o)} />
+            <OrderCard key={o.id} o={o} onEstado={cambiarEstado} onPesar={() => setPesando(o)} onDespachar={() => despachar(o)} onPagar={() => setPagando(o)} />
           ))}
         </div>
       )}
@@ -137,6 +138,14 @@ export function PedidosPage() {
           order={pesando}
           onClose={() => setPesando(null)}
           onSaved={() => { setPesando(null); void cargar(); }}
+        />
+      )}
+
+      {pagando && (
+        <RegistrarPagoModal
+          order={pagando}
+          onClose={() => setPagando(null)}
+          onSaved={() => { setPagando(null); void cargar(); }}
         />
       )}
     </div>
@@ -217,14 +226,16 @@ function RepartoPanel({ reparto, onChange }: { reparto: RepartoEstado | null; on
   );
 }
 
-function OrderCard({ o, onEstado, onPesar, onDespachar }: {
+function OrderCard({ o, onEstado, onPesar, onDespachar, onPagar }: {
   o: OrderAdmin;
   onEstado: (o: OrderAdmin, e: OnlineOrderEstado) => void;
   onPesar: () => void;
   onDespachar: () => void;
+  onPagar: () => void;
 }) {
   const terminal = o.estado === 'ENTREGADO' || o.estado === 'CANCELADO';
   const puedeDespachar = o.tipoEntrega === 'DELIVERY' && !o.asignado && (o.estado === 'CONFIRMADO' || o.estado === 'PREPARANDO');
+  const puedePagar = o.estado !== 'CANCELADO' && o.pago.saldo > 0;
   const hora = new Date(o.createdAt).toLocaleString('es-UY', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const hayPeso = o.items.some((i) => i.esPesable);
 
@@ -263,6 +274,15 @@ function OrderCard({ o, onEstado, onPesar, onDespachar }: {
         <strong>Total {money(o.total)}{hayPeso ? ' aprox.' : ''}</strong>
       </div>
 
+      <div className="ped-card__pago">
+        {o.pago.cubierto
+          ? <span className="ped-pago ped-pago--ok">✓ Pagado {money(o.pago.pagado)}</span>
+          : o.pago.pagado > 0
+            ? <span className="ped-pago">Pagado {money(o.pago.pagado)} · saldo {money(o.pago.saldo)}</span>
+            : <span className="ped-pago ped-pago--pend">Pago no registrado</span>}
+        {puedePagar && <button className="btn btn--sm" onClick={onPagar} title="Cargar un pago cobrado por efectivo, transferencia o una vía externa (Getnet/Handy…)">💳 Registrar pago</button>}
+      </div>
+
       {o.saleId && (
         <div className="ped-card__cfe">
           🧾 {o.comprobante
@@ -294,6 +314,74 @@ function OrderCard({ o, onEstado, onPesar, onDespachar }: {
           <button className="btn btn--sm btn--ghost" onClick={() => { if (confirm(`¿Cancelar el pedido #${o.numero}?`)) onEstado(o, 'CANCELADO'); }}>Cancelar</button>
         </div>
       )}
+    </div>
+  );
+}
+
+const MEDIOS: Array<[MedioPago, string]> = [
+  ['EFECTIVO', 'Efectivo'], ['TRANSFERENCIA', 'Transferencia'], ['DEBITO', 'Débito'],
+  ['CREDITO', 'Crédito'], ['MERCADO_PAGO', 'Mercado Pago'], ['DINERO_ELECTRONICO', 'Dinero electrónico'],
+];
+const VIAS: Array<[PaymentProviderKind, string]> = [
+  ['MANUAL', 'Efectivo / transferencia (a mano)'], ['GETNET', 'Getnet'], ['HANDY', 'Handy'],
+  ['SCANNTECH', 'Scanntech'], ['FISERV', 'Fiserv'], ['MERCADO_PAGO', 'Mercado Pago (posnet/QR propio)'], ['OTRO', 'Otra'],
+];
+
+/** Carga a mano un pago cobrado por una vía no integrada al SaaS. */
+function RegistrarPagoModal({ order, onClose, onSaved }: { order: OrderAdmin; onClose: () => void; onSaved: () => void }) {
+  const toast = useToast();
+  const [medio, setMedio] = useState<MedioPago>('EFECTIVO');
+  const [via, setVia] = useState<PaymentProviderKind>('MANUAL');
+  const [monto, setMonto] = useState(String(order.pago.saldo || order.total));
+  const [referencia, setReferencia] = useState('');
+  const [nota, setNota] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function guardar() {
+    const n = Number(monto.replace(',', '.'));
+    if (!(n > 0)) { toast.error('Ingresá un monto válido'); return; }
+    setSaving(true);
+    try {
+      await registrarPago({ onlineOrderId: order.id, medio, provider: via, monto: n, referencia: referencia.trim() || undefined, nota: nota.trim() || undefined });
+      toast.success(`Pago registrado para el pedido #${order.numero}`);
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo registrar');
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h3>Registrar pago · pedido #{order.numero}</h3>
+        <p className="modal__sub">Cargá un pago cobrado por efectivo, transferencia o una vía externa (Getnet, Handy, Scanntech…). Total del pedido: {money(order.total)} · saldo {money(order.pago.saldo)}.</p>
+        <div className="form-grid">
+          <label className="field">Medio
+            <select value={medio} onChange={(e) => setMedio(e.target.value as MedioPago)}>
+              {MEDIOS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </label>
+          <label className="field">Vía / procesador
+            <select value={via} onChange={(e) => setVia(e.target.value as PaymentProviderKind)}>
+              {VIAS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </label>
+          <label className="field">Monto
+            <input type="number" min={0} step="0.01" value={monto} onChange={(e) => setMonto(e.target.value)} autoFocus />
+          </label>
+          <label className="field">Referencia (opcional)
+            <input value={referencia} onChange={(e) => setReferencia(e.target.value)} placeholder="Nº de cupón, id transferencia…" />
+          </label>
+        </div>
+        <label className="field">Nota (opcional)
+          <input value={nota} onChange={(e) => setNota(e.target.value)} />
+        </label>
+        <div className="modal__actions">
+          <button className="btn btn--ghost" onClick={onClose} disabled={saving}>Cancelar</button>
+          <button className="btn btn--primary" onClick={() => void guardar()} disabled={saving}>{saving ? 'Guardando…' : 'Registrar pago'}</button>
+        </div>
+      </div>
     </div>
   );
 }

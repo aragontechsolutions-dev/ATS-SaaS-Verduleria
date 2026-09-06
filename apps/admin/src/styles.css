@@ -517,3 +517,9 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 .import-res__err { color: var(--warn); }
 .import-errs { max-height: 180px; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-top: 8px; font-size: 13px; }
 .import-errs__row { color: var(--warn); padding: 2px 0; }
+
+/* Pago del pedido online */
+.ped-card__pago { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.ped-pago { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.ped-pago--ok { color: #1b7a3e; }
+.ped-pago--pend { color: var(--warn); }
