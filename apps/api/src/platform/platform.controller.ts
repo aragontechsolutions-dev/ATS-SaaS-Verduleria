@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { PlatformAdminGuard } from './platform-admin.guard';
 import { PlatformService } from './platform.service';
-import { CreateTenantDto, SetCfeAddonDto, UpdateCfeConfigDto, UpdateTenantDto } from './platform.dto';
+import { CreateTenantDto, SetCfeAddonDto, SetDescuentoDto, UpdateCfeConfigDto, UpdateTenantDto } from './platform.dto';
 
 /** Consola de plataforma (Aragon). Todo exige ser super-admin de plataforma. */
 @Controller('platform')
@@ -43,6 +43,12 @@ export class PlatformController {
   @Patch('tenants/:id')
   updateTenant(@Param('id') id: string, @Body() dto: UpdateTenantDto) {
     return this.platform.updateTenant(id, dto);
+  }
+
+  /** Descuento/cupón de la suscripción (ej. promo Fundadores 50%). */
+  @Patch('tenants/:id/descuento')
+  setDescuento(@Param('id') id: string, @Body() dto: SetDescuentoDto) {
+    return this.platform.setDescuento(id, dto);
   }
 
   /** Config fiscal (CFE) del tenant — lectura. */

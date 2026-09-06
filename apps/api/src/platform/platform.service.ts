@@ -111,11 +111,52 @@ export class PlatformService {
       rut: t.rut,
       plan: t.subscription?.plan.code ?? null,
       estado: t.subscription?.estado ?? 'SIN_SUSCRIPCION',
+      descuento: t.subscription?.descuentoPct
+        ? {
+            pct: t.subscription.descuentoPct,
+            hasta: t.subscription.descuentoHasta ? t.subscription.descuentoHasta.toISOString().slice(0, 10) : null,
+            motivo: t.subscription.descuentoMotivo,
+          }
+        : null,
       usuarios: t._count.users,
       productos: t._count.products,
       sucursales: t._count.sucursales,
       createdAt: t.createdAt,
     }));
+  }
+
+  /**
+   * Fija (o quita) el descuento/cupón de la suscripción de un tenant. Con
+   * pct null/0 se limpia el descuento. `hasta` en formato YYYY-MM-DD (o null).
+   */
+  async setDescuento(tenantId: string, dto: { pct?: number | null; hasta?: string | null; motivo?: string | null }) {
+    const sub = await this.prisma.subscription.findUnique({ where: { tenantId } });
+    if (!sub) throw new BadRequestException('El cliente no tiene una suscripción');
+
+    const pct = dto.pct && dto.pct > 0 ? Math.min(100, Math.round(dto.pct)) : null;
+    await this.prisma.subscription.update({
+      where: { tenantId },
+      data: {
+        descuentoPct: pct,
+        descuentoHasta: pct && dto.hasta ? new Date(`${dto.hasta}T23:59:59Z`) : null,
+        descuentoMotivo: pct ? dto.motivo?.trim() || null : null,
+      },
+    });
+
+    const ctx = getTenantContext();
+    const actor = ctx?.userId
+      ? await this.prisma.user.findUnique({ where: { id: ctx.userId }, select: { email: true, nombre: true } })
+      : null;
+    await this.audit.log({
+      tipo: AuditEventTipo.SUSCRIPCION_MODIFICADA,
+      tenantId,
+      userId: ctx?.userId,
+      usuario: actor?.email ?? actor?.nombre ?? 'consola',
+      descripcion: pct ? `Descuento ${pct}% aplicado a la suscripción` : 'Descuento de suscripción quitado',
+      meta: { descuentoPct: pct, hasta: dto.hasta ?? null, motivo: dto.motivo ?? null },
+    });
+
+    return { ok: true };
   }
 
   /**

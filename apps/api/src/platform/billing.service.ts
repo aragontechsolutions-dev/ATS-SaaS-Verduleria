@@ -1,6 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PlatformInvoiceStatus, Prisma, SubscriptionStatus } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
+import { montoConDescuento } from './billing.util';
+
+/** Período "YYYY-MM" del mes actual (UTC). */
+function periodoActual(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+}
 
 @Injectable()
 export class BillingService {
@@ -12,7 +19,9 @@ export class BillingService {
       where: { estado: SubscriptionStatus.ACTIVA },
       include: { plan: true },
     });
-    const mrr = activos.reduce((s, sub) => s + Number(sub.plan.precioMensual), 0);
+    // MRR neto: aplica el descuento vigente de cada suscripción para el mes actual.
+    const per = periodoActual();
+    const mrr = activos.reduce((s, sub) => s + montoConDescuento(Number(sub.plan.precioMensual), sub, per).monto, 0);
 
     const [pend, venc] = await Promise.all([
       this.prisma.platformInvoice.aggregate({ where: { estado: 'PENDIENTE' }, _sum: { monto: true }, _count: true }),
@@ -49,13 +58,17 @@ export class BillingService {
         where: { subscriptionId_periodo: { subscriptionId: sub.id, periodo } },
       });
       if (existe) continue;
+      const { monto, bruto, pctAplicado } = montoConDescuento(Number(sub.plan.precioMensual), sub, periodo);
       await this.prisma.platformInvoice.create({
         data: {
           subscriptionId: sub.id,
           tenantId: sub.tenantId,
           periodo,
-          monto: new Prisma.Decimal(sub.plan.precioMensual),
+          monto: new Prisma.Decimal(monto),
           vencimiento,
+          notas: pctAplicado > 0
+            ? `${sub.descuentoMotivo ?? 'Descuento'} −${pctAplicado}% (base $${bruto})`
+            : null,
         },
       });
       creadas++;

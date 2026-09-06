@@ -3,6 +3,7 @@ import { getOverview, getPlans, getTenants, updateTenant } from '../lib/api';
 import type { Overview, Plan, TenantRow } from '../lib/api';
 import { NewClientModal } from './NewClientModal';
 import { CfeConfigModal } from './CfeConfigModal';
+import { DescuentoModal } from './DescuentoModal';
 
 export function Dashboard() {
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -12,6 +13,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [cfeTenant, setCfeTenant] = useState<TenantRow | null>(null);
+  const [descTenant, setDescTenant] = useState<TenantRow | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -99,11 +101,13 @@ export function Dashboard() {
                       </td>
                       <td>
                         <span className={`badge badge--${t.estado.toLowerCase()}`}>{t.estado}</span>
+                        {t.descuento && <span className="badge badge--desc" title={t.descuento.motivo ?? ''}>−{t.descuento.pct}%</span>}
                       </td>
                       <td>{t.usuarios}</td>
                       <td>{t.productos}</td>
                       <td>
                         <button className="btn btn--sm btn--ghost" onClick={() => setCfeTenant(t)}>Fiscal</button>{' '}
+                        <button className="btn btn--sm btn--ghost" onClick={() => setDescTenant(t)}>Descuento</button>{' '}
                         <button className="btn btn--sm btn--ghost" onClick={() => toggleActivo(t)}>
                           {t.activo ? 'Suspender' : 'Reactivar'}
                         </button>
@@ -134,6 +138,14 @@ export function Dashboard() {
         <CfeConfigModal
           tenant={cfeTenant}
           onClose={() => setCfeTenant(null)}
+          onSaved={() => void load()}
+        />
+      )}
+
+      {descTenant && (
+        <DescuentoModal
+          tenant={descTenant}
+          onClose={() => setDescTenant(null)}
           onSaved={() => void load()}
         />
       )}
