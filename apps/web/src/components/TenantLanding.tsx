@@ -1,9 +1,96 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { getPublicLanding, gmapsDirUrl, NotFoundError, tieneUbicacion } from '../lib/api';
 import type { LandingProducto, PublicLanding } from '../lib/api';
 import { ADMIN_URL, secretLogin } from '../lib/secretLogin';
 import { LandingMap } from './LandingMap';
+
+/**
+ * Carrusel horizontal con auto-desplazamiento. Si los productos no entran en
+ * la pantalla, la fila se mueve sola (de derecha a izquierda) a velocidad
+ * suave para que se vean los que quedan fuera. Va y vuelve (ping-pong) al
+ * llegar a los extremos. Se pausa cuando el usuario pasa el mouse, toca o usa
+ * las flechas, y el usuario puede desplazar en ambos sentidos (flechas o
+ * arrastre/swipe nativo). Respeta "prefers-reduced-motion".
+ */
+function AutoCarousel({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const dirRef = useRef(1);
+  const pausedRef = useRef(false);
+  const resumeRef = useRef<number | undefined>(undefined);
+  const [overflow, setOverflow] = useState(false);
+
+  // ¿El contenido excede el ancho visible? (define si hay auto-scroll y flechas)
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => setOverflow(el.scrollWidth - el.clientWidth > 4);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [children]);
+
+  // Bucle de auto-desplazamiento.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !overflow) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const VEL = 26; // px por segundo
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      if (!pausedRef.current) {
+        const max = el.scrollWidth - el.clientWidth;
+        let next = el.scrollLeft + dirRef.current * VEL * dt;
+        if (next >= max) { next = max; dirRef.current = -1; }
+        else if (next <= 0) { next = 0; dirRef.current = 1; }
+        el.scrollLeft = next;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [overflow]);
+
+  function pausar() { pausedRef.current = true; window.clearTimeout(resumeRef.current); }
+  function reanudarLuego(ms = 3500) {
+    window.clearTimeout(resumeRef.current);
+    resumeRef.current = window.setTimeout(() => { pausedRef.current = false; }, ms);
+  }
+  function mover(dir: 1 | -1) {
+    const el = ref.current;
+    if (!el) return;
+    pausar();
+    reanudarLuego(4000);
+    el.scrollBy({ left: dir * Math.max(el.clientWidth * 0.8, 220), behavior: 'smooth' });
+  }
+
+  return (
+    <div className={`lp-carwrap ${overflow ? 'is-scrollable' : ''}`}>
+      {overflow && (
+        <button className="lp-carbtn lp-carbtn--prev" type="button" aria-label="Ver anteriores" onClick={() => mover(-1)}>‹</button>
+      )}
+      <div
+        className="lp-carousel"
+        ref={ref}
+        onMouseEnter={pausar}
+        onMouseLeave={() => { pausedRef.current = false; }}
+        onPointerDown={pausar}
+        onPointerUp={() => reanudarLuego()}
+        onTouchStart={pausar}
+        onTouchEnd={() => reanudarLuego()}
+      >
+        {children}
+      </div>
+      {overflow && (
+        <button className="lp-carbtn lp-carbtn--next" type="button" aria-label="Ver más" onClick={() => mover(1)}>›</button>
+      )}
+    </div>
+  );
+}
 
 /** Agrupa los productos por categoría preservando el orden de aparición. */
 function agruparPorCategoria(items: LandingProducto[]): Array<{ categoria: string; items: LandingProducto[] }> {
@@ -35,7 +122,7 @@ function ProductosCarruseles({ items }: { items: LandingProducto[] }) {
       {grupos.map((g, gi) => (
         <div className="lp-catgroup" key={gi}>
           {mostrarTitulos && <h3 className="lp-catgroup__title">{g.categoria || 'Más productos'}</h3>}
-          <div className="lp-carousel">
+          <AutoCarousel>
             {g.items.map((p, i) => (
               <div className="lp-prod" key={i}>
                 {p.imagenUrl && <div className="lp-prod__img" style={{ backgroundImage: `url(${p.imagenUrl})` }} />}
@@ -45,7 +132,7 @@ function ProductosCarruseles({ items }: { items: LandingProducto[] }) {
                 </div>
               </div>
             ))}
-          </div>
+          </AutoCarousel>
         </div>
       ))}
     </>
