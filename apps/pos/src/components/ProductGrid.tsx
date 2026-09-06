@@ -1,6 +1,9 @@
-import { useMemo, useState, type RefObject } from 'react';
+import { useEffect, useMemo, useState, type RefObject } from 'react';
 import type { CatalogProduct } from '../lib/types';
 import { formatMoney } from '../lib/format';
+
+/** Productos por página: mantiene la grilla liviana aunque el catálogo tenga cientos. */
+const POR_PAGINA = 12;
 
 interface Props {
   products: CatalogProduct[];
@@ -19,6 +22,7 @@ export function hayStock(p: CatalogProduct): boolean {
 export function ProductGrid({ products, onPick, searchRef, onMultiplier }: Props) {
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
 
   const categorias = useMemo(() => {
     const set = new Map<string, string>();
@@ -38,6 +42,13 @@ export function ProductGrid({ products, onPick, searchRef, onMultiplier }: Props
       );
     });
   }, [products, q, cat]);
+
+  // Al cambiar el filtro (o achicarse la lista), volvemos a la primera página.
+  const totalPaginas = Math.max(1, Math.ceil(filtered.length / POR_PAGINA));
+  useEffect(() => { setPage(0); }, [q, cat]);
+  useEffect(() => { if (page > totalPaginas - 1) setPage(totalPaginas - 1); }, [page, totalPaginas]);
+
+  const visibles = filtered.slice(page * POR_PAGINA, page * POR_PAGINA + POR_PAGINA);
 
   return (
     <section className="grid-panel">
@@ -80,7 +91,7 @@ export function ProductGrid({ products, onPick, searchRef, onMultiplier }: Props
         ))}
       </div>
       <div className="grid">
-        {filtered.map((p) => {
+        {visibles.map((p) => {
           const disponible = hayStock(p);
           const unidad = p.unidadVenta.toLowerCase();
           return (
@@ -113,6 +124,16 @@ export function ProductGrid({ products, onPick, searchRef, onMultiplier }: Props
         })}
         {filtered.length === 0 && <p className="empty">Sin productos.</p>}
       </div>
+
+      {filtered.length > POR_PAGINA && (
+        <div className="pager">
+          <button className="pager__btn" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>‹ Anterior</button>
+          <span className="pager__info">
+            {page * POR_PAGINA + 1}–{Math.min(filtered.length, (page + 1) * POR_PAGINA)} de {filtered.length}
+          </span>
+          <button className="pager__btn" onClick={() => setPage((p) => Math.min(totalPaginas - 1, p + 1))} disabled={page >= totalPaginas - 1}>Siguiente ›</button>
+        </div>
+      )}
     </section>
   );
 }
