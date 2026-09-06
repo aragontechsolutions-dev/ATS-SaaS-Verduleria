@@ -534,3 +534,12 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 .bulkbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0; padding: 10px 14px; background: var(--surface); border: 1px solid var(--primary); border-radius: 12px; font-size: 14px; }
 .bulkbar__spacer { flex: 1; }
 tr.row--sel > td { background: #eaf5f2; }
+
+/* ===== Mi web · Productos en la tienda ===== */
+.storeprods { list-style: none; margin: 12px 0 0; padding: 4px; max-height: 380px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; }
+.storeprods__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px; border-radius: 8px; }
+.storeprods__row + .storeprods__row { border-top: 1px solid var(--border); }
+.storeprods__row.is-on { background: #eaf5f2; }
+.storeprods__lbl { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; font-size: 14px; }
+.storeprods__name { font-weight: 600; }
+.storeprods__badge { flex: none; font-size: 11px; font-weight: 700; color: var(--primary-dark); background: #fff; border: 1px solid var(--primary); border-radius: 999px; padding: 2px 8px; }

@@ -1,15 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   createZone,
   deleteZone,
+  getProducts,
   getStoreConfig,
   saveStoreConfig,
+  setVisibleOnline,
   telegramLink,
   telegramTest,
   telegramUnlink,
   updateZone,
 } from '../lib/api';
-import type { StoreConfig, StoreZone } from '../lib/api';
+import type { Product, StoreConfig, StoreZone } from '../lib/api';
 import { Spinner } from './Skeleton';
 import { useToast } from '../lib/toast';
 
@@ -81,9 +83,11 @@ export function TiendaPage() {
           </p>
         )}
         <p className="hint">
-          Para elegir qué productos se muestran, marcá <strong>“Mostrar en la tienda online”</strong> en la ficha de cada producto.
+          Elegí abajo qué productos se muestran en tu tienda. También podés marcarlos uno a uno desde <strong>Productos</strong>.
         </p>
       </section>
+
+      <ProductosTiendaPanel />
 
       <section className="panel">
         <div className="panel__head"><h2>Formas de entrega</h2></div>
@@ -130,6 +134,103 @@ export function TiendaPage() {
 
       <ZonesPanel zonas={cfg.zonas} onChange={setCfg} />
     </div>
+  );
+}
+
+function ProductosTiendaPanel() {
+  const toast = useToast();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [q, setQ] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setProducts(await getProducts());
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudieron cargar los productos');
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const filtered = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return t
+      ? products.filter((p) => p.nombre.toLowerCase().includes(t) || String(p.plu ?? '').includes(t))
+      : products;
+  }, [products, q]);
+
+  const totalVisibles = products.filter((p) => p.visibleOnline).length;
+
+  // Actualiza en bloque con UI optimista y revierte si falla el guardado.
+  async function aplicar(ids: string[], visible: boolean) {
+    if (!ids.length) return;
+    setBusy(true);
+    const previo = products;
+    const set = new Set(ids);
+    setProducts(previo.map((p) => (set.has(p.id) ? { ...p, visibleOnline: visible } : p)));
+    try {
+      const { actualizados } = await setVisibleOnline(ids, visible);
+      toast.success(`${actualizados} producto${actualizados === 1 ? '' : 's'} ${visible ? 'en la tienda' : 'ocultos'}`);
+    } catch (e) {
+      setProducts(previo);
+      toast.error(e instanceof Error ? e.message : 'No se pudo actualizar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const idsFiltro = filtered.map((p) => p.id);
+  const ocultosEnFiltro = filtered.filter((p) => !p.visibleOnline).map((p) => p.id);
+  const visiblesEnFiltro = filtered.filter((p) => p.visibleOnline).map((p) => p.id);
+  const hayFiltro = q.trim().length > 0;
+
+  return (
+    <section className="panel">
+      <div className="panel__head"><h2>Productos en la tienda</h2></div>
+      <p className="hint">
+        Marcá los productos que querés mostrar en tu tienda online. Ahora mismo hay <strong>{totalVisibles}</strong> de {products.length} publicado{totalVisibles === 1 ? '' : 's'}.
+      </p>
+
+      <div className="row-inline" style={{ flexWrap: 'wrap', gap: 8 }}>
+        <input className="search" placeholder="Buscar producto…" value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: 1, minWidth: 180 }} />
+        <button className="btn btn--sm btn--primary" disabled={busy || !ocultosEnFiltro.length} onClick={() => void aplicar(ocultosEnFiltro, true)}>
+          🛒 Mostrar {hayFiltro ? `los ${idsFiltro.length} del filtro` : 'todos'}
+        </button>
+        <button className="btn btn--sm btn--ghost" disabled={busy || !visiblesEnFiltro.length} onClick={() => void aplicar(visiblesEnFiltro, false)}>
+          Ocultar {hayFiltro ? 'los del filtro' : 'todos'}
+        </button>
+      </div>
+
+      {loading ? (
+        <p className="loading-row"><Spinner /> Cargando productos…</p>
+      ) : filtered.length === 0 ? (
+        <p className="hint">Sin productos{hayFiltro ? ' para esa búsqueda' : ''}.</p>
+      ) : (
+        <ul className="storeprods">
+          {filtered.map((p) => (
+            <li key={p.id} className={`storeprods__row ${p.visibleOnline ? 'is-on' : ''}`}>
+              <label className="storeprods__lbl">
+                <input
+                  type="checkbox"
+                  checked={p.visibleOnline}
+                  disabled={busy}
+                  onChange={() => void aplicar([p.id], !p.visibleOnline)}
+                />
+                <span className="storeprods__name">{p.nombre}</span>
+                {p.plu != null && <span className="muted"> · PLU {p.plu}</span>}
+              </label>
+              {p.visibleOnline && <span className="storeprods__badge">En tienda</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
