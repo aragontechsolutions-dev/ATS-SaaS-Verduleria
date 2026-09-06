@@ -410,14 +410,16 @@ th.num, td.num { text-align: right; white-space: nowrap; }
   border: 1.5px solid var(--border-strong); border-radius: 8px; background: #fff;
 }
 .psearch__input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(18,140,126,.15); }
+/* Va en un portal sobre el body (position: fixed) para que ningún contenedor
+   con overflow —como la tabla de compras— la recorte. La posición la fija el JS. */
 .psearch__list {
-  position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 4px; list-style: none;
-  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,.16);
-  max-height: 260px; overflow-y: auto; min-width: 220px;
+  position: fixed; z-index: 1000; margin: 0; padding: 4px; list-style: none;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,.22);
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
 }
 .psearch__item {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 9px 10px; border-radius: 8px; cursor: pointer; font-size: 14px;
+  padding: 11px 12px; border-radius: 8px; cursor: pointer; font-size: 14px;
 }
 .psearch__item.is-hi { background: var(--surface); }
 .psearch__item.is-sel { color: var(--primary-dark); font-weight: 700; }
