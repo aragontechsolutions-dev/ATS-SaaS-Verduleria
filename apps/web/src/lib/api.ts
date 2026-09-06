@@ -42,6 +42,28 @@ export interface PublicLanding {
 
 export class NotFoundError extends Error {}
 
+// --- Planes públicos (página de precios de Aragon) --------------------------
+
+export interface PublicPlan {
+  code: string;
+  nombre: string;
+  descripcion: string | null;
+  precioMensual: number;
+  moneda: string;
+  orden: number;
+  modules: string[];
+  maxUsuarios: number | null;
+  maxSucursales: number | null;
+  maxProductos: number | null;
+  maxDispositivosPos: number | null;
+}
+
+export async function getPlanes(): Promise<PublicPlan[]> {
+  const res = await fetch(`${API_BASE}/public/planes`);
+  if (!res.ok) throw new Error(`planes HTTP ${res.status}`);
+  return res.json() as Promise<PublicPlan[]>;
+}
+
 /** Landing pública de una verdulería por slug. 404 si no existe o no está publicada. */
 export async function getPublicLanding(slug: string): Promise<PublicLanding> {
   const res = await fetch(`${API_BASE}/public/landing/${encodeURIComponent(slug)}`);

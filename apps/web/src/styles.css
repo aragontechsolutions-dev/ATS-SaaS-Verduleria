@@ -363,3 +363,8 @@ section { padding: 60px 0; }
 .ck-pin__dot { display: block; width: 18px; height: 18px; background: var(--sh-accent); border: 3px solid #fff; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 2px 5px rgba(0,0,0,.35); margin-left: 5px; }
 .sh-pickup { margin-top: 14px; padding: 12px 14px; background: var(--sh-bg); border: 1px solid var(--sh-line); border-radius: 12px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
 .sh-btn--map { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--sh-accent); color: #fff; text-decoration: none; border-radius: 11px; padding: 11px 14px; font-weight: 700; }
+
+/* --- Notas de la sección de planes --- */
+.plans-notas { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-top: 22px; }
+.plans-notas span { font-size: 13.5px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 8px 16px; }
+.plans-notas b { color: var(--ink); }

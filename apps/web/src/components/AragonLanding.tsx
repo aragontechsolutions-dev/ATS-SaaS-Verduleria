@@ -1,8 +1,40 @@
+import { useEffect, useState } from 'react';
 import { CONSOLE_URL, secretLogin } from '../lib/secretLogin';
+import { getPlanes, type PublicPlan } from '../lib/api';
+
+/** Etiqueta amigable de cada módulo para la lista de features del plan. */
+const MODULO_LABEL: Record<string, string> = {
+  POS: 'Punto de venta offline',
+  INVENTORY: 'Stock y mermas',
+  PURCHASES: 'Compras y costos',
+  PRICING: 'Listas de precios y remarque masivo',
+  REPORTS_ADVANCED: 'Reportes avanzados y rentabilidad',
+  WHOLESALE: 'Mayoristas y cuenta corriente',
+  DELIVERY: 'Tienda online y reparto',
+  MULTI_SUCURSAL: 'Multi-sucursal',
+  SCALE_LIVE: 'Balanza en vivo',
+  CFE: 'Facturación electrónica',
+};
+
+const money = (n: number) => `$${n.toLocaleString('es-UY')}`;
+
+function limitesTexto(p: PublicPlan): string {
+  const partes = [
+    p.maxUsuarios ? `${p.maxUsuarios} usuarios` : 'Usuarios ilimitados',
+    p.maxSucursales ? `${p.maxSucursales} sucursal${p.maxSucursales === 1 ? '' : 'es'}` : 'Multi-sucursal',
+    p.maxProductos ? `${p.maxProductos.toLocaleString('es-UY')} productos` : 'Productos ilimitados',
+  ];
+  return partes.join(' · ');
+}
 
 /** Landing pública de Aragon (el SaaS). El acceso al login del dueño está
  *  oculto: Ctrl + Shift + click en el logo lleva a la Consola. */
 export function AragonLanding() {
+  const [planes, setPlanes] = useState<PublicPlan[] | null>(null);
+  useEffect(() => {
+    getPlanes().then(setPlanes).catch(() => setPlanes([]));
+  }, []);
+
   return (
     <div className="ar">
       <header className="site">
@@ -30,7 +62,7 @@ export function AragonLanding() {
             <h1>Vendé, pesá y facturá <em>sin frenar la fila.</em></h1>
             <p className="hero__sub">El sistema completo para tu verdulería: punto de venta que anda sin internet, control de compras y merma, y facturación electrónica en regla con la DGI. Del mostrador a la caja.</p>
             <div className="hero__cta">
-              <a href="#planes" className="btn btn--primary btn--lg">Empezar gratis</a>
+              <a href="#planes" className="btn btn--primary btn--lg">Ver planes</a>
               <a href="#capacidades" className="btn btn--ghost btn--lg" style={{ color: 'var(--hero-ink)', borderColor: 'rgba(255,255,255,.28)' }}>Ver qué hace</a>
             </div>
             <div className="hero__stats">
@@ -71,7 +103,7 @@ export function AragonLanding() {
             <div className="card"><div className="card__ic">⚖</div><h3>Pesás como querés</h3><p>Ingreso manual, etiqueta con código de barras o balanza en vivo por USB/red. La que tengas, funciona.</p></div>
             <div className="card"><div className="card__ic">📉</div><h3>Costos y merma reales</h3><p>Cargás la compra del Mercado Modelo por cajón y el sistema calcula el costo por kilo con la merma. Sabés cuánto ganás.</p></div>
             <div className="card"><div className="card__ic">🏪</div><h3>Varias sucursales</h3><p>Stock y caja por local, transferencias entre sucursales y cuenta corriente de mayoristas. Todo en un lugar.</p></div>
-            <div className="card"><div className="card__ic">🇺🇾</div><h3>Precio y soporte local</h3><p>Pensado y cobrado en Uruguay, con soporte que entiende tu rubro. Empezás gratis y crecés cuando querés.</p></div>
+            <div className="card"><div className="card__ic">🇺🇾</div><h3>Precio y soporte local</h3><p>Pensado y cobrado en Uruguay, con soporte que entiende tu rubro. Precio local, y crecés cuando tu verdulería crece.</p></div>
           </div>
         </div>
       </section>
@@ -138,56 +170,50 @@ export function AragonLanding() {
         <div className="wrap">
           <div className="sec-head">
             <p className="sec-eyebrow">Planes</p>
-            <h2>Empezá gratis. Crecé cuando tu verdulería crece.</h2>
+            <h2>Elegí el plan de tu verdulería.</h2>
             <p>Precios en pesos uruguayos, por mes. Sin permanencia.</p>
           </div>
-          <div className="plans">
-            <div className="plan">
-              <div className="plan__name">Básico</div>
-              <div className="plan__price">$0<small> /mes</small></div>
-              <p className="plan__desc">Para arrancar: POS, catálogo y facturación electrónica.</p>
-              <ul>
-                <li><span className="check">✓</span>POS offline + e-Ticket</li>
-                <li><span className="check">✓</span>Catálogo y stock básico</li>
-                <li><span className="check">✓</span>1 sucursal · 2 usuarios</li>
-              </ul>
-              <a href="#" className="btn btn--ghost">Empezar gratis</a>
+
+          {planes === null ? (
+            <p style={{ textAlign: 'center', color: 'var(--muted)' }}>Cargando planes…</p>
+          ) : planes.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'var(--muted)' }}>Escribinos y armamos el plan para tu verdulería.</p>
+          ) : (
+            <div className="plans">
+              {planes.map((p, i) => {
+                const destacado = planes.length >= 3 ? i === 1 : i === 0; // el del medio
+                return (
+                  <div key={p.code} className={`plan ${destacado ? 'plan--hot' : ''}`}>
+                    {destacado && <span className="plan__flag">El más elegido</span>}
+                    <div className="plan__name">{p.nombre}</div>
+                    <div className="plan__price">{money(p.precioMensual)}<small> /mes</small></div>
+                    {p.descripcion && <p className="plan__desc">{p.descripcion}</p>}
+                    <ul>
+                      {p.modules.map((m) => (
+                        <li key={m}><span className="check">✓</span>{MODULO_LABEL[m] ?? m}</li>
+                      ))}
+                      <li><span className="check">✓</span>{limitesTexto(p)}</li>
+                    </ul>
+                    <a href="#contacto" className={`btn ${destacado ? 'btn--primary' : 'btn--ghost'}`}>Pedir demo</a>
+                  </div>
+                );
+              })}
             </div>
-            <div className="plan plan--hot">
-              <span className="plan__flag">El más elegido</span>
-              <div className="plan__name">Pro</div>
-              <div className="plan__price">$990<small> /mes</small></div>
-              <p className="plan__desc">Suma compras, listas de precios, reportes y mayoristas.</p>
-              <ul>
-                <li><span className="check">✓</span>Todo lo de Básico</li>
-                <li><span className="check">✓</span>Compras, costos y merma</li>
-                <li><span className="check">✓</span>Rentabilidad y cuenta corriente</li>
-                <li><span className="check">✓</span>5 usuarios</li>
-              </ul>
-              <a href="#" className="btn btn--primary">Pedir demo</a>
-            </div>
-            <div className="plan">
-              <div className="plan__name">Full</div>
-              <div className="plan__price">$1.990<small> /mes</small></div>
-              <p className="plan__desc">Todo: multi-sucursal, reparto y balanza en vivo.</p>
-              <ul>
-                <li><span className="check">✓</span>Todo lo de Pro</li>
-                <li><span className="check">✓</span>Multi-sucursal ilimitado</li>
-                <li><span className="check">✓</span>Balanza en vivo y reparto</li>
-                <li><span className="check">✓</span>Usuarios ilimitados</li>
-              </ul>
-              <a href="#" className="btn btn--ghost">Hablar con ventas</a>
-            </div>
+          )}
+
+          <div className="plans-notas">
+            <span>🧾 <b>Facturación electrónica (CFE)</b>: se agrega como add-on según tu facturación (el Monotributo está exento).</span>
+            <span>🎉 <b>Fundadores de Maldonado</b>: 50% de descuento durante el primer año para los primeros clientes.</span>
           </div>
         </div>
       </section>
 
       <section>
         <div className="wrap">
-          <div className="cta">
+          <div className="cta" id="contacto">
             <h2>Tu verdulería, <em>ordenada y en regla.</em></h2>
-            <p>Dejá el cuaderno y la calculadora. Empezá gratis hoy y facturá tu primera venta en minutos.</p>
-            <a href="#" className="btn btn--primary btn--lg">Crear mi verdulería</a>
+            <p>Dejá el cuaderno y la calculadora. Escribinos y facturás tu primera venta en minutos.</p>
+            <a href="#planes" className="btn btn--primary btn--lg">Ver planes</a>
           </div>
         </div>
       </section>
@@ -204,7 +230,7 @@ export function AragonLanding() {
 
       <div className="mobilecta">
         <a href="#capacidades" className="btn btn--ghost">Qué hace</a>
-        <a href="#planes" className="btn btn--primary">Empezar gratis</a>
+        <a href="#planes" className="btn btn--primary">Ver planes</a>
       </div>
     </div>
   );

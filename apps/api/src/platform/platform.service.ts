@@ -74,6 +74,27 @@ export class PlatformService {
     return this.prisma.plan.findMany({ where: { activo: true }, orderBy: { orden: 'asc' } });
   }
 
+  /** Planes visibles en la página pública de precios (publico = true). */
+  async listPublicPlans() {
+    const plans = await this.prisma.plan.findMany({
+      where: { activo: true, publico: true },
+      orderBy: { orden: 'asc' },
+    });
+    return plans.map((p) => ({
+      code: p.code,
+      nombre: p.nombre,
+      descripcion: p.descripcion,
+      precioMensual: Number(p.precioMensual),
+      moneda: p.moneda,
+      orden: p.orden,
+      modules: p.modules,
+      maxUsuarios: p.maxUsuarios,
+      maxSucursales: p.maxSucursales,
+      maxProductos: p.maxProductos,
+      maxDispositivosPos: p.maxDispositivosPos,
+    }));
+  }
+
   async listTenants() {
     const tenants = await this.prisma.tenant.findMany({
       orderBy: { createdAt: 'desc' },
