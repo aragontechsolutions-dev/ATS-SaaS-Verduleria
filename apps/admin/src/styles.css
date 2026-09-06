@@ -527,3 +527,8 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 /* Paginador de tablas del panel */
 .pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px 4px 2px; }
 .pager__info { font-size: 13.5px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 120px; text-align: center; }
+
+/* Barra de acciones en bloque (selección de productos) */
+.bulkbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0; padding: 10px 14px; background: var(--surface); border: 1px solid var(--primary); border-radius: 12px; font-size: 14px; }
+.bulkbar__spacer { flex: 1; }
+tr.row--sel > td { background: #eaf5f2; }

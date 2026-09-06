@@ -230,6 +230,15 @@ export class ProductsService {
     return { total: dto.items.length, creados, actualizados, errores };
   }
 
+  /** Marca/desmarca en bloque la visibilidad en la tienda online. */
+  async setVisibleOnline(tenantId: string, ids: string[], visible: boolean) {
+    const res = await this.prisma.product.updateMany({
+      where: { tenantId, id: { in: ids } },
+      data: { visibleOnline: visible },
+    });
+    return { actualizados: res.count };
+  }
+
   async update(tenantId: string, id: string, dto: UpdateProductDto) {
     const product = await this.prisma.product.findFirst({ where: { id, tenantId } });
     if (!product) throw new NotFoundException('Producto no encontrado');
