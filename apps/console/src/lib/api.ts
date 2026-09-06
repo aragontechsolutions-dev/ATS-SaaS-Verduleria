@@ -116,6 +116,8 @@ export interface CfeConfig {
   razonSocial: string | null;
   rut: string | null;
   regimenFiscal: RegimenFiscal;
+  /** Estado del módulo CFE: si está activo y de dónde viene (plan / add-on / ninguno). */
+  cfeModulo: { activo: boolean; origen: 'plan' | 'addon' | 'ninguno' };
   cfe: {
     provider: string;
     ambiente: 'test' | 'produccion';
@@ -145,6 +147,12 @@ export const updateTenantCfe = async (id: string, patch: CfeConfigInput) =>
   ok<CfeConfig>(
     await fetch(`${API_BASE}/platform/tenants/${id}/cfe`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) }),
     'updateTenantCfe',
+  );
+
+export const setCfeAddon = async (id: string, enabled: boolean) =>
+  ok<CfeConfig>(
+    await fetch(`${API_BASE}/platform/tenants/${id}/cfe/addon`, { method: 'PATCH', headers: headers(), body: JSON.stringify({ enabled }) }),
+    'setCfeAddon',
   );
 
 // --- Facturación del SaaS ---------------------------------------------------

@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { PlatformAdminGuard } from './platform-admin.guard';
 import { PlatformService } from './platform.service';
-import { CreateTenantDto, UpdateCfeConfigDto, UpdateTenantDto } from './platform.dto';
+import { CreateTenantDto, SetCfeAddonDto, UpdateCfeConfigDto, UpdateTenantDto } from './platform.dto';
 
 /** Consola de plataforma (Aragon). Todo exige ser super-admin de plataforma. */
 @Controller('platform')
@@ -55,5 +55,11 @@ export class PlatformController {
   @Patch('tenants/:id/cfe')
   updateCfeConfig(@Param('id') id: string, @Body() dto: UpdateCfeConfigDto) {
     return this.platform.updateCfeConfig(id, dto);
+  }
+
+  /** Activa/desactiva el add-on de CFE (módulo extra en la suscripción). */
+  @Patch('tenants/:id/cfe/addon')
+  setCfeAddon(@Param('id') id: string, @Body() dto: SetCfeAddonDto) {
+    return this.platform.setCfeAddon(id, dto.enabled);
   }
 }

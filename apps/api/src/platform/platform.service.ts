@@ -4,10 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AuditEventTipo, CertificadoEstado, Prisma, Role, SubscriptionStatus, TipoListaPrecio } from '@ats/database';
+import { AuditEventTipo, CertificadoEstado, ModuleKey, Prisma, Role, SubscriptionStatus, TipoListaPrecio } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
 import { AuditService } from '../audit/audit.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import { generateTempPassword } from '../common/password.util';
 import { getTenantContext } from '../tenant/tenant-context';
 import { CfeGateError, diffCfeConfig, resolverCfeConfig, type CfeConfigActual } from '../cfe/fiscal-config';
@@ -19,6 +20,7 @@ export class PlatformService {
     private readonly prisma: PrismaService,
     private readonly auth: AuthService,
     private readonly audit: AuditService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   /** Métricas globales para el dashboard de la consola. */
@@ -70,6 +72,27 @@ export class PlatformService {
 
   async listPlans() {
     return this.prisma.plan.findMany({ where: { activo: true }, orderBy: { orden: 'asc' } });
+  }
+
+  /** Planes visibles en la página pública de precios (publico = true). */
+  async listPublicPlans() {
+    const plans = await this.prisma.plan.findMany({
+      where: { activo: true, publico: true },
+      orderBy: { orden: 'asc' },
+    });
+    return plans.map((p) => ({
+      code: p.code,
+      nombre: p.nombre,
+      descripcion: p.descripcion,
+      precioMensual: Number(p.precioMensual),
+      moneda: p.moneda,
+      orden: p.orden,
+      modules: p.modules,
+      maxUsuarios: p.maxUsuarios,
+      maxSucursales: p.maxSucursales,
+      maxProductos: p.maxProductos,
+      maxDispositivosPos: p.maxDispositivosPos,
+    }));
   }
 
   async listTenants() {
@@ -211,16 +234,27 @@ export class PlatformService {
   async getCfeConfig(tenantId: string) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      include: { cfeConfig: true },
+      include: { cfeConfig: true, subscription: { include: { plan: true } } },
     });
     if (!tenant) throw new NotFoundException('Cliente no encontrado');
     const c = tenant.cfeConfig;
+
+    // Add-on CFE: el módulo puede venir del plan o concederse como extra.
+    const sub = tenant.subscription;
+    const enPlan = !!sub?.plan.modules.includes(ModuleKey.CFE);
+    const enExtra = !!sub?.modulosExtra.includes(ModuleKey.CFE);
+    const cfeModulo = {
+      activo: enPlan || enExtra,
+      origen: enPlan ? 'plan' : enExtra ? 'addon' : 'ninguno',
+    } as const;
+
     return {
       tenantId,
       nombre: tenant.nombre,
       razonSocial: tenant.razonSocial,
       rut: tenant.rut,
       regimenFiscal: tenant.regimenFiscal,
+      cfeModulo,
       cfe: {
         provider: c?.provider ?? 'SIN_CFE',
         ambiente: c?.ambiente ?? 'test',
@@ -231,6 +265,39 @@ export class PlatformService {
         codMontosBrutos: c?.codMontosBrutos ?? 1,
       },
     };
+  }
+
+  /**
+   * Activa/desactiva el add-on de CFE para un tenant (módulo extra en su
+   * suscripción). No toca planes que ya incluyen CFE (ej. Fundador).
+   */
+  async setCfeAddon(tenantId: string, enabled: boolean) {
+    const sub = await this.prisma.subscription.findUnique({ where: { tenantId }, include: { plan: true } });
+    if (!sub) throw new BadRequestException('El cliente no tiene una suscripción activa');
+
+    // Si el plan ya trae CFE, el add-on no aplica (siempre está incluido).
+    if (!sub.plan.modules.includes(ModuleKey.CFE)) {
+      const extra = new Set(sub.modulosExtra);
+      if (enabled) extra.add(ModuleKey.CFE);
+      else extra.delete(ModuleKey.CFE);
+      await this.prisma.subscription.update({ where: { tenantId }, data: { modulosExtra: [...extra] } });
+      this.entitlements.invalidate(tenantId);
+
+      const ctx = getTenantContext();
+      const actor = ctx?.userId
+        ? await this.prisma.user.findUnique({ where: { id: ctx.userId }, select: { email: true, nombre: true } })
+        : null;
+      await this.audit.log({
+        tipo: AuditEventTipo.CFE_CONFIG_MODIFICADA,
+        tenantId,
+        userId: ctx?.userId,
+        usuario: actor?.email ?? actor?.nombre ?? 'consola',
+        descripcion: `Add-on CFE ${enabled ? 'activado' : 'desactivado'} desde la Consola`,
+        meta: { addonCfe: enabled },
+      });
+    }
+
+    return this.getCfeConfig(tenantId);
   }
 
   /**
