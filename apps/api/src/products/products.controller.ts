@@ -13,6 +13,7 @@ import {
   CreatePromoDto,
   CreateProductDto,
   ImportCatalogDto,
+  SetVisibleOnlineDto,
   UpdateCategoriaDto,
   UpdateProductDto,
   UpdatePromoDto,
@@ -63,6 +64,13 @@ export class ProductsController {
   @Roles(Role.ADMIN, Role.ENCARGADO)
   importCatalog(@CurrentTenant('tenantId') tenantId: string, @Body() dto: ImportCatalogDto) {
     return this.products.importCatalog(tenantId, dto);
+  }
+
+  /** Mostrar/ocultar en bloque productos en la tienda online. */
+  @Post('visibilidad-online')
+  @Roles(Role.ADMIN, Role.ENCARGADO)
+  setVisibleOnline(@CurrentTenant('tenantId') tenantId: string, @Body() dto: SetVisibleOnlineDto) {
+    return this.products.setVisibleOnline(tenantId, dto.ids, dto.visible);
   }
 
   @Get('categorias/all')

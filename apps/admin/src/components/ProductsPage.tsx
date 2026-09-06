@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getCategorias, getMe, getProducts, updateProduct } from '../lib/api';
+import { getCategorias, getMe, getProducts, setVisibleOnline, updateProduct } from '../lib/api';
 import type { Categoria, Product } from '../lib/api';
 import { ProductModal } from './ProductModal';
 import { BulkPriceModal } from './BulkPriceModal';
@@ -22,6 +22,8 @@ export function ProductsPage() {
   const [creating, setCreating] = useState(false);
   const [bulk, setBulk] = useState(false);
   const [importar, setImportar] = useState(false);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [aplicando, setAplicando] = useState(false);
   const [canOverrideIva, setCanOverrideIva] = useState(false);
 
   const load = useCallback(async () => {
@@ -77,6 +79,28 @@ export function ProductsPage() {
     void load();
   }
 
+  function toggleSel(id: string) {
+    setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+  function seleccionar(ids: string[], on: boolean) {
+    setSel((s) => { const n = new Set(s); for (const id of ids) on ? n.add(id) : n.delete(id); return n; });
+  }
+  async function aplicarVisibilidad(visible: boolean) {
+    const ids = [...sel];
+    if (!ids.length) return;
+    setAplicando(true);
+    try {
+      await setVisibleOnline(ids, visible);
+      toast.success(`${ids.length} producto${ids.length === 1 ? '' : 's'} ${visible ? 'visible' : 'oculto'}${ids.length === 1 ? '' : 's'} en la tienda`);
+      setSel(new Set());
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo actualizar');
+    } finally {
+      setAplicando(false);
+    }
+  }
+
   return (
     <>
         <section className="panel">
@@ -96,6 +120,21 @@ export function ProductsPage() {
             </div>
           </div>
 
+          {sel.size > 0 && (
+            <div className="bulkbar">
+              <span><strong>{sel.size}</strong> seleccionado{sel.size === 1 ? '' : 's'}</span>
+              {sel.size < filtered.length && (
+                <button className="btn btn--sm btn--ghost" onClick={() => seleccionar(filtered.map((p) => p.id), true)}>
+                  Seleccionar los {filtered.length} del filtro
+                </button>
+              )}
+              <span className="bulkbar__spacer" />
+              <button className="btn btn--sm btn--primary" disabled={aplicando} onClick={() => void aplicarVisibilidad(true)}>🛒 Mostrar en tienda</button>
+              <button className="btn btn--sm btn--ghost" disabled={aplicando} onClick={() => void aplicarVisibilidad(false)}>Quitar de la tienda</button>
+              <button className="btn btn--sm btn--ghost" onClick={() => setSel(new Set())}>Limpiar</button>
+            </div>
+          )}
+
           {loading ? (
             <SkeletonRows rows={6} cols={5} />
           ) : (
@@ -103,18 +142,30 @@ export function ProductsPage() {
               <table className="table">
                 <thead>
                   <tr>
+                    <th style={{ width: 34 }}>
+                      <input
+                        type="checkbox"
+                        aria-label="Seleccionar la página"
+                        checked={pagina.length > 0 && pagina.every((p) => sel.has(p.id))}
+                        onChange={(e) => seleccionar(pagina.map((p) => p.id), e.target.checked)}
+                      />
+                    </th>
                     <th>Producto</th>
                     <th>Categoría</th>
                     <th>Unidad</th>
                     <th>IVA</th>
                     <th>Precio</th>
+                    <th>Tienda</th>
                     <th>Activo</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {pagina.map((p) => (
-                    <tr key={p.id} className={p.activo ? '' : 'row--off'}>
+                    <tr key={p.id} className={`${p.activo ? '' : 'row--off'} ${sel.has(p.id) ? 'row--sel' : ''}`}>
+                      <td>
+                        <input type="checkbox" aria-label={`Seleccionar ${p.nombre}`} checked={sel.has(p.id)} onChange={() => toggleSel(p.id)} />
+                      </td>
                       <td>
                         <strong>{p.nombre}</strong>
                         {p.plu != null && <span className="muted"> · PLU {p.plu}</span>}
@@ -136,6 +187,19 @@ export function ProductsPage() {
                         />
                       </td>
                       <td>
+                        <input
+                          type="checkbox"
+                          title={p.visibleOnline ? 'Visible en la tienda online' : 'Oculto en la tienda'}
+                          checked={p.visibleOnline}
+                          onChange={async () => {
+                            try {
+                              await setVisibleOnline([p.id], !p.visibleOnline);
+                              void load();
+                            } catch (e) { toast.error(e instanceof Error ? e.message : 'No se pudo actualizar'); }
+                          }}
+                        />
+                      </td>
+                      <td>
                         <input type="checkbox" checked={p.activo} onChange={() => toggleActivo(p)} />
                       </td>
                       <td>
@@ -144,7 +208,7 @@ export function ProductsPage() {
                     </tr>
                   ))}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={7} className="muted">Sin productos.</td></tr>
+                    <tr><td colSpan={9} className="muted">Sin productos.</td></tr>
                   )}
                 </tbody>
               </table>

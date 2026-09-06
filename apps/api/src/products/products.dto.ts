@@ -305,3 +305,15 @@ export class ImportCatalogDto {
   @Type(() => ImportRowDto)
   items!: ImportRowDto[];
 }
+
+/** Cambia en bloque la visibilidad en la tienda online de varios productos. */
+export class SetVisibleOnlineDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(5000)
+  @IsString({ each: true })
+  ids!: string[];
+
+  @IsBoolean()
+  visible!: boolean;
+}

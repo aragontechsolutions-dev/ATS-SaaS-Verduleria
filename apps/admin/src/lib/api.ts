@@ -176,6 +176,13 @@ export const importCatalog = async (items: ImportRow[]) =>
     'importCatalog',
   );
 
+/** Muestra/oculta en bloque productos en la tienda online. */
+export const setVisibleOnline = async (ids: string[], visible: boolean) =>
+  ok<{ actualizados: number }>(
+    await fetch(`${API_BASE}/products/visibilidad-online`, { method: 'POST', headers: headers(), body: JSON.stringify({ ids, visible }) }),
+    'setVisibleOnline',
+  );
+
 // --- Compras / Stock / Merma ------------------------------------------------
 
 export interface Supplier {
