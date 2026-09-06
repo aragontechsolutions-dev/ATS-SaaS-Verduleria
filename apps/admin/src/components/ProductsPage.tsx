@@ -15,6 +15,8 @@ export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [q, setQ] = useState('');
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
@@ -47,6 +49,12 @@ export function ProductsPage() {
     return t ? products.filter((p) => p.nombre.toLowerCase().includes(t) || String(p.plu ?? '').includes(t)) : products;
   }, [products, q]);
 
+  // Paginación (client-side): resetea a la página 1 al filtrar o cambiar el tamaño.
+  const totalPaginas = Math.max(1, Math.ceil(filtered.length / pageSize));
+  useEffect(() => { setPage(0); }, [q, pageSize]);
+  useEffect(() => { if (page > totalPaginas - 1) setPage(totalPaginas - 1); }, [page, totalPaginas]);
+  const pagina = filtered.slice(page * pageSize, page * pageSize + pageSize);
+
   async function savePrice(p: Product, nuevo: number) {
     if (nuevo === p.precio || Number.isNaN(nuevo)) return;
     setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, precio: nuevo } : x)));
@@ -76,6 +84,12 @@ export function ProductsPage() {
             <h2>Productos</h2>
             <div style={{ display: 'flex', gap: 10 }}>
               <input className="search" placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
+              <select className="search" style={{ maxWidth: 130 }} value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} title="Productos por página">
+                <option value={10}>10 por pág.</option>
+                <option value={20}>20 por pág.</option>
+                <option value={50}>50 por pág.</option>
+                <option value={100}>100 por pág.</option>
+              </select>
               <button className="btn btn--ghost" onClick={() => setImportar(true)}>Importar CSV</button>
               <button className="btn btn--ghost" onClick={() => setBulk(true)}>Precios en masa</button>
               <button className="btn btn--primary" onClick={() => setCreating(true)}>+ Nuevo producto</button>
@@ -99,7 +113,7 @@ export function ProductsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((p) => (
+                  {pagina.map((p) => (
                     <tr key={p.id} className={p.activo ? '' : 'row--off'}>
                       <td>
                         <strong>{p.nombre}</strong>
@@ -134,6 +148,15 @@ export function ProductsPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+          {!loading && filtered.length > pageSize && (
+            <div className="pager">
+              <button className="btn btn--sm btn--ghost" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>‹ Anterior</button>
+              <span className="pager__info">
+                {page * pageSize + 1}–{Math.min(filtered.length, (page + 1) * pageSize)} de {filtered.length}
+              </span>
+              <button className="btn btn--sm btn--ghost" onClick={() => setPage((p) => Math.min(totalPaginas - 1, p + 1))} disabled={page >= totalPaginas - 1}>Siguiente ›</button>
             </div>
           )}
           <p className="hint">Tip: editá el precio directo en la columna y presioná Enter — se guarda solo.</p>
