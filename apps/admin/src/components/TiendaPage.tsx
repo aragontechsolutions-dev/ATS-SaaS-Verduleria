@@ -1,14 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  activarCobroOnline,
-  conectarMp,
   createZone,
   deleteZone,
-  desconectarMp,
   getPagosConfig,
   getProducts,
   getStoreConfig,
-  probarMp,
   saveStoreConfig,
   setVisibleOnline,
   telegramLink,
@@ -241,60 +237,18 @@ function ProductosTiendaPanel() {
   );
 }
 
+/**
+ * Cobros online en el panel del tenant: SOLO LECTURA. La conexión de Mercado
+ * Pago la gestiona Aragon Tech Solutions desde la Consola (para que nadie la
+ * desconfigure por error). Acá el comercio solo ve el estado.
+ */
 function MercadoPagoPanel() {
   const toast = useToast();
   const [cfg, setCfg] = useState<PagosConfig | null>(null);
-  const [token, setToken] = useState('');
-  const [publicKey, setPublicKey] = useState('');
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     getPagosConfig().then(setCfg).catch((e) => toast.error(e instanceof Error ? e.message : 'No se pudo cargar'));
   }, [toast]);
-
-  async function conectar() {
-    if (token.trim().length < 20) { toast.error('Pegá el Access Token completo de Mercado Pago.'); return; }
-    setBusy(true);
-    try {
-      const c = await conectarMp(token.trim(), publicKey.trim() || undefined);
-      setCfg(c);
-      setToken(''); setPublicKey('');
-      toast.success(`Mercado Pago conectado${c.cuenta ? ` (${c.cuenta})` : ''}`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo conectar');
-    } finally { setBusy(false); }
-  }
-
-  async function probar() {
-    setBusy(true);
-    try {
-      const r = await probarMp();
-      toast.success(`Conexión OK — ${r.cuenta} (${r.ambiente === 'test' ? 'prueba' : 'producción'})`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Falló la prueba');
-    } finally { setBusy(false); }
-  }
-
-  async function toggleActivo(activo: boolean) {
-    setBusy(true);
-    try {
-      setCfg(await activarCobroOnline(activo));
-      toast.success(activo ? 'Cobro online activado' : 'Cobro online desactivado');
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo cambiar');
-    } finally { setBusy(false); }
-  }
-
-  async function desconectar() {
-    if (!confirm('¿Desconectar Mercado Pago? Se borran las credenciales guardadas.')) return;
-    setBusy(true);
-    try {
-      setCfg(await desconectarMp());
-      toast.info('Mercado Pago desconectado');
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo desconectar');
-    } finally { setBusy(false); }
-  }
 
   return (
     <section className="panel">
@@ -302,46 +256,19 @@ function MercadoPagoPanel() {
 
       {!cfg ? (
         <p className="loading-row"><Spinner /> Cargando…</p>
-      ) : !cfg.encKeyDisponible ? (
-        <p className="hint hint--warn">El cobro online no está habilitado en el servidor todavía. Pedile a Aragon Tech Solutions que configure la clave de cifrado de pagos.</p>
+      ) : cfg.conectado && cfg.cobroOnlineActivo ? (
+        <p className="hint">
+          ✅ <strong>Pago online activo</strong>{cfg.cuenta ? <> · cuenta <strong>{cfg.cuenta}</strong></> : null} · Ambiente: <strong>{cfg.ambiente === 'produccion' ? 'Producción' : 'Prueba'}</strong>.
+          Tus clientes pueden pagar con Mercado Pago en la tienda; el dinero va directo a tu cuenta.
+        </p>
       ) : cfg.conectado ? (
-        <>
-          <p className="hint">
-            ✅ <strong>Conectado</strong>{cfg.cuenta ? <> como <strong>{cfg.cuenta}</strong></> : null} · Ambiente: <strong>{cfg.ambiente === 'test' ? 'Prueba (sandbox)' : 'Producción'}</strong>
-            {cfg.tokenPista ? <> · Token {cfg.tokenPista}</> : null}
-          </p>
-          {cfg.ambiente === 'test' && (
-            <p className="hint hint--warn">Estás con credenciales de <strong>prueba</strong>: los pagos son simulados. Cargá las de producción (APP_USR-…) para cobrar de verdad.</p>
-          )}
-          <label className="field field--check">
-            <input type="checkbox" checked={cfg.cobroOnlineActivo} disabled={busy} onChange={(e) => void toggleActivo(e.target.checked)} />
-            Ofrecer pago online en la tienda (Mercado Pago)
-          </label>
-          <div className="modal__actions" style={{ justifyContent: 'flex-start' }}>
-            <button className="btn btn--ghost btn--sm" onClick={() => void probar()} disabled={busy}>Probar conexión</button>
-            <button className="btn btn--ghost btn--sm" onClick={() => void desconectar()} disabled={busy}>Desconectar</button>
-          </div>
-          <p className="hint">El cobro online se muestra a tus clientes en la tienda (llega en la próxima etapa). El dinero va directo a tu cuenta de Mercado Pago.</p>
-        </>
+        <p className="hint">
+          Tu cuenta de Mercado Pago está <strong>conectada</strong> pero el pago online <strong>no está activo</strong> todavía. Escribinos para activarlo.
+        </p>
       ) : (
-        <>
-          <p className="hint">
-            Conectá <strong>tu propia cuenta</strong> de Mercado Pago para cobrar los pedidos online. El dinero va directo a tu cuenta (no pasa por Aragon Tech Solutions).
-            Copiá el <strong>Access Token</strong> desde Mercado Pago → <em>Tus integraciones / Desarrolladores → Credenciales</em>.
-          </p>
-          <label className="field">
-            Access Token
-            <input value={token} onChange={(e) => setToken(e.target.value)} placeholder="APP_USR-… (o TEST-… para pruebas)" autoComplete="off" />
-          </label>
-          <label className="field">
-            Public Key <span className="field__hint">(opcional)</span>
-            <input value={publicKey} onChange={(e) => setPublicKey(e.target.value)} placeholder="APP_USR-… public key" autoComplete="off" />
-          </label>
-          <div className="modal__actions" style={{ justifyContent: 'flex-start' }}>
-            <button className="btn btn--primary btn--sm" onClick={() => void conectar()} disabled={busy}>{busy ? 'Conectando…' : 'Conectar Mercado Pago'}</button>
-          </div>
-          <p className="hint">Tip: probá primero con las credenciales de <strong>prueba</strong> (TEST-…) para ver el flujo sin cobrar de verdad.</p>
-        </>
+        <p className="hint">
+          El <strong>pago online con Mercado Pago</strong> lo activamos nosotros por vos: escribinos a <strong>Aragon Tech Solutions</strong> y te pasamos un enlace para vincular tu cuenta en un clic. El dinero va directo a tu cuenta.
+        </p>
       )}
     </section>
   );

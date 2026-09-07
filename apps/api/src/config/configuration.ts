@@ -35,6 +35,18 @@ export interface TelegramConfig {
   webhookSecret: string;
 }
 
+export interface MpOAuthConfig {
+  /** client_id de la aplicación de Mercado Pago de la plataforma (Aragon). */
+  clientId: string;
+  /** client_secret de esa aplicación. */
+  clientSecret: string;
+  /**
+   * Redirect URI registrada en la app de MP. Si se deja vacía, se arma como
+   * `${apiPublicUrl}/api/public/pagos/mp/oauth/callback`.
+   */
+  redirectUri: string;
+}
+
 export interface PaymentsConfig {
   /**
    * Clave para cifrar (AES-256-GCM) las credenciales de pago de cada tenant
@@ -43,6 +55,8 @@ export interface PaymentsConfig {
    * poder descifrarse. Vacía = no se puede conectar ninguna pasarela.
    */
   encKey: string;
+  /** Credenciales de la app de MP para el flujo OAuth ("Conectar con MP"). */
+  mpOAuth: MpOAuthConfig;
 }
 
 export interface AppConfig {
@@ -99,5 +113,10 @@ export default (): AppConfig => ({
   payments: {
     // Sin var propia, cae al service-role de Supabase (secreto fuerte ya presente).
     encKey: process.env.PAYMENTS_ENC_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    mpOAuth: {
+      clientId: process.env.MP_OAUTH_CLIENT_ID ?? '',
+      clientSecret: process.env.MP_OAUTH_CLIENT_SECRET ?? '',
+      redirectUri: (process.env.MP_OAUTH_REDIRECT_URI ?? '').trim(),
+    },
   },
 });

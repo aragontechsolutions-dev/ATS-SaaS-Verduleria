@@ -4,13 +4,17 @@ import { randomBytes } from 'node:crypto';
 import type { AppConfig } from '../config/configuration';
 import { PrismaService } from '../prisma/prisma.service';
 import { cifrar, descifrar, enmascarar } from './crypto';
-import { ambienteDeToken, mpGetUsuario } from './mercadopago.client';
+import { ambienteDeToken, mpGetUsuario, mpOAuthRefresh } from './mercadopago.client';
 import type { ActivarCobroDto, ConectarMpDto } from './payments.config.dto';
+
+/** Margen para refrescar el token OAuth antes de que venza (5 min). */
+const MARGEN_REFRESH_MS = 5 * 60 * 1000;
 
 /** Vista de la config de pagos para el panel (SIN el token, solo una pista). */
 export interface PagosConfigView {
   proveedor: 'MERCADO_PAGO';
   conectado: boolean;
+  conexion: 'MANUAL' | 'OAUTH';
   ambiente: 'test' | 'produccion';
   cuenta: string | null; // nickname o id de la cuenta MP conectada
   tokenPista: string | null; // últimos 4 dígitos enmascarados
@@ -36,6 +40,7 @@ export class PaymentsConfigService {
       return {
         proveedor: 'MERCADO_PAGO',
         conectado: false,
+        conexion: 'MANUAL',
         ambiente: 'test',
         cuenta: null,
         tokenPista: null,
@@ -54,6 +59,7 @@ export class PaymentsConfigService {
     return {
       proveedor: 'MERCADO_PAGO',
       conectado: !!cfg.accessTokenEnc,
+      conexion: cfg.conexion === 'OAUTH' ? 'OAUTH' : 'MANUAL',
       ambiente: cfg.ambiente === 'produccion' ? 'produccion' : 'test',
       cuenta: cfg.mpNickname ?? cfg.mpUserId ?? null,
       tokenPista,
@@ -140,10 +146,44 @@ export class PaymentsConfigService {
     const cfg = await this.prisma.tenantPaymentConfig.findUnique({ where: { tenantId } });
     if (!cfg?.accessTokenEnc || !cfg.cobroOnlineActivo || !cfg.webhookSecret) return null;
     return {
-      accessToken: descifrar(cfg.accessTokenEnc, this.encKey()),
+      accessToken: await this.accessTokenVigente(cfg),
       ambiente: cfg.ambiente === 'produccion' ? 'produccion' : 'test',
       webhookSecret: cfg.webhookSecret,
     };
+  }
+
+  /**
+   * Devuelve el access token descifrado y VIGENTE. Para conexiones OAUTH, si el
+   * token está por vencer y hay refresh token, lo renueva contra MP y persiste
+   * los nuevos tokens antes de devolverlo.
+   */
+  private async accessTokenVigente(cfg: {
+    tenantId: string;
+    conexion: string;
+    accessTokenEnc: string | null;
+    refreshTokenEnc: string | null;
+    tokenExpiraAt: Date | null;
+  }): Promise<string> {
+    const encKey = this.encKey();
+    const actual = descifrar(cfg.accessTokenEnc as string, encKey);
+    const porVencer = cfg.tokenExpiraAt ? cfg.tokenExpiraAt.getTime() - Date.now() < MARGEN_REFRESH_MS : false;
+    if (cfg.conexion !== 'OAUTH' || !cfg.refreshTokenEnc || !porVencer) return actual;
+
+    const oauth = this.config.get('payments', { infer: true }).mpOAuth;
+    const tokens = await mpOAuthRefresh({
+      clientId: oauth.clientId,
+      clientSecret: oauth.clientSecret,
+      refreshToken: descifrar(cfg.refreshTokenEnc, encKey),
+    });
+    await this.prisma.tenantPaymentConfig.update({
+      where: { tenantId: cfg.tenantId },
+      data: {
+        accessTokenEnc: cifrar(tokens.access_token, encKey),
+        refreshTokenEnc: cifrar(tokens.refresh_token, encKey),
+        tokenExpiraAt: new Date(Date.now() + tokens.expires_in * 1000),
+      },
+    });
+    return tokens.access_token;
   }
 
   /** Resuelve el token de MP a partir del secreto del webhook (ruta pública). */
@@ -152,7 +192,7 @@ export class PaymentsConfigService {
     const cfg = await this.prisma.tenantPaymentConfig.findFirst({ where: { webhookSecret: secret } });
     if (!cfg?.accessTokenEnc) return null;
     try {
-      return { tenantId: cfg.tenantId, accessToken: descifrar(cfg.accessTokenEnc, this.encKey()) };
+      return { tenantId: cfg.tenantId, accessToken: await this.accessTokenVigente(cfg) };
     } catch {
       return null;
     }
