@@ -9,6 +9,7 @@ import {
   getOrder,
   getStoreCatalog,
   gmapsDirUrl,
+  iniciarPagoOnline,
   loginCustomer,
   normalizarTelefonoUy,
   NotFoundError,
@@ -175,7 +176,7 @@ export function TenantStore({ slug }: { slug: string }) {
       )}
 
       {step === 'done' && order && (
-        <Confirmation order={order} slug={slug} onMore={() => { setOrder(null); setStep('shop'); }} />
+        <Confirmation order={order} slug={slug} pagoOnline={cat.config.pagoOnline} onMore={() => { setOrder(null); setStep('shop'); }} />
       )}
 
       {authOpen && <AuthModal slug={slug} onClose={() => setAuthOpen(false)} onAuthed={onAuthed} />}
@@ -595,6 +596,7 @@ function TrackView({ slug, codigo }: { slug: string; codigo: string }) {
           {o.tipoEntrega === 'DELIVERY' && <div><span>Envío{o.zonaNombre ? ` · ${o.zonaNombre}` : ''}</span><span>{formatMoney(o.costoEnvio)}</span></div>}
           <div className="sh-totals__big"><span>Total</span><span>{formatMoney(o.total)}</span></div>
         </div>
+        <PagoBox slug={slug} codigo={o.codigo} pagado={o.pagado} puedePagarOnline={o.puedePagarOnline} />
         <p className="sh-note">
           {o.tipoEntrega === 'DELIVERY' ? `Envío a: ${o.direccion ?? ''}` : 'Retiro en el local'}
           {o.franja ? ` · ${o.franja}` : ''}
@@ -604,23 +606,74 @@ function TrackView({ slug, codigo }: { slug: string; codigo: string }) {
   );
 }
 
+// --- Pago online (seguimiento) ----------------------------------------------
+
+function PagoBox({ slug, codigo, pagado, puedePagarOnline }: { slug: string; codigo: string; pagado: boolean; puedePagarOnline: boolean }) {
+  const [pagando, setPagando] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  if (pagado) return <p className="sh-paid">✓ Pago confirmado</p>;
+  if (!puedePagarOnline) return null;
+
+  async function pagar() {
+    setErr(null); setPagando(true);
+    try {
+      const { checkoutUrl } = await iniciarPagoOnline(slug, codigo);
+      window.location.href = checkoutUrl;
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'No se pudo iniciar el pago.');
+      setPagando(false);
+    }
+  }
+
+  return (
+    <div className="sh-paybox">
+      <button className="sh-btn sh-btn--pay" onClick={() => void pagar()} disabled={pagando}>
+        {pagando ? 'Redirigiendo…' : '💳 Pagar con Mercado Pago'}
+      </button>
+      {err && <p className="sh-err">{err}</p>}
+    </div>
+  );
+}
+
 // --- Confirmación ------------------------------------------------------------
 
-function Confirmation({ order, slug, onMore }: { order: OrderResult; slug: string; onMore: () => void }) {
+function Confirmation({ order, slug, pagoOnline, onMore }: { order: OrderResult; slug: string; pagoOnline: boolean; onMore: () => void }) {
+  const [pagando, setPagando] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function pagar() {
+    setErr(null); setPagando(true);
+    try {
+      const { checkoutUrl } = await iniciarPagoOnline(slug, order.codigo);
+      window.location.href = checkoutUrl; // redirige a Mercado Pago
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'No se pudo iniciar el pago.');
+      setPagando(false);
+    }
+  }
+
   return (
     <div className="sh-done">
       <div className="sh-done__check">✓</div>
       <h2>¡Pedido recibido!</h2>
-      <p>Tu pedido <strong>#{order.numero}</strong> quedó registrado. Te vamos a contactar para coordinar la entrega.</p>
+      <p>Tu pedido <strong>#{order.numero}</strong> quedó registrado.{pagoOnline ? '' : ' Te vamos a contactar para coordinar la entrega.'}</p>
       <div className="sh-code">
         <span>Código de seguimiento</span>
         <strong>{order.codigo}</strong>
       </div>
-      <p className="sh-done__total">Total {formatMoney(order.total)} · se paga al recibir</p>
+      <p className="sh-done__total">Total {formatMoney(order.total)}{pagoOnline ? '' : ' · se paga al recibir'}</p>
+      {err && <p className="sh-err">{err}</p>}
       <div className="sh-done__actions">
+        {pagoOnline && (
+          <button className="sh-btn sh-btn--pay" onClick={() => void pagar()} disabled={pagando}>
+            {pagando ? 'Redirigiendo…' : '💳 Pagar con Mercado Pago'}
+          </button>
+        )}
         <a className="sh-btn" href={`/v/${encodeURIComponent(slug)}/tienda?codigo=${order.codigo}`}>Ver estado</a>
         <button className="sh-btn sh-btn--primary" onClick={onMore}>Hacer otro pedido</button>
       </div>
+      {pagoOnline && <p className="sh-done__hint">También podés pagar en efectivo al recibir; el pago online es opcional.</p>}
     </div>
   );
 }

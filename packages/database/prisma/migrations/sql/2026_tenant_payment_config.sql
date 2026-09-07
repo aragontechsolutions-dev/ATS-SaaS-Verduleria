@@ -32,9 +32,17 @@ ALTER TABLE "TenantPaymentConfig"
   ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- RLS (defensa en profundidad), mismo patrón que el resto de tablas por tenant.
-ALTER TABLE "TenantPaymentConfig" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "TenantPaymentConfig" FORCE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS tenant_isolation ON "TenantPaymentConfig";
-CREATE POLICY tenant_isolation ON "TenantPaymentConfig"
-  USING ("tenantId" = public.current_tenant_id())
-  WITH CHECK ("tenantId" = public.current_tenant_id());
+-- OPCIONAL: solo se aplica si el proyecto ya tiene el helper current_tenant_id()
+-- (creado por enable_rls.sql). Si RLS no está desplegado, se omite sin romper y
+-- la tabla queda con el mismo régimen que las demás (aislamiento por aplicación).
+DO $$
+BEGIN
+  IF to_regprocedure('public.current_tenant_id()') IS NOT NULL THEN
+    EXECUTE 'ALTER TABLE "TenantPaymentConfig" ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'ALTER TABLE "TenantPaymentConfig" FORCE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS tenant_isolation ON "TenantPaymentConfig"';
+    EXECUTE 'CREATE POLICY tenant_isolation ON "TenantPaymentConfig"
+              USING ("tenantId" = public.current_tenant_id())
+              WITH CHECK ("tenantId" = public.current_tenant_id())';
+  END IF;
+END $$;

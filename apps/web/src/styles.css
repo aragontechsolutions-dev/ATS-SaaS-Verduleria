@@ -315,7 +315,12 @@ section { padding: 60px 0; }
 .sh-btn { border: 1px solid var(--sh-line); background: #fff; color: var(--sh-ink); border-radius: 12px; padding: 11px 16px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; font-family: inherit; font-size: 14px; }
 .sh-btn--primary { background: var(--sh-accent); color: #fff; border-color: var(--sh-accent); }
 .sh-btn--full { width: 100%; padding: 14px; font-size: 16px; margin-top: 8px; }
+/* Mercado Pago: azul de marca para que el cliente lo reconozca al instante. */
+.sh-btn--pay { background: #009ee3; color: #fff; border-color: #009ee3; }
 .sh-btn:disabled { opacity: .55; cursor: default; }
+.sh-paybox { margin: 14px 0 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.sh-paid { margin: 14px 0 4px; text-align: center; font-weight: 800; color: var(--sh-accent); }
+.sh-done__hint { font-size: 12.5px; color: var(--sh-muted); margin-top: 6px; }
 
 /* Checkout */
 .sh-checkout { padding: 16px; max-width: 560px; margin: 0 auto; }

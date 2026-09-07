@@ -102,6 +102,8 @@ export interface StorePublicConfig {
   pickupActivo: boolean;
   franjas: string[];
   notaCheckout: string | null;
+  /** El comercio ofrece pago online (Mercado Pago). */
+  pagoOnline: boolean;
 }
 
 export interface StoreLocal {
@@ -291,6 +293,10 @@ export interface OrderView {
   subtotal: number;
   costoEnvio: number;
   total: number;
+  /** El pedido ya está pagado (online). */
+  pagado: boolean;
+  /** Se puede pagar online ahora (hay MP activo y no está pagado ni finalizado). */
+  puedePagarOnline: boolean;
   createdAt: string;
   items: OrderItemView[];
 }
@@ -301,4 +307,18 @@ export async function getOrder(slug: string, codigo: string): Promise<OrderView>
   if (res.status === 404) throw new NotFoundError('Pedido no encontrado');
   if (!res.ok) throw new Error(`pedido HTTP ${res.status}`);
   return res.json() as Promise<OrderView>;
+}
+
+/** Inicia el pago online (Mercado Pago) de un pedido; devuelve la URL de checkout. */
+export async function iniciarPagoOnline(slug: string, codigo: string): Promise<{ checkoutUrl: string }> {
+  const res = await fetch(
+    `${API_BASE}/public/tienda/${encodeURIComponent(slug)}/pedido/${encodeURIComponent(codigo)}/pagar`,
+    { method: 'POST' },
+  );
+  if (!res.ok) {
+    let msg = `No se pudo iniciar el pago (HTTP ${res.status})`;
+    try { const j = await res.json(); if (j?.message) msg = Array.isArray(j.message) ? j.message[0] : j.message; } catch { /* noop */ }
+    throw new Error(msg);
+  }
+  return res.json() as Promise<{ checkoutUrl: string }>;
 }

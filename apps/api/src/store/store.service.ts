@@ -61,6 +61,8 @@ export interface StorePublicConfig {
   pickupActivo: boolean;
   franjas: string[];
   notaCheckout: string | null;
+  /** El comercio ofrece pago online (Mercado Pago) en la tienda. */
+  pagoOnline: boolean;
 }
 
 /** Ubicación del local (para el mapa del checkout y el "cómo llegar" del retiro). */
@@ -85,6 +87,7 @@ const DEFAULT_CONFIG: StorePublicConfig = {
   pickupActivo: true,
   franjas: [],
   notaCheckout: null,
+  pagoOnline: false,
 };
 
 /** Include estándar de un pedido para la vista de administración. */
@@ -137,7 +140,7 @@ export class StoreService {
   async getPublicCatalog(slug: string): Promise<StoreCatalog> {
     const tenant = await this.tiendaActiva(slug);
 
-    const [lista, cfg, zonas, productos] = await Promise.all([
+    const [lista, cfg, zonas, productos, pay] = await Promise.all([
       this.prisma.priceList.findFirst({
         where: { tenantId: tenant.id, tipo: TipoListaPrecio.MOSTRADOR, activo: true },
         orderBy: { createdAt: 'asc' },
@@ -153,7 +156,12 @@ export class StoreService {
         include: { categoria: true, stockItems: true },
         orderBy: { nombre: 'asc' },
       }),
+      this.prisma.tenantPaymentConfig.findUnique({
+        where: { tenantId: tenant.id },
+        select: { accessTokenEnc: true, cobroOnlineActivo: true, webhookSecret: true },
+      }),
     ]);
+    const pagoOnline = !!(pay?.accessTokenEnc && pay.cobroOnlineActivo && pay.webhookSecret);
 
     const precios = lista
       ? await this.prisma.priceListItem.findMany({
@@ -181,8 +189,9 @@ export class StoreService {
           pickupActivo: cfg.pickupActivo,
           franjas: this.franjasFromJson(cfg.franjas),
           notaCheckout: cfg.notaCheckout,
+          pagoOnline,
         }
-      : DEFAULT_CONFIG;
+      : { ...DEFAULT_CONFIG, pagoOnline };
 
     return {
       nombre: tenant.nombre,
@@ -407,15 +416,31 @@ export class StoreService {
   /** Seguimiento público de un pedido por código. */
   async getOrderByCodigo(slug: string, codigo: string) {
     const tenant = await this.tiendaActiva(slug);
-    const order = await this.prisma.onlineOrder.findFirst({
-      where: { tenantId: tenant.id, codigo: codigo.trim().toUpperCase() },
-      include: { items: true },
-    });
+    const [order, pay] = await Promise.all([
+      this.prisma.onlineOrder.findFirst({
+        where: { tenantId: tenant.id, codigo: codigo.trim().toUpperCase() },
+        include: { items: true, payments: true },
+      }),
+      this.prisma.tenantPaymentConfig.findUnique({
+        where: { tenantId: tenant.id },
+        select: { accessTokenEnc: true, cobroOnlineActivo: true, webhookSecret: true },
+      }),
+    ]);
     if (!order) throw new NotFoundException('Pedido no encontrado');
-    return this.toOrderView(order);
+    const pagoOnline = !!(pay?.accessTokenEnc && pay.cobroOnlineActivo && pay.webhookSecret);
+    return this.toOrderView(order, pagoOnline);
   }
 
-  private toOrderView(order: Prisma.OnlineOrderGetPayload<{ include: { items: true } }>) {
+  private toOrderView(
+    order: Prisma.OnlineOrderGetPayload<{ include: { items: true; payments: true } }>,
+    pagoOnline = false,
+  ) {
+    const total = Number(order.total);
+    const pagadoMonto = order.payments
+      .filter((p) => p.estado === 'APROBADO')
+      .reduce((s, p) => s + Number(p.monto), 0);
+    const pagado = total > 0 && pagadoMonto >= total;
+    const finalizado = order.estado === 'ENTREGADO' || order.estado === 'CANCELADO';
     return {
       numero: order.numero,
       codigo: order.codigo,
@@ -428,7 +453,9 @@ export class StoreService {
       notas: order.notas,
       subtotal: Number(order.subtotal),
       costoEnvio: Number(order.costoEnvio),
-      total: Number(order.total),
+      total,
+      pagado,
+      puedePagarOnline: pagoOnline && !pagado && !finalizado,
       createdAt: order.createdAt.toISOString(),
       items: order.items.map((i) => ({
         concepto: i.concepto,

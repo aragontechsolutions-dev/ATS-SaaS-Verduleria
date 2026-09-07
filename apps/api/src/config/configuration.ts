@@ -56,6 +56,8 @@ export interface AppConfig {
   cfePollingIntervalMs: number;
   /** Dominio público del sitio de landings (apps/web), ej. https://ats-web.vercel.app. */
   webUrl: string;
+  /** URL pública de ESTA API (para armar el notification_url del webhook de MP). */
+  apiPublicUrl: string;
   telegram: TelegramConfig;
   /** Secreto para firmar los tokens de los clientes de la tienda online. */
   customerJwtSecret: string;
@@ -85,6 +87,7 @@ export default (): AppConfig => ({
   },
   cfePollingIntervalMs: Number(process.env.CFE_POLLING_INTERVAL_MS ?? 60_000),
   webUrl: (process.env.WEB_URL ?? '').replace(/\/+$/, ''),
+  apiPublicUrl: (process.env.API_PUBLIC_URL ?? '').replace(/\/+$/, ''),
   telegram: {
     botToken: process.env.TELEGRAM_BOT_TOKEN ?? '',
     botUsername: (process.env.TELEGRAM_BOT_USERNAME ?? '').replace(/^@/, ''),
