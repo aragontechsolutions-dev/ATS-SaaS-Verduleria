@@ -129,6 +129,44 @@ export class PaymentsConfigService {
     return this.ver(tenantId);
   }
 
+  /**
+   * Credenciales listas para cobrar de un tenant: solo si está conectado Y el
+   * gate cobroOnlineActivo está encendido. Null en cualquier otro caso.
+   * Uso interno (gateway de checkout), NO se expone al frontend.
+   */
+  async credencialesActivas(
+    tenantId: string,
+  ): Promise<{ accessToken: string; ambiente: 'test' | 'produccion'; webhookSecret: string } | null> {
+    const cfg = await this.prisma.tenantPaymentConfig.findUnique({ where: { tenantId } });
+    if (!cfg?.accessTokenEnc || !cfg.cobroOnlineActivo || !cfg.webhookSecret) return null;
+    return {
+      accessToken: descifrar(cfg.accessTokenEnc, this.encKey()),
+      ambiente: cfg.ambiente === 'produccion' ? 'produccion' : 'test',
+      webhookSecret: cfg.webhookSecret,
+    };
+  }
+
+  /** Resuelve el token de MP a partir del secreto del webhook (ruta pública). */
+  async porWebhookSecret(secret: string): Promise<{ tenantId: string; accessToken: string } | null> {
+    if (!secret) return null;
+    const cfg = await this.prisma.tenantPaymentConfig.findFirst({ where: { webhookSecret: secret } });
+    if (!cfg?.accessTokenEnc) return null;
+    try {
+      return { tenantId: cfg.tenantId, accessToken: descifrar(cfg.accessTokenEnc, this.encKey()) };
+    } catch {
+      return null;
+    }
+  }
+
+  /** ¿El tenant ofrece cobro online ahora mismo? (para el catálogo público) */
+  async cobroOnlineDisponible(tenantId: string): Promise<boolean> {
+    const cfg = await this.prisma.tenantPaymentConfig.findUnique({
+      where: { tenantId },
+      select: { accessTokenEnc: true, cobroOnlineActivo: true, webhookSecret: true },
+    });
+    return !!(cfg?.accessTokenEnc && cfg.cobroOnlineActivo && cfg.webhookSecret);
+  }
+
   /** Desconecta: borra credenciales y apaga el cobro online. */
   async desconectar(tenantId: string): Promise<PagosConfigView> {
     await this.prisma.tenantPaymentConfig.updateMany({
