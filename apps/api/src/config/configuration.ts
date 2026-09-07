@@ -35,6 +35,16 @@ export interface TelegramConfig {
   webhookSecret: string;
 }
 
+export interface PaymentsConfig {
+  /**
+   * Clave para cifrar (AES-256-GCM) las credenciales de pago de cada tenant
+   * (ej. Access Token de Mercado Pago) antes de guardarlas en la base. Debe ser
+   * un secreto fuerte y estable; si cambia, las credenciales guardadas dejan de
+   * poder descifrarse. Vacía = no se puede conectar ninguna pasarela.
+   */
+  encKey: string;
+}
+
 export interface AppConfig {
   port: number;
   databaseUrl: string;
@@ -49,6 +59,7 @@ export interface AppConfig {
   telegram: TelegramConfig;
   /** Secreto para firmar los tokens de los clientes de la tienda online. */
   customerJwtSecret: string;
+  payments: PaymentsConfig;
 }
 
 export default (): AppConfig => ({
@@ -82,4 +93,8 @@ export default (): AppConfig => ({
   // Sin var propia, cae al service-role de Supabase (secreto fuerte ya presente).
   customerJwtSecret:
     process.env.CUSTOMER_JWT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'ats-dev-customer-secret',
+  payments: {
+    // Sin var propia, cae al service-role de Supabase (secreto fuerte ya presente).
+    encKey: process.env.PAYMENTS_ENC_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  },
 });

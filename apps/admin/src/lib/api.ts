@@ -1159,3 +1159,38 @@ export const getAuditEvents = async (params: { tipo?: string; from?: string; to?
   const suffix = qs.toString() ? `?${qs.toString()}` : '';
   return ok<AuditEvent[]>(await fetch(`${API_BASE}/audit${suffix}`, { headers: headers() }), 'audit');
 };
+
+// --- Cobros online (Mercado Pago) ------------------------------------------
+export interface PagosConfig {
+  proveedor: 'MERCADO_PAGO';
+  conectado: boolean;
+  ambiente: 'test' | 'produccion';
+  cuenta: string | null;
+  tokenPista: string | null;
+  cobroOnlineActivo: boolean;
+  encKeyDisponible: boolean;
+}
+
+export const getPagosConfig = async () =>
+  ok<PagosConfig>(await fetch(`${API_BASE}/pagos/config`, { headers: headers() }), 'getPagosConfig');
+
+export const conectarMp = async (accessToken: string, publicKey?: string) =>
+  ok<PagosConfig>(
+    await fetch(`${API_BASE}/pagos/config`, { method: 'PUT', headers: headers(), body: JSON.stringify({ accessToken, publicKey }) }),
+    'conectarMp',
+  );
+
+export const probarMp = async () =>
+  ok<{ ok: true; cuenta: string; ambiente: 'test' | 'produccion' }>(
+    await fetch(`${API_BASE}/pagos/config/probar`, { method: 'POST', headers: headers() }),
+    'probarMp',
+  );
+
+export const activarCobroOnline = async (activo: boolean) =>
+  ok<PagosConfig>(
+    await fetch(`${API_BASE}/pagos/config/activar`, { method: 'POST', headers: headers(), body: JSON.stringify({ activo }) }),
+    'activarCobroOnline',
+  );
+
+export const desconectarMp = async () =>
+  ok<PagosConfig>(await fetch(`${API_BASE}/pagos/config`, { method: 'DELETE', headers: headers() }), 'desconectarMp');
