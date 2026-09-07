@@ -95,6 +95,76 @@ export async function mpCrearPreferencia(accessToken: string, input: MpPreferenc
   return (await res.json()) as MpPreference;
 }
 
+// --- OAuth ("Conectar con Mercado Pago") -----------------------------------
+
+export interface MpOAuthTokens {
+  access_token: string;
+  refresh_token: string;
+  user_id: number;
+  expires_in: number; // segundos
+  public_key?: string;
+  live_mode?: boolean;
+}
+
+/** URL de autorización a la que se manda al vendedor para vincular su cuenta. */
+export function mpAuthorizeUrl(clientId: string, redirectUri: string, state: string): string {
+  const p = new URLSearchParams({
+    client_id: clientId,
+    response_type: 'code',
+    platform_id: 'mp',
+    state,
+    redirect_uri: redirectUri,
+  });
+  return `https://auth.mercadopago.com.uy/authorization?${p.toString()}`;
+}
+
+/** Intercambia el "code" del callback por los tokens del vendedor. */
+export async function mpOAuthExchange(input: {
+  clientId: string;
+  clientSecret: string;
+  code: string;
+  redirectUri: string;
+}): Promise<MpOAuthTokens> {
+  return oauthToken({
+    client_id: input.clientId,
+    client_secret: input.clientSecret,
+    grant_type: 'authorization_code',
+    code: input.code,
+    redirect_uri: input.redirectUri,
+  });
+}
+
+/** Renueva el access token de un vendedor usando su refresh token. */
+export async function mpOAuthRefresh(input: {
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
+}): Promise<MpOAuthTokens> {
+  return oauthToken({
+    client_id: input.clientId,
+    client_secret: input.clientSecret,
+    grant_type: 'refresh_token',
+    refresh_token: input.refreshToken,
+  });
+}
+
+async function oauthToken(body: Record<string, string>): Promise<MpOAuthTokens> {
+  let res: Response;
+  try {
+    res = await fetch(`${MP_API}/oauth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new BadRequestException('No se pudo contactar a Mercado Pago para la vinculación.');
+  }
+  if (!res.ok) {
+    throw new BadRequestException('Mercado Pago rechazó la vinculación. Volvé a intentar la conexión.');
+  }
+  return (await res.json()) as MpOAuthTokens;
+}
+
 /** Consulta el estado de un pago por su id (usado por el webhook). */
 export async function mpGetPago(accessToken: string, pagoId: string): Promise<MpPago | null> {
   let res: Response;

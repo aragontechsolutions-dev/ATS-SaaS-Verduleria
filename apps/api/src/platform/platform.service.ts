@@ -12,6 +12,8 @@ import { EntitlementsService } from '../entitlements/entitlements.service';
 import { generateTempPassword } from '../common/password.util';
 import { getTenantContext } from '../tenant/tenant-context';
 import { CfeGateError, diffCfeConfig, resolverCfeConfig, type CfeConfigActual } from '../cfe/fiscal-config';
+import { PaymentsConfigService } from '../payments/payments.config.service';
+import { PaymentsOAuthService } from '../payments/payments.oauth.service';
 import type { CreateTenantDto, UpdateCfeConfigDto, UpdateTenantDto } from './platform.dto';
 
 @Injectable()
@@ -21,7 +23,33 @@ export class PlatformService {
     private readonly auth: AuthService,
     private readonly audit: AuditService,
     private readonly entitlements: EntitlementsService,
+    private readonly pagosConfig: PaymentsConfigService,
+    private readonly pagosOAuth: PaymentsOAuthService,
   ) {}
+
+  // --- Cobros online (Mercado Pago) -----------------------------------------
+
+  /** Estado de la conexión de MP + datos del comercio, para la Consola. */
+  async getPagosConfig(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { nombre: true } });
+    if (!tenant) throw new NotFoundException('Cliente no encontrado');
+    const estado = await this.pagosConfig.ver(tenantId);
+    return { tenantId, nombre: tenant.nombre, oauthDisponible: this.pagosOAuth.disponible(), ...estado };
+  }
+
+  crearEnlacePagos(tenantId: string) {
+    return this.pagosOAuth.crearEnlace(tenantId);
+  }
+
+  async activarCobroOnline(tenantId: string, activo: boolean) {
+    await this.pagosConfig.activar(tenantId, { activo });
+    return this.getPagosConfig(tenantId);
+  }
+
+  async desconectarPagos(tenantId: string) {
+    await this.pagosConfig.desconectar(tenantId);
+    return this.getPagosConfig(tenantId);
+  }
 
   /** Métricas globales para el dashboard de la consola. */
   async overview() {

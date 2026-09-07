@@ -4,6 +4,7 @@ import type { Overview, Plan, TenantRow } from '../lib/api';
 import { NewClientModal } from './NewClientModal';
 import { CfeConfigModal } from './CfeConfigModal';
 import { DescuentoModal } from './DescuentoModal';
+import { MercadoPagoModal } from './MercadoPagoModal';
 
 export function Dashboard() {
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -14,6 +15,7 @@ export function Dashboard() {
   const [creating, setCreating] = useState(false);
   const [cfeTenant, setCfeTenant] = useState<TenantRow | null>(null);
   const [descTenant, setDescTenant] = useState<TenantRow | null>(null);
+  const [pagosTenant, setPagosTenant] = useState<TenantRow | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -107,6 +109,7 @@ export function Dashboard() {
                       <td>{t.productos}</td>
                       <td>
                         <button className="btn btn--sm btn--ghost" onClick={() => setCfeTenant(t)}>Fiscal</button>{' '}
+                        <button className="btn btn--sm btn--ghost" onClick={() => setPagosTenant(t)}>Pagos</button>{' '}
                         <button className="btn btn--sm btn--ghost" onClick={() => setDescTenant(t)}>Descuento</button>{' '}
                         <button className="btn btn--sm btn--ghost" onClick={() => toggleActivo(t)}>
                           {t.activo ? 'Suspender' : 'Reactivar'}
@@ -148,6 +151,10 @@ export function Dashboard() {
           onClose={() => setDescTenant(null)}
           onSaved={() => void load()}
         />
+      )}
+
+      {pagosTenant && (
+        <MercadoPagoModal tenant={pagosTenant} onClose={() => setPagosTenant(null)} />
       )}
     </>
   );

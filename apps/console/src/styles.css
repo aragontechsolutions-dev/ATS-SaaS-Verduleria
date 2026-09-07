@@ -166,3 +166,11 @@ code { font-family: ui-monospace, monospace; }
 
 /* Badge de descuento en la lista de clientes */
 .badge--desc { margin-left: 6px; background: #eaf5d8; color: #4f7a17; border: 1px solid #cfe6a8; }
+
+/* Modal de cobros online (Mercado Pago) */
+.mp-status { margin: 4px 0 12px; }
+.mp-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 14px; }
+.mp-steps li { line-height: 1.5; }
+.mp-linkrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.mp-linkbox { width: 100%; margin-top: 8px; font-family: ui-monospace, monospace; font-size: 12px; border: 1px solid var(--border, #dfe1df); border-radius: 8px; padding: 8px; resize: vertical; }
+.mp-check { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-weight: 600; }

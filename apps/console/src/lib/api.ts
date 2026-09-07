@@ -312,3 +312,39 @@ export const getLockedUsers = async () =>
 
 export const unlockPlatformUser = async (id: string) =>
   ok<{ ok: boolean }>(await fetch(`${API_BASE}/platform/users/${id}/unlock`, { method: 'POST', headers: headers() }), 'unlockUser');
+
+// --- Cobros online (Mercado Pago) por tenant --------------------------------
+export interface PagosConsole {
+  tenantId: string;
+  nombre: string;
+  oauthDisponible: boolean;
+  proveedor: 'MERCADO_PAGO';
+  conectado: boolean;
+  conexion: 'MANUAL' | 'OAUTH';
+  ambiente: 'test' | 'produccion';
+  cuenta: string | null;
+  tokenPista: string | null;
+  cobroOnlineActivo: boolean;
+  encKeyDisponible: boolean;
+}
+
+export const getTenantPagos = async (id: string) =>
+  ok<PagosConsole>(await fetch(`${API_BASE}/platform/tenants/${id}/pagos`, { headers: headers() }), 'tenantPagos');
+
+export const crearEnlacePagos = async (id: string) =>
+  ok<{ url: string }>(
+    await fetch(`${API_BASE}/platform/tenants/${id}/pagos/oauth-link`, { method: 'POST', headers: headers() }),
+    'crearEnlacePagos',
+  );
+
+export const activarPagosTenant = async (id: string, enabled: boolean) =>
+  ok<PagosConsole>(
+    await fetch(`${API_BASE}/platform/tenants/${id}/pagos/activar`, { method: 'PATCH', headers: headers(), body: JSON.stringify({ enabled }) }),
+    'activarPagosTenant',
+  );
+
+export const desconectarPagosTenant = async (id: string) =>
+  ok<PagosConsole>(
+    await fetch(`${API_BASE}/platform/tenants/${id}/pagos/desconectar`, { method: 'POST', headers: headers() }),
+    'desconectarPagosTenant',
+  );

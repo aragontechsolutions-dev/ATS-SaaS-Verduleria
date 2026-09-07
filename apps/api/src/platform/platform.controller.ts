@@ -68,4 +68,30 @@ export class PlatformController {
   setCfeAddon(@Param('id') id: string, @Body() dto: SetCfeAddonDto) {
     return this.platform.setCfeAddon(id, dto.enabled);
   }
+
+  // --- Cobros online (Mercado Pago) — gestionado por Aragon ------------------
+
+  /** Estado de la conexión de MP del tenant. */
+  @Get('tenants/:id/pagos')
+  getPagos(@Param('id') id: string) {
+    return this.platform.getPagosConfig(id);
+  }
+
+  /** Genera el enlace de "Conectar con Mercado Pago" para pasárselo al comercio. */
+  @Post('tenants/:id/pagos/oauth-link')
+  crearEnlacePagos(@Param('id') id: string) {
+    return this.platform.crearEnlacePagos(id);
+  }
+
+  /** Activa/desactiva el cobro online en la tienda del tenant. */
+  @Patch('tenants/:id/pagos/activar')
+  activarPagos(@Param('id') id: string, @Body() dto: SetCfeAddonDto) {
+    return this.platform.activarCobroOnline(id, dto.enabled);
+  }
+
+  /** Desconecta la cuenta de Mercado Pago del tenant. */
+  @Post('tenants/:id/pagos/desconectar')
+  desconectarPagos(@Param('id') id: string) {
+    return this.platform.desconectarPagos(id);
+  }
 }

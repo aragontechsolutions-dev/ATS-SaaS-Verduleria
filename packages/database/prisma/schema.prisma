@@ -384,17 +384,27 @@ model TenantPaymentConfig {
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   provider String @default("MERCADO_PAGO") // "MERCADO_PAGO" | "SIN_PAGOS"
-  ambiente String @default("test") // "test" | "produccion" (derivado del prefijo del token)
+  ambiente String @default("test") // "test" | "produccion" (derivado del token / live_mode)
+
+  /// Cómo se conectó: "MANUAL" (Access Token pegado) u "OAUTH" (vinculación 1 clic).
+  conexion String @default("MANUAL")
 
   /// Access Token de Mercado Pago cifrado. NULL = sin conectar.
   accessTokenEnc String?
-  /// Public Key de MP (no secreta; se usa en el front para el Brick, Parte 2).
+  /// Refresh Token cifrado (solo OAUTH: renueva el access token al vencer).
+  refreshTokenEnc String?
+  /// Vencimiento del access token (solo OAUTH). Se refresca antes de cobrar.
+  tokenExpiraAt   DateTime?
+  /// Public Key de MP (no secreta; se usa en el front para el Brick).
   publicKey      String?
   /// Datos de la cuenta MP conectada (para mostrar "Conectado como …").
   mpUserId       String?
   mpNickname     String?
 
-  /// Secreto para enrutar el webhook público de MP (Parte 2). Único por tenant.
+  /// Nonce CSRF de una vinculación OAuth en curso (se limpia al completarla).
+  oauthState String?
+
+  /// Secreto para enrutar el webhook público de MP. Único por tenant.
   webhookSecret String? @unique
 
   /// Gate: solo se ofrece cobro online cuando el admin lo activa explícitamente.
