@@ -16,6 +16,7 @@ import { LandingMap } from './LandingMap';
 function AutoCarousel({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const dirRef = useRef(1);
+  const posRef = useRef(0); // acumulador float (scrollLeft se redondea a entero)
   const pausedRef = useRef(false);
   const resumeRef = useRef<number | undefined>(undefined);
   const [overflow, setOverflow] = useState(false);
@@ -39,14 +40,18 @@ function AutoCarousel({ children }: { children: React.ReactNode }) {
     const VEL = 26; // px por segundo
     let raf = 0;
     let last = performance.now();
+    posRef.current = el.scrollLeft;
     const tick = (now: number) => {
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
       if (!pausedRef.current) {
         const max = el.scrollWidth - el.clientWidth;
-        let next = el.scrollLeft + dirRef.current * VEL * dt;
+        // Acumulamos en float propio: si leyéramos scrollLeft (entero) el avance
+        // de ~0.4px/frame se redondearía a 0 y el carrusel no se movería.
+        let next = posRef.current + dirRef.current * VEL * dt;
         if (next >= max) { next = max; dirRef.current = -1; }
         else if (next <= 0) { next = 0; dirRef.current = 1; }
+        posRef.current = next;
         el.scrollLeft = next;
       }
       raf = requestAnimationFrame(tick);
@@ -55,10 +60,12 @@ function AutoCarousel({ children }: { children: React.ReactNode }) {
     return () => cancelAnimationFrame(raf);
   }, [overflow]);
 
+  function sincronizar() { if (ref.current) posRef.current = ref.current.scrollLeft; }
   function pausar() { pausedRef.current = true; window.clearTimeout(resumeRef.current); }
+  function reanudar() { sincronizar(); pausedRef.current = false; }
   function reanudarLuego(ms = 3500) {
     window.clearTimeout(resumeRef.current);
-    resumeRef.current = window.setTimeout(() => { pausedRef.current = false; }, ms);
+    resumeRef.current = window.setTimeout(reanudar, ms);
   }
   function mover(dir: 1 | -1) {
     const el = ref.current;
@@ -77,11 +84,12 @@ function AutoCarousel({ children }: { children: React.ReactNode }) {
         className="lp-carousel"
         ref={ref}
         onMouseEnter={pausar}
-        onMouseLeave={() => { pausedRef.current = false; }}
+        onMouseLeave={reanudar}
         onPointerDown={pausar}
         onPointerUp={() => reanudarLuego()}
         onTouchStart={pausar}
         onTouchEnd={() => reanudarLuego()}
+        onScroll={() => { if (pausedRef.current) sincronizar(); }}
       >
         {children}
       </div>

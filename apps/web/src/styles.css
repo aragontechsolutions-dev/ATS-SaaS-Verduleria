@@ -200,8 +200,8 @@ section { padding: 60px 0; }
 .lp-catgroup + .lp-catgroup { margin-top: 4px; }
 .lp-catgroup__title { font-family: var(--font-head); font-size: clamp(16px, 3.6vw, 20px); color: var(--text); margin: 0 0 12px; text-align: left; }
 .lp-carwrap { position: relative; }
-.lp-carousel { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; padding: 8px 2px 14px; scrollbar-width: thin; }
-.lp-carousel .lp-prod { flex: 0 0 auto; width: 170px; scroll-snap-align: start; }
+.lp-carousel { display: flex; gap: 14px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 8px 2px 14px; scrollbar-width: thin; }
+.lp-carousel .lp-prod { flex: 0 0 auto; width: 170px; }
 .lp-carousel .lp-prod__img { height: 120px; }
 @media (min-width: 760px) { .lp-carousel .lp-prod { width: 200px; } }
 /* Flechas de control del carrusel (solo si hay desbordamiento) */
