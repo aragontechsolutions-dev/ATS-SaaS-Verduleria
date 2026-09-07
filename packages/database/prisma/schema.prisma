@@ -288,6 +288,7 @@ model Tenant {
 
   // Config de facturación (adaptador CFE)
   cfeConfig CfeTenantConfig?
+  paymentConfig TenantPaymentConfig?
 
   // Suscripción / plan (módulos habilitados)
   subscription     Subscription?
@@ -368,6 +369,36 @@ model CfeTenantConfig {
   /// Interruptor de seguridad: solo se emite CFE real cuando el admin lo activa.
   /// Mientras esté en false, las ventas generan ticket interno (no fiscal).
   emisionActiva Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Configuración de cobro ONLINE por tenant (Fase 1: Mercado Pago).
+/// Cada verdulería conecta SU propia cuenta de Mercado Pago (pasarela de paso,
+/// no facilitador): el dinero va directo a su cuenta. El Access Token se guarda
+/// CIFRADO (AES-256-GCM con PAYMENTS_ENC_KEY) y nunca se devuelve al frontend.
+model TenantPaymentConfig {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @unique @db.Uuid
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  provider String @default("MERCADO_PAGO") // "MERCADO_PAGO" | "SIN_PAGOS"
+  ambiente String @default("test") // "test" | "produccion" (derivado del prefijo del token)
+
+  /// Access Token de Mercado Pago cifrado. NULL = sin conectar.
+  accessTokenEnc String?
+  /// Public Key de MP (no secreta; se usa en el front para el Brick, Parte 2).
+  publicKey      String?
+  /// Datos de la cuenta MP conectada (para mostrar "Conectado como …").
+  mpUserId       String?
+  mpNickname     String?
+
+  /// Secreto para enrutar el webhook público de MP (Parte 2). Único por tenant.
+  webhookSecret String? @unique
+
+  /// Gate: solo se ofrece cobro online cuando el admin lo activa explícitamente.
+  cobroOnlineActivo Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

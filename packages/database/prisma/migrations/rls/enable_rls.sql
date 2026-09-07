@@ -30,7 +30,7 @@ do $$
 declare
   t text;
   tablas text[] := array[
-    'Tenant','CfeTenantConfig','Membership','Sucursal','Categoria','Product',
+    'Tenant','CfeTenantConfig','TenantPaymentConfig','Membership','Sucursal','Categoria','Product',
     'PriceList','PriceListItem','Stock','StockMovement','Waste','Supplier',
     'Purchase','PurchaseItem','CashSession','Sale','SaleItem','Payment',
     'Customer','AccountReceivable','AccountMovement','DeliveryOrder',
@@ -49,7 +49,7 @@ do $$
 declare
   t text;
   tablas text[] := array[
-    'CfeTenantConfig','Membership','Sucursal','Categoria','Product',
+    'CfeTenantConfig','TenantPaymentConfig','Membership','Sucursal','Categoria','Product',
     'PriceList','PriceListItem','Stock','StockMovement','Waste','Supplier',
     'Purchase','PurchaseItem','CashSession','Sale','SaleItem','Payment',
     'Customer','AccountReceivable','DeliveryOrder','DeliveryItem','Route',
