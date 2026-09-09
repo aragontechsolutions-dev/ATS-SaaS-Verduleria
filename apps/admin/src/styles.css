@@ -538,7 +538,10 @@ th.num, td.num { text-align: right; white-space: nowrap; }
 .ped-card__pago { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
 .ped-pago { font-size: 12.5px; font-weight: 600; color: var(--muted); }
 .ped-pago--ok { color: #1b7a3e; }
+.ped-pago--mp { color: #009ee3; font-weight: 700; }
 .ped-pago--pend { color: var(--warn); }
+.ped-resumen { background: #e6f6fd; border: 1px solid #009ee3; color: #055; border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; font-size: 14px; }
+.ped-resumen em { color: var(--muted); font-style: normal; }
 
 /* Paginador de tablas del panel */
 .pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px 4px 2px; }

@@ -873,7 +873,7 @@ export interface OrderAdmin {
   listoParaRepartir: boolean;
   repartidorId: string | null;
   asignado: boolean;
-  pago: { total: number; pagado: number; saldo: number; cubierto: boolean };
+  pago: { total: number; pagado: number; saldo: number; cubierto: boolean; online: boolean };
   createdAt: string;
   items: OrderItemAdmin[];
 }

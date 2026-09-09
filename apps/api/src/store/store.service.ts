@@ -815,11 +815,13 @@ export class StoreService {
       listoParaRepartir: o.listoParaRepartir,
       repartidorId: o.repartidorId,
       asignado: !!o.repartidorId,
-      // Pagos registrados (efectivo, transferencia, o vías externas cargadas a mano).
+      // Pagos registrados (efectivo, transferencia, vías externas, o Mercado Pago online).
       pago: (() => {
         const pagosLike = o.payments.map((p) => ({ monto: Number(p.monto), estado: p.estado as string }));
         const total = Number(o.total);
-        return { total, pagado: sumaAprobados(pagosLike), saldo: saldoPendiente(total, pagosLike), cubierto: estaPagado(total, pagosLike) };
+        // ¿Cobrado online por Mercado Pago? (para avisar "prepago, no cobrar al entregar").
+        const online = o.payments.some((p) => p.estado === 'APROBADO' && p.provider === 'MERCADO_PAGO' && !p.externo);
+        return { total, pagado: sumaAprobados(pagosLike), saldo: saldoPendiente(total, pagosLike), cubierto: estaPagado(total, pagosLike), online };
       })(),
       createdAt: o.createdAt.toISOString(),
       items: o.items.map((i) => ({
