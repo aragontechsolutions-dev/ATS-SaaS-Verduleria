@@ -13,6 +13,7 @@ export interface MpUsuario {
   nickname?: string;
   email?: string;
   site_id?: string; // "MLU" para Uruguay
+  tags?: string[]; // incluye "test_user" en las cuentas de prueba
 }
 
 /**
@@ -21,6 +22,15 @@ export interface MpUsuario {
  */
 export function ambienteDeToken(accessToken: string): 'test' | 'produccion' {
   return accessToken.trim().startsWith('TEST-') ? 'test' : 'produccion';
+}
+
+/**
+ * ¿La cuenta es un usuario de prueba de MP? Es la señal CONFIABLE de ambiente:
+ * los test users traen `tags: ["test_user"]`, aunque su token OAuth reporte
+ * `live_mode: true`. Si es de prueba, hay que usar el checkout sandbox.
+ */
+export function esCuentaTest(usuario: MpUsuario): boolean {
+  return Array.isArray(usuario.tags) && usuario.tags.includes('test_user');
 }
 
 export interface MpPreferenceItem {
