@@ -873,7 +873,7 @@ export interface OrderAdmin {
   listoParaRepartir: boolean;
   repartidorId: string | null;
   asignado: boolean;
-  pago: { total: number; pagado: number; saldo: number; cubierto: boolean; online: boolean };
+  pago: { total: number; pagado: number; saldo: number; cubierto: boolean; online: boolean; reembolsado: boolean };
   createdAt: string;
   items: OrderItemAdmin[];
 }
@@ -918,6 +918,13 @@ export const pesajeOrder = async (id: string, items: Array<{ itemId: string; can
   ok<OrderAdmin>(
     await fetch(`${API_BASE}/store/pedidos/${id}/pesaje`, { method: 'PATCH', headers: headers(), body: JSON.stringify({ items }) }),
     'pesajeOrder',
+  );
+
+/** Reembolsa el pago online (Mercado Pago) de un pedido. */
+export const reembolsarPago = async (onlineOrderId: string) =>
+  ok<{ ok: true }>(
+    await fetch(`${API_BASE}/pagos/reembolsar/${onlineOrderId}`, { method: 'POST', headers: headers() }),
+    'reembolsarPago',
   );
 
 // --- Reparto (motor de asignación) ------------------------------------------

@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 
 /**
  * Cliente mínimo de la API de Mercado Pago (REST, sin SDK). En la Fase 1 solo
@@ -173,6 +174,30 @@ async function oauthToken(body: Record<string, string>): Promise<MpOAuthTokens> 
     throw new BadRequestException('Mercado Pago rechazó la vinculación. Volvé a intentar la conexión.');
   }
   return (await res.json()) as MpOAuthTokens;
+}
+
+/**
+ * Reembolsa un pago (total si no se pasa `amount`, parcial si se pasa). Devuelve
+ * true si MP lo aceptó. Usa X-Idempotency-Key para evitar dobles reembolsos.
+ */
+export async function mpReembolsar(accessToken: string, pagoId: string, amount?: number): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(`${MP_API}/v1/payments/${encodeURIComponent(pagoId)}/refunds`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': randomUUID(),
+      },
+      body: amount != null ? JSON.stringify({ amount }) : '{}',
+    });
+  } catch {
+    throw new BadRequestException('No se pudo contactar a Mercado Pago para el reembolso.');
+  }
+  if (!res.ok) {
+    throw new BadRequestException('Mercado Pago rechazó el reembolso. Revisá el estado del pago e intentá de nuevo.');
+  }
 }
 
 /** Consulta el estado de un pago por su id (usado por el webhook). */

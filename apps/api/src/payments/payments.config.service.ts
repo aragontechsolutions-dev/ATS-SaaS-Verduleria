@@ -198,6 +198,21 @@ export class PaymentsConfigService {
     }
   }
 
+  /**
+   * Access token vigente del tenant, exista o no el gate de cobro activo (para
+   * operaciones como reembolsos que deben funcionar aunque se haya apagado el
+   * cobro). Null si no está conectado.
+   */
+  async accessTokenDe(tenantId: string): Promise<string | null> {
+    const cfg = await this.prisma.tenantPaymentConfig.findUnique({ where: { tenantId } });
+    if (!cfg?.accessTokenEnc) return null;
+    try {
+      return await this.accessTokenVigente(cfg);
+    } catch {
+      return null;
+    }
+  }
+
   /** ¿El tenant ofrece cobro online ahora mismo? (para el catálogo público) */
   async cobroOnlineDisponible(tenantId: string): Promise<boolean> {
     const cfg = await this.prisma.tenantPaymentConfig.findUnique({

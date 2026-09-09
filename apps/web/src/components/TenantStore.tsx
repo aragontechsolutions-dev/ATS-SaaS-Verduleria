@@ -596,7 +596,7 @@ function TrackView({ slug, codigo }: { slug: string; codigo: string }) {
           {o.tipoEntrega === 'DELIVERY' && <div><span>Envío{o.zonaNombre ? ` · ${o.zonaNombre}` : ''}</span><span>{formatMoney(o.costoEnvio)}</span></div>}
           <div className="sh-totals__big"><span>Total</span><span>{formatMoney(o.total)}</span></div>
         </div>
-        <PagoBox slug={slug} codigo={o.codigo} pagado={o.pagado} puedePagarOnline={o.puedePagarOnline} />
+        <PagoBox slug={slug} codigo={o.codigo} estadoPago={o.estadoPago} puedePagarOnline={o.puedePagarOnline} />
         <p className="sh-note">
           {o.tipoEntrega === 'DELIVERY' ? `Envío a: ${o.direccion ?? ''}` : 'Retiro en el local'}
           {o.franja ? ` · ${o.franja}` : ''}
@@ -608,12 +608,12 @@ function TrackView({ slug, codigo }: { slug: string; codigo: string }) {
 
 // --- Pago online (seguimiento) ----------------------------------------------
 
-function PagoBox({ slug, codigo, pagado, puedePagarOnline }: { slug: string; codigo: string; pagado: boolean; puedePagarOnline: boolean }) {
+function PagoBox({ slug, codigo, estadoPago, puedePagarOnline }: { slug: string; codigo: string; estadoPago: OrderView['estadoPago']; puedePagarOnline: boolean }) {
   const [pagando, setPagando] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  if (pagado) return <p className="sh-paid">✓ Pago confirmado</p>;
-  if (!puedePagarOnline) return null;
+  if (estadoPago === 'PAGADO') return <p className="sh-paid">✓ Pago confirmado</p>;
+  if (estadoPago === 'PENDIENTE') return <p className="sh-pending">⏳ Pago pendiente de acreditación. Te avisamos cuando se confirme.</p>;
 
   async function pagar() {
     setErr(null); setPagando(true);
@@ -626,10 +626,13 @@ function PagoBox({ slug, codigo, pagado, puedePagarOnline }: { slug: string; cod
     }
   }
 
+  if (!puedePagarOnline) return null;
+
   return (
     <div className="sh-paybox">
+      {estadoPago === 'RECHAZADO' && <p className="sh-rejected">Tu pago fue rechazado o no se completó. Probá de nuevo.</p>}
       <button className="sh-btn sh-btn--pay" onClick={() => void pagar()} disabled={pagando}>
-        {pagando ? 'Redirigiendo…' : '💳 Pagar con Mercado Pago'}
+        {pagando ? 'Redirigiendo…' : estadoPago === 'RECHAZADO' ? '💳 Reintentar el pago' : '💳 Pagar con Mercado Pago'}
       </button>
       {err && <p className="sh-err">{err}</p>}
     </div>

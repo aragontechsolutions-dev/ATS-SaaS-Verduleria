@@ -441,6 +441,18 @@ export class StoreService {
       .reduce((s, p) => s + Number(p.monto), 0);
     const pagado = total > 0 && pagadoMonto >= total;
     const finalizado = order.estado === 'ENTREGADO' || order.estado === 'CANCELADO';
+
+    // Estado del cobro online para la tienda: distingue pagado / pendiente de
+    // acreditación / rechazado / sin intento, mirando los pagos de Mercado Pago.
+    const mp = order.payments
+      .filter((p) => p.provider === 'MERCADO_PAGO' && !p.externo)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    let estadoPago: 'PAGADO' | 'PENDIENTE' | 'RECHAZADO' | 'SIN_PAGO';
+    if (pagado) estadoPago = 'PAGADO';
+    else if (mp.some((p) => p.estado === 'PENDIENTE' && p.raw != null)) estadoPago = 'PENDIENTE';
+    else if (mp[0]?.estado === 'RECHAZADO') estadoPago = 'RECHAZADO';
+    else estadoPago = 'SIN_PAGO';
+
     return {
       numero: order.numero,
       codigo: order.codigo,
@@ -455,7 +467,9 @@ export class StoreService {
       costoEnvio: Number(order.costoEnvio),
       total,
       pagado,
-      puedePagarOnline: pagoOnline && !pagado && !finalizado,
+      estadoPago,
+      // No ofrecemos "pagar" mientras hay un pago pendiente (evita doble cobro).
+      puedePagarOnline: pagoOnline && !pagado && !finalizado && estadoPago !== 'PENDIENTE',
       createdAt: order.createdAt.toISOString(),
       items: order.items.map((i) => ({
         concepto: i.concepto,
@@ -821,7 +835,8 @@ export class StoreService {
         const total = Number(o.total);
         // ¿Cobrado online por Mercado Pago? (para avisar "prepago, no cobrar al entregar").
         const online = o.payments.some((p) => p.estado === 'APROBADO' && p.provider === 'MERCADO_PAGO' && !p.externo);
-        return { total, pagado: sumaAprobados(pagosLike), saldo: saldoPendiente(total, pagosLike), cubierto: estaPagado(total, pagosLike), online };
+        const reembolsado = o.payments.some((p) => p.estado === 'REEMBOLSADO' && p.provider === 'MERCADO_PAGO');
+        return { total, pagado: sumaAprobados(pagosLike), saldo: saldoPendiente(total, pagosLike), cubierto: estaPagado(total, pagosLike), online, reembolsado };
       })(),
       createdAt: o.createdAt.toISOString(),
       items: o.items.map((i) => ({

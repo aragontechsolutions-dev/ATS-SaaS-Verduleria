@@ -4,7 +4,7 @@ import { MedioPago, OnlineOrderEstado, PaymentEstado, PaymentProviderKind, Prism
 import type { AppConfig } from '../config/configuration';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsConfigService } from './payments.config.service';
-import { mpCrearPreferencia, mpGetPago } from './mercadopago.client';
+import { mpCrearPreferencia, mpGetPago, mpReembolsar } from './mercadopago.client';
 import { extraerPagoId } from './payments.webhook';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -98,6 +98,33 @@ export class PaymentsGatewayService {
   }
 
   /**
+   * Reembolsa (total) el pago online aprobado de un pedido, en la cuenta MP del
+   * comercio. Marca el pago como REEMBOLSADO. Sirve incluso si el cobro online
+   * fue desactivado luego.
+   */
+  async reembolsar(tenantId: string, onlineOrderId: string): Promise<{ ok: true }> {
+    const pago = await this.prisma.payment.findFirst({
+      where: {
+        tenantId,
+        onlineOrderId,
+        provider: PaymentProviderKind.MERCADO_PAGO,
+        estado: PaymentEstado.APROBADO,
+        externo: false,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, referencia: true },
+    });
+    if (!pago?.referencia) throw new NotFoundException('No hay un pago online aprobado para reembolsar.');
+
+    const token = await this.cfg.accessTokenDe(tenantId);
+    if (!token) throw new BadRequestException('La cuenta de Mercado Pago no está conectada.');
+
+    await mpReembolsar(token, pago.referencia);
+    await this.prisma.payment.update({ where: { id: pago.id }, data: { estado: PaymentEstado.REEMBOLSADO } });
+    return { ok: true };
+  }
+
+  /**
    * Webhook de Mercado Pago. Verifica el estado del pago contra la API de MP
    * (con el token del tenant dueño del webhookSecret) y, si está aprobado, marca
    * el pedido como pagado. Siempre responde 200 para que MP no reintente en loop.
@@ -128,7 +155,14 @@ export class PaymentsGatewayService {
       } else if (pago.status === 'rejected' || pago.status === 'cancelled') {
         await this.prisma.payment.updateMany({
           where: { tenantId: order.tenantId, onlineOrderId: order.id, provider: PaymentProviderKind.MERCADO_PAGO, estado: PaymentEstado.PENDIENTE },
-          data: { estado: PaymentEstado.RECHAZADO, referencia: pagoId },
+          data: { estado: PaymentEstado.RECHAZADO, referencia: pagoId, raw: pago as unknown as Prisma.InputJsonValue },
+        });
+      } else if (pago.status === 'pending' || pago.status === 'in_process' || pago.status === 'in_mediation') {
+        // Pago pendiente de acreditación (ej. efectivo en Abitab/RedPagos, o en revisión).
+        // Se marca el rastro (raw) para diferenciarlo de "checkout apenas iniciado".
+        await this.prisma.payment.updateMany({
+          where: { tenantId: order.tenantId, onlineOrderId: order.id, provider: PaymentProviderKind.MERCADO_PAGO, estado: PaymentEstado.PENDIENTE },
+          data: { referencia: pagoId, raw: pago as unknown as Prisma.InputJsonValue },
         });
       }
     } catch (e) {
