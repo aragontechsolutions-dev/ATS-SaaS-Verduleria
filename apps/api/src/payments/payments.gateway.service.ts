@@ -61,14 +61,17 @@ export class PaymentsGatewayService {
       items.push({ title: 'Envío', quantity: 1, unit_price: round2(Number(order.costoEnvio)), currency_id: 'UYU' });
     }
 
-    const backUrl = `${webBase}/v/${encodeURIComponent(tenant.slug)}/tienda?codigo=${order.codigo}`;
+    // back_urls solo si tenemos dominio web absoluto (MP exige URL absoluta y,
+    // con auto_return, que exista back_urls.success). Sin WEB_URL, se omiten.
+    const backUrl = webBase ? `${webBase}/v/${encodeURIComponent(tenant.slug)}/tienda?codigo=${order.codigo}` : '';
     const pref = await mpCrearPreferencia(cred.accessToken, {
       items,
       external_reference: order.id,
       notification_url:
         apiBase && cred.webhookSecret ? `${apiBase}/api/public/pagos/mp/${cred.webhookSecret}` : undefined,
-      back_urls: { success: backUrl, failure: backUrl, pending: backUrl },
-      auto_return: 'approved',
+      ...(backUrl
+        ? { back_urls: { success: backUrl, failure: backUrl, pending: backUrl }, auto_return: 'approved' as const }
+        : {}),
       metadata: { onlineOrderId: order.id, tenantId: tenant.id },
       statement_descriptor: tenant.nombre.slice(0, 22),
     });

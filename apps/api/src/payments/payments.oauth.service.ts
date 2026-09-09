@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto';
 import type { AppConfig } from '../config/configuration';
 import { PrismaService } from '../prisma/prisma.service';
 import { cifrar } from './crypto';
-import { mpAuthorizeUrl, mpGetUsuario, mpOAuthExchange } from './mercadopago.client';
+import { esCuentaTest, mpAuthorizeUrl, mpGetUsuario, mpOAuthExchange } from './mercadopago.client';
 
 @Injectable()
 export class PaymentsOAuthService {
@@ -74,10 +74,15 @@ export class PaymentsOAuthService {
       redirectUri: this.redirectUri(),
     });
 
-    // Trae el nickname de la cuenta para mostrarlo (best-effort).
+    // Trae los datos de la cuenta (nickname + si es de prueba). Best-effort,
+    // pero clave: los test users deben usar el checkout sandbox aunque su token
+    // reporte live_mode: true.
     let nickname: string | null = null;
+    let esTest = false;
     try {
-      nickname = (await mpGetUsuario(tokens.access_token)).nickname ?? null;
+      const usuario = await mpGetUsuario(tokens.access_token);
+      nickname = usuario.nickname ?? null;
+      esTest = esCuentaTest(usuario);
     } catch {
       nickname = null;
     }
@@ -86,7 +91,7 @@ export class PaymentsOAuthService {
       where: { tenantId: cfg.tenantId },
       data: {
         conexion: 'OAUTH',
-        ambiente: tokens.live_mode ? 'produccion' : 'test',
+        ambiente: esTest ? 'test' : tokens.live_mode ? 'produccion' : 'test',
         accessTokenEnc: cifrar(tokens.access_token, encKey),
         refreshTokenEnc: cifrar(tokens.refresh_token, encKey),
         tokenExpiraAt: new Date(Date.now() + tokens.expires_in * 1000),
