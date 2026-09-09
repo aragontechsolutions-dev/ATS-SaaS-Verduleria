@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { despacharPedido, getOrders, getReparto, pesajeOrder, registrarPago, setLocalUbicacion, setOrderEstado } from '../lib/api';
+import { despacharPedido, getOrders, getReparto, pesajeOrder, reembolsarPago, registrarPago, setLocalUbicacion, setOrderEstado } from '../lib/api';
 import type { MedioPago, OnlineOrderEstado, OrderAdmin, OrderItemAdmin, OrdersResponse, PaymentProviderKind, RepartoEstado } from '../lib/api';
 import { Spinner } from './Skeleton';
 import { useToast } from '../lib/toast';
@@ -98,6 +98,17 @@ export function PedidosPage() {
     }
   }
 
+  async function reembolsar(o: OrderAdmin) {
+    if (!confirm(`¿Reembolsar el pago online de ${money(o.pago.pagado)} del pedido #${o.numero}? El dinero vuelve al cliente por Mercado Pago.`)) return;
+    try {
+      await reembolsarPago(o.id);
+      toast.success(`Pedido #${o.numero}: reembolso enviado`);
+      void cargar();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo reembolsar');
+    }
+  }
+
   if (!data && !error) return <p className="loading-row"><Spinner /> Cargando pedidos…</p>;
   if (!data) return <div className="banner banner--err">{error}</div>;
 
@@ -137,7 +148,7 @@ export function PedidosPage() {
       ) : (
         <div className="ped-list">
           {orders.map((o) => (
-            <OrderCard key={o.id} o={o} onEstado={cambiarEstado} onPesar={() => setPesando(o)} onDespachar={() => despachar(o)} onPagar={() => setPagando(o)} />
+            <OrderCard key={o.id} o={o} onEstado={cambiarEstado} onPesar={() => setPesando(o)} onDespachar={() => despachar(o)} onPagar={() => setPagando(o)} onReembolsar={() => reembolsar(o)} />
           ))}
         </div>
       )}
@@ -235,12 +246,13 @@ function RepartoPanel({ reparto, onChange }: { reparto: RepartoEstado | null; on
   );
 }
 
-function OrderCard({ o, onEstado, onPesar, onDespachar, onPagar }: {
+function OrderCard({ o, onEstado, onPesar, onDespachar, onPagar, onReembolsar }: {
   o: OrderAdmin;
   onEstado: (o: OrderAdmin, e: OnlineOrderEstado) => void;
   onPesar: () => void;
   onDespachar: () => void;
   onPagar: () => void;
+  onReembolsar: () => void;
 }) {
   const terminal = o.estado === 'ENTREGADO' || o.estado === 'CANCELADO';
   const puedeDespachar = o.tipoEntrega === 'DELIVERY' && !o.asignado && (o.estado === 'CONFIRMADO' || o.estado === 'PREPARANDO');
@@ -284,14 +296,19 @@ function OrderCard({ o, onEstado, onPesar, onDespachar, onPagar }: {
       </div>
 
       <div className="ped-card__pago">
-        {o.pago.cubierto
-          ? o.pago.online
-            ? <span className="ped-pago ped-pago--mp">✓ Pagado online · MP {money(o.pago.pagado)}</span>
-            : <span className="ped-pago ped-pago--ok">✓ Pagado {money(o.pago.pagado)}</span>
-          : o.pago.pagado > 0
-            ? <span className="ped-pago">{o.pago.online ? 'Pagado online · MP' : 'Pagado'} {money(o.pago.pagado)} · saldo {money(o.pago.saldo)}</span>
-            : <span className="ped-pago ped-pago--pend">Pago no registrado</span>}
-        {puedePagar && <button className="btn btn--sm" onClick={onPagar} title="Cargar un pago cobrado por efectivo, transferencia o una vía externa (Getnet/Handy…)">💳 Registrar pago</button>}
+        {o.pago.reembolsado
+          ? <span className="ped-pago ped-pago--pend">↩ Reembolsado</span>
+          : o.pago.cubierto
+            ? o.pago.online
+              ? <span className="ped-pago ped-pago--mp">✓ Pagado online · MP {money(o.pago.pagado)}</span>
+              : <span className="ped-pago ped-pago--ok">✓ Pagado {money(o.pago.pagado)}</span>
+            : o.pago.pagado > 0
+              ? <span className="ped-pago">{o.pago.online ? 'Pagado online · MP' : 'Pagado'} {money(o.pago.pagado)} · saldo {money(o.pago.saldo)}</span>
+              : <span className="ped-pago ped-pago--pend">Pago no registrado</span>}
+        {puedePagar && !o.pago.reembolsado && <button className="btn btn--sm" onClick={onPagar} title="Cargar un pago cobrado por efectivo, transferencia o una vía externa (Getnet/Handy…)">💳 Registrar pago</button>}
+        {o.pago.online && o.pago.cubierto && !o.pago.reembolsado && (
+          <button className="btn btn--sm btn--ghost" onClick={onReembolsar} title="Devolver el dinero al cliente por Mercado Pago">↩ Reembolsar</button>
+        )}
       </div>
 
       {o.saleId && (

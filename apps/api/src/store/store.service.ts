@@ -835,7 +835,8 @@ export class StoreService {
         const total = Number(o.total);
         // ¿Cobrado online por Mercado Pago? (para avisar "prepago, no cobrar al entregar").
         const online = o.payments.some((p) => p.estado === 'APROBADO' && p.provider === 'MERCADO_PAGO' && !p.externo);
-        return { total, pagado: sumaAprobados(pagosLike), saldo: saldoPendiente(total, pagosLike), cubierto: estaPagado(total, pagosLike), online };
+        const reembolsado = o.payments.some((p) => p.estado === 'REEMBOLSADO' && p.provider === 'MERCADO_PAGO');
+        return { total, pagado: sumaAprobados(pagosLike), saldo: saldoPendiente(total, pagosLike), cubierto: estaPagado(total, pagosLike), online, reembolsado };
       })(),
       createdAt: o.createdAt.toISOString(),
       items: o.items.map((i) => ({
