@@ -103,8 +103,17 @@ export function PedidosPage() {
 
   const orders = filtro === 'TODOS' ? data.orders : data.orders.filter((o) => o.estado === filtro);
 
+  // Resumen de cobros online (Mercado Pago) sobre los pedidos activos (no entregados/cancelados).
+  const online = data.orders.filter((o) => o.pago.online && o.estado !== 'ENTREGADO' && o.estado !== 'CANCELADO');
+  const onlineTotal = online.reduce((s, o) => s + o.pago.pagado, 0);
+
   return (
     <div>
+      {online.length > 0 && (
+        <div className="ped-resumen">
+          💳 <strong>{online.length}</strong> pedido{online.length === 1 ? '' : 's'} ya pagado{online.length === 1 ? '' : 's'} online (Mercado Pago) · {money(onlineTotal)} — <em>no cobrar al entregar</em>
+        </div>
+      )}
       <div className="ped-toolbar">
         <div className="ped-tabs">
           <button className={`ped-tab ${filtro === 'TODOS' ? 'is-on' : ''}`} onClick={() => setFiltro('TODOS')}>
@@ -276,9 +285,11 @@ function OrderCard({ o, onEstado, onPesar, onDespachar, onPagar }: {
 
       <div className="ped-card__pago">
         {o.pago.cubierto
-          ? <span className="ped-pago ped-pago--ok">✓ Pagado {money(o.pago.pagado)}</span>
+          ? o.pago.online
+            ? <span className="ped-pago ped-pago--mp">✓ Pagado online · MP {money(o.pago.pagado)}</span>
+            : <span className="ped-pago ped-pago--ok">✓ Pagado {money(o.pago.pagado)}</span>
           : o.pago.pagado > 0
-            ? <span className="ped-pago">Pagado {money(o.pago.pagado)} · saldo {money(o.pago.saldo)}</span>
+            ? <span className="ped-pago">{o.pago.online ? 'Pagado online · MP' : 'Pagado'} {money(o.pago.pagado)} · saldo {money(o.pago.saldo)}</span>
             : <span className="ped-pago ped-pago--pend">Pago no registrado</span>}
         {puedePagar && <button className="btn btn--sm" onClick={onPagar} title="Cargar un pago cobrado por efectivo, transferencia o una vía externa (Getnet/Handy…)">💳 Registrar pago</button>}
       </div>
