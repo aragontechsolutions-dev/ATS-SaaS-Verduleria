@@ -128,7 +128,14 @@ export class PaymentsGatewayService {
       } else if (pago.status === 'rejected' || pago.status === 'cancelled') {
         await this.prisma.payment.updateMany({
           where: { tenantId: order.tenantId, onlineOrderId: order.id, provider: PaymentProviderKind.MERCADO_PAGO, estado: PaymentEstado.PENDIENTE },
-          data: { estado: PaymentEstado.RECHAZADO, referencia: pagoId },
+          data: { estado: PaymentEstado.RECHAZADO, referencia: pagoId, raw: pago as unknown as Prisma.InputJsonValue },
+        });
+      } else if (pago.status === 'pending' || pago.status === 'in_process' || pago.status === 'in_mediation') {
+        // Pago pendiente de acreditación (ej. efectivo en Abitab/RedPagos, o en revisión).
+        // Se marca el rastro (raw) para diferenciarlo de "checkout apenas iniciado".
+        await this.prisma.payment.updateMany({
+          where: { tenantId: order.tenantId, onlineOrderId: order.id, provider: PaymentProviderKind.MERCADO_PAGO, estado: PaymentEstado.PENDIENTE },
+          data: { referencia: pagoId, raw: pago as unknown as Prisma.InputJsonValue },
         });
       }
     } catch (e) {

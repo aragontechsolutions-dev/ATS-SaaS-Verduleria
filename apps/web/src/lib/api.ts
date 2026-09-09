@@ -295,6 +295,8 @@ export interface OrderView {
   total: number;
   /** El pedido ya está pagado (online). */
   pagado: boolean;
+  /** Estado del cobro online: pagado / pendiente de acreditación / rechazado / sin intento. */
+  estadoPago: 'PAGADO' | 'PENDIENTE' | 'RECHAZADO' | 'SIN_PAGO';
   /** Se puede pagar online ahora (hay MP activo y no está pagado ni finalizado). */
   puedePagarOnline: boolean;
   createdAt: string;
