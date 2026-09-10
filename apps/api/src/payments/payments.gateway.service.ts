@@ -51,21 +51,36 @@ export class PaymentsGatewayService {
 
     const items = order.items.map((i) => ({
       // 1 ítem por línea con cantidad 1 (los pesables tienen cantidad decimal,
-      // que MP no acepta): el precio de la línea ya es el subtotal.
+      // que MP no acepta): el precio de la línea ya es el subtotal. Mandamos id,
+      // descripción y categoría para mejorar la calidad de la integración en MP.
+      id: i.productId ?? undefined,
       title: i.concepto.slice(0, 250),
+      description: i.esPesable ? `${Number(i.cantidad)} ${i.unidad}` : `${Number(i.cantidad)} x ${i.unidad}`,
+      category_id: 'food',
       quantity: 1,
       unit_price: round2(Number(i.subtotal)),
       currency_id: 'UYU',
     }));
     if (Number(order.costoEnvio) > 0) {
-      items.push({ title: 'Envío', quantity: 1, unit_price: round2(Number(order.costoEnvio)), currency_id: 'UYU' });
+      items.push({ id: 'envio', title: 'Envío', description: 'Costo de envío', category_id: 'services', quantity: 1, unit_price: round2(Number(order.costoEnvio)), currency_id: 'UYU' });
     }
+
+    // Datos del pagador (mejoran la calidad de la integración y la aprobación).
+    const nombre = (order.clienteNombre ?? '').trim();
+    const espacio = nombre.indexOf(' ');
+    const telDigits = (order.clienteTelefono ?? '').replace(/\D/g, '').replace(/^598/, '');
+    const payer = {
+      name: espacio > 0 ? nombre.slice(0, espacio) : nombre || undefined,
+      surname: espacio > 0 ? nombre.slice(espacio + 1) : undefined,
+      phone: telDigits ? { area_code: '598', number: telDigits } : undefined,
+    };
 
     // back_urls solo si tenemos dominio web absoluto (MP exige URL absoluta y,
     // con auto_return, que exista back_urls.success). Sin WEB_URL, se omiten.
     const backUrl = webBase ? `${webBase}/v/${encodeURIComponent(tenant.slug)}/tienda?codigo=${order.codigo}` : '';
     const pref = await mpCrearPreferencia(cred.accessToken, {
       items,
+      payer,
       external_reference: order.id,
       notification_url:
         apiBase && cred.webhookSecret ? `${apiBase}/api/public/pagos/mp/${cred.webhookSecret}` : undefined,

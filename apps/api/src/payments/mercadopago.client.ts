@@ -35,14 +35,25 @@ export function esCuentaTest(usuario: MpUsuario): boolean {
 }
 
 export interface MpPreferenceItem {
+  id?: string;
   title: string;
+  description?: string;
+  category_id?: string;
   quantity: number;
   unit_price: number;
   currency_id: string; // "UYU"
 }
 
+export interface MpPreferencePayer {
+  name?: string;
+  surname?: string;
+  email?: string;
+  phone?: { area_code?: string; number?: string };
+}
+
 export interface MpPreferenceInput {
   items: MpPreferenceItem[];
+  payer?: MpPreferencePayer;
   external_reference: string;
   notification_url?: string;
   back_urls?: { success?: string; failure?: string; pending?: string };
