@@ -5,6 +5,7 @@ import type { AppConfig } from '../config/configuration';
 import { PrismaService } from '../prisma/prisma.service';
 import { cifrar, descifrar, enmascarar } from './crypto';
 import { ambienteDeToken, mpGetUsuario, mpOAuthRefresh } from './mercadopago.client';
+import { PROVEEDORES, type ProveedorInfo, type ProveedorPagoKey } from './payments.providers';
 import type { ActivarCobroDto, ConectarMpDto } from './payments.config.dto';
 
 /** Margen para refrescar el token OAuth antes de que venza (5 min). */
@@ -12,7 +13,8 @@ const MARGEN_REFRESH_MS = 5 * 60 * 1000;
 
 /** Vista de la config de pagos para el panel (SIN el token, solo una pista). */
 export interface PagosConfigView {
-  proveedor: 'MERCADO_PAGO';
+  /** Proveedor de pago elegido para el comercio (de la gama). */
+  proveedor: ProveedorPagoKey;
   conectado: boolean;
   conexion: 'MANUAL' | 'OAUTH';
   ambiente: 'test' | 'produccion';
@@ -57,7 +59,7 @@ export class PaymentsConfigService {
       }
     }
     return {
-      proveedor: 'MERCADO_PAGO',
+      proveedor: (cfg.provider as ProveedorPagoKey) || 'MERCADO_PAGO',
       conectado: !!cfg.accessTokenEnc,
       conexion: cfg.conexion === 'OAUTH' ? 'OAUTH' : 'MANUAL',
       ambiente: cfg.ambiente === 'produccion' ? 'produccion' : 'test',
@@ -66,6 +68,26 @@ export class PaymentsConfigService {
       cobroOnlineActivo: cfg.cobroOnlineActivo,
       encKeyDisponible,
     };
+  }
+
+  /** Catálogo de proveedores que ofrecemos (la gama). */
+  catalogo(): ProveedorInfo[] {
+    return PROVEEDORES;
+  }
+
+  /** Elige el proveedor de pago del comercio (de la gama). */
+  async seleccionarProveedor(tenantId: string, provider: ProveedorPagoKey): Promise<PagosConfigView> {
+    if (!PROVEEDORES.some((p) => p.key === provider)) {
+      throw new BadRequestException('Proveedor de pago desconocido.');
+    }
+    // Al cambiar a un proveedor que todavía no cobra online, apagamos el gate.
+    const apagar = provider !== 'MERCADO_PAGO';
+    await this.prisma.tenantPaymentConfig.upsert({
+      where: { tenantId },
+      create: { tenantId, provider },
+      update: { provider, ...(apagar ? { cobroOnlineActivo: false } : {}) },
+    });
+    return this.ver(tenantId);
   }
 
   /** Valida el token contra MP y lo guarda cifrado. NO activa el cobro (gate aparte). */

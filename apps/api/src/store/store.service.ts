@@ -158,10 +158,10 @@ export class StoreService {
       }),
       this.prisma.tenantPaymentConfig.findUnique({
         where: { tenantId: tenant.id },
-        select: { accessTokenEnc: true, cobroOnlineActivo: true, webhookSecret: true },
+        select: { provider: true, accessTokenEnc: true, cobroOnlineActivo: true, webhookSecret: true },
       }),
     ]);
-    const pagoOnline = !!(pay?.accessTokenEnc && pay.cobroOnlineActivo && pay.webhookSecret);
+    const pagoOnline = !!(pay?.provider === 'MERCADO_PAGO' && pay.accessTokenEnc && pay.cobroOnlineActivo && pay.webhookSecret);
 
     const precios = lista
       ? await this.prisma.priceListItem.findMany({
@@ -423,11 +423,11 @@ export class StoreService {
       }),
       this.prisma.tenantPaymentConfig.findUnique({
         where: { tenantId: tenant.id },
-        select: { accessTokenEnc: true, cobroOnlineActivo: true, webhookSecret: true },
+        select: { provider: true, accessTokenEnc: true, cobroOnlineActivo: true, webhookSecret: true },
       }),
     ]);
     if (!order) throw new NotFoundException('Pedido no encontrado');
-    const pagoOnline = !!(pay?.accessTokenEnc && pay.cobroOnlineActivo && pay.webhookSecret);
+    const pagoOnline = !!(pay?.provider === 'MERCADO_PAGO' && pay.accessTokenEnc && pay.cobroOnlineActivo && pay.webhookSecret);
     return this.toOrderView(order, pagoOnline);
   }
 

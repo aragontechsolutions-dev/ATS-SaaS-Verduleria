@@ -314,11 +314,22 @@ export const unlockPlatformUser = async (id: string) =>
   ok<{ ok: boolean }>(await fetch(`${API_BASE}/platform/users/${id}/unlock`, { method: 'POST', headers: headers() }), 'unlockUser');
 
 // --- Cobros online (Mercado Pago) por tenant --------------------------------
+export interface ProveedorInfo {
+  key: string;
+  nombre: string;
+  integrado: boolean;
+  online: boolean;
+  presencial: boolean;
+  descripcion: string;
+  color: string;
+}
+
 export interface PagosConsole {
   tenantId: string;
   nombre: string;
   oauthDisponible: boolean;
-  proveedor: 'MERCADO_PAGO';
+  catalogo: ProveedorInfo[];
+  proveedor: string;
   conectado: boolean;
   conexion: 'MANUAL' | 'OAUTH';
   ambiente: 'test' | 'produccion';
@@ -330,6 +341,12 @@ export interface PagosConsole {
 
 export const getTenantPagos = async (id: string) =>
   ok<PagosConsole>(await fetch(`${API_BASE}/platform/tenants/${id}/pagos`, { headers: headers() }), 'tenantPagos');
+
+export const seleccionarProveedorPago = async (id: string, provider: string) =>
+  ok<PagosConsole>(
+    await fetch(`${API_BASE}/platform/tenants/${id}/pagos/proveedor`, { method: 'POST', headers: headers(), body: JSON.stringify({ provider }) }),
+    'seleccionarProveedorPago',
+  );
 
 export const crearEnlacePagos = async (id: string) =>
   ok<{ url: string }>(

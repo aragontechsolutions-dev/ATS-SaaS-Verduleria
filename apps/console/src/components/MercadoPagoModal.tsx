@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { activarPagosTenant, crearEnlacePagos, desconectarPagosTenant, getTenantPagos, getTenantPoint, quitarPoint, seleccionarPoint } from '../lib/api';
+import { activarPagosTenant, crearEnlacePagos, desconectarPagosTenant, getTenantPagos, getTenantPoint, quitarPoint, seleccionarPoint, seleccionarProveedorPago } from '../lib/api';
 import type { PagosConsole, PointConsole, TenantRow } from '../lib/api';
 
 interface Props {
@@ -56,20 +56,61 @@ export function MercadoPagoModal({ tenant, onClose }: Props) {
     finally { setBusy(false); }
   }
 
+  async function elegirProveedor(key: string) {
+    setBusy(true); setError(null);
+    try { setCfg(await seleccionarProveedorPago(tenant.id, key)); }
+    catch (e) { setError(e instanceof Error ? e.message : 'No se pudo cambiar el proveedor'); }
+    finally { setBusy(false); }
+  }
+
+  const esMP = cfg?.proveedor === 'MERCADO_PAGO';
+  const integrados = cfg?.catalogo.filter((p) => p.integrado).length ?? 0;
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Cobros online · {tenant.nombre}</h2>
+        <h2>Cobros · {tenant.nombre}</h2>
 
         {error && <p className="err">{error}</p>}
         {!cfg ? (
           <p className="muted">Cargando…</p>
-        ) : !cfg.encKeyDisponible ? (
-          <p className="err">Falta configurar <code>PAYMENTS_ENC_KEY</code> en el servidor.</p>
-        ) : !cfg.oauthDisponible ? (
-          <p className="err">Falta configurar la app de Mercado Pago en el servidor (<code>MP_OAUTH_CLIENT_ID</code> / <code>MP_OAUTH_CLIENT_SECRET</code> / <code>MP_OAUTH_REDIRECT_URI</code>).</p>
         ) : (
           <>
+            {/* Selector de proveedor (la gama) */}
+            <div className="mp-gama">
+              <h3>Proveedor de pago <span className="muted">· {integrados} integrado{integrados === 1 ? '' : 's'}</span></h3>
+              <ul className="mp-gama__list">
+                {cfg.catalogo.map((p) => {
+                  const elegido = cfg.proveedor === p.key;
+                  return (
+                    <li key={p.key} className={`mp-gama__item ${elegido ? 'is-on' : ''}`} style={elegido ? { borderColor: p.color } : undefined}>
+                      <div>
+                        <strong>{p.nombre}</strong>{' '}
+                        <span className={`mp-tag ${p.integrado ? 'mp-tag--ok' : 'mp-tag--soon'}`}>{p.integrado ? 'Integrado' : 'Próximamente'}</span>
+                        <div className="muted mp-gama__desc">{p.descripcion}</div>
+                      </div>
+                      {elegido
+                        ? <span className="muted">✓ elegido</span>
+                        : <button className="btn btn--sm btn--ghost" disabled={busy} onClick={() => void elegirProveedor(p.key)}>Usar este</button>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            {!esMP ? (
+              <p className="mp-soon">
+                Proveedor seleccionado: <strong>{cfg.catalogo.find((p) => p.key === cfg.proveedor)?.nombre ?? cfg.proveedor}</strong>.
+                {cfg.catalogo.find((p) => p.key === cfg.proveedor)?.integrado
+                  ? ' Configuralo abajo.'
+                  : ' Todavía no está integrado: queda marcado como el proveedor del comercio, pero no cobra online hasta que sumemos su integración (esperando documentación/credenciales).'}
+              </p>
+            ) : !cfg.encKeyDisponible ? (
+              <p className="err">Falta configurar <code>PAYMENTS_ENC_KEY</code> en el servidor.</p>
+            ) : !cfg.oauthDisponible ? (
+              <p className="err">Falta configurar la app de Mercado Pago en el servidor (<code>MP_OAUTH_CLIENT_ID</code> / <code>MP_OAUTH_CLIENT_SECRET</code> / <code>MP_OAUTH_REDIRECT_URI</code>).</p>
+            ) : (
+              <>
             <div className="mp-status">
               {cfg.conectado ? (
                 <p>
@@ -114,6 +155,8 @@ export function MercadoPagoModal({ tenant, onClose }: Props) {
 
             {cfg.conectado && (
               <button className="btn btn--sm btn--ghost" onClick={() => void desconectar()} disabled={busy}>Desconectar cuenta</button>
+            )}
+              </>
             )}
           </>
         )}

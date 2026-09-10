@@ -51,12 +51,23 @@ export class PlatformService {
 
   // --- Cobros online (Mercado Pago) -----------------------------------------
 
-  /** Estado de la conexión de MP + datos del comercio, para la Consola. */
+  /** Estado de la conexión de MP + datos del comercio + gama de proveedores. */
   async getPagosConfig(tenantId: string) {
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { nombre: true } });
     if (!tenant) throw new NotFoundException('Cliente no encontrado');
     const estado = await this.pagosConfig.ver(tenantId);
-    return { tenantId, nombre: tenant.nombre, oauthDisponible: this.pagosOAuth.disponible(), ...estado };
+    return {
+      tenantId,
+      nombre: tenant.nombre,
+      oauthDisponible: this.pagosOAuth.disponible(),
+      catalogo: this.pagosConfig.catalogo(),
+      ...estado,
+    };
+  }
+
+  async seleccionarProveedorPago(tenantId: string, provider: string) {
+    await this.pagosConfig.seleccionarProveedor(tenantId, provider as never);
+    return this.getPagosConfig(tenantId);
   }
 
   crearEnlacePagos(tenantId: string) {
