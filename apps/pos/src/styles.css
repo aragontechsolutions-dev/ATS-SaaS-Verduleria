@@ -557,3 +557,14 @@ button { font: inherit; cursor: pointer; }
 .btn--block { width: 100%; justify-content: center; }
 .weigh-label { margin: 10px 0 4px; }
 .weigh-label__msg { margin: 8px 0 0; font-size: 13px; color: var(--muted); line-height: 1.4; text-align: center; }
+
+/* Cobro con lector Mercado Pago Point */
+.medio--point { border-color: #009ee3; color: #009ee3; font-weight: 700; }
+.point-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: grid; place-items: center; z-index: 50; }
+.point-box { background: #fff; border-radius: 16px; padding: 28px 26px; max-width: 340px; text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center; box-shadow: 0 16px 48px rgba(0,0,0,.3); }
+.point-box h3 { margin: 0; }
+.point-box__ico { font-size: 44px; }
+.point-box__ico--pulse { animation: point-pulse 1.2s ease-in-out infinite; }
+@keyframes point-pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.15); opacity: .7; } }
+.point-box__msg { margin: 0; color: #555; line-height: 1.4; }
+@media (prefers-reduced-motion: reduce) { .point-box__ico--pulse { animation: none; } }

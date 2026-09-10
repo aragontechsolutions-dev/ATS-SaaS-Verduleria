@@ -388,3 +388,31 @@ export async function addCashMovement(
     'cash-movement',
   );
 }
+
+// --- Mercado Pago Point (cobro presencial con lector) -----------------------
+export interface PointEstadoPos {
+  conectado: boolean;
+  deviceId: string | null;
+}
+
+export async function pointEstado(): Promise<PointEstadoPos> {
+  return ok(await fetch(`${API_BASE}/point/estado`, { headers: headers() }), 'point-estado');
+}
+
+export async function pointCobrar(monto: number, referencia?: string): Promise<{ intentId: string }> {
+  return ok(
+    await fetch(`${API_BASE}/point/cobrar`, { method: 'POST', headers: headers(), body: JSON.stringify({ monto, referencia }) }),
+    'point-cobrar',
+  );
+}
+
+export async function pointIntent(id: string): Promise<{ state: string; aprobado: boolean; pagoId: string | null }> {
+  return ok(await fetch(`${API_BASE}/point/intent/${encodeURIComponent(id)}`, { headers: headers() }), 'point-intent');
+}
+
+export async function pointCancelar(id: string): Promise<{ ok: true }> {
+  return ok(
+    await fetch(`${API_BASE}/point/intent/${encodeURIComponent(id)}/cancelar`, { method: 'POST', headers: headers() }),
+    'point-cancelar',
+  );
+}

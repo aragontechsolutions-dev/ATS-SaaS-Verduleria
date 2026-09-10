@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MedioPago, PosCustomer, SalePayment } from '../lib/types';
 import { esEfactura } from '../lib/types';
 import { formatMoney } from '../lib/format';
 import { buildPayments, computeSplit, esEfectivo, round2 } from '../lib/payment';
+import { pointCancelar, pointCobrar, pointEstado, pointIntent } from '../lib/api';
 
 interface Props {
   total: number;
@@ -39,9 +40,24 @@ interface LineDraft {
  * Cobro con PAGO MIXTO. El cajero arma una o varias líneas (efectivo + tarjeta +
  * QR…). La lógica de montos/vuelto vive en lib/payment.ts (pura y testeada).
  */
+/** Estado del cobro en el lector Point (overlay de espera). */
+type PointFlow =
+  | { fase: 'enviando'; monto: number }
+  | { fase: 'esperando'; monto: number; intentId: string }
+  | { fase: 'error'; monto: number; msg: string };
+
 export function PaymentModal({ total, customer, requiereIdent, loyalty, onConfirm, onCancel }: Props) {
   // Arranca con una línea de efectivo por el total (caso más común: 1 toque y listo).
   const [lines, setLines] = useState<LineDraft[]>([{ medio: 'EFECTIVO', montoStr: total.toFixed(2) }]);
+
+  // Lector Point (cobro presencial). Solo si el tenant tiene un lector configurado.
+  const [pointOn, setPointOn] = useState(false);
+  const [point, setPoint] = useState<PointFlow | null>(null);
+  const cancelRef = useRef(false);
+
+  useEffect(() => {
+    pointEstado().then((e) => setPointOn(!!e.deviceId)).catch(() => setPointOn(false));
+  }, []);
 
   const parsed = useMemo(
     () => lines.map((l) => ({ medio: l.medio, monto: parseMonto(l.montoStr), referencia: l.referencia })),
@@ -84,6 +100,50 @@ export function PaymentModal({ total, customer, requiereIdent, loyalty, onConfir
     onConfirm(payments, vuelto);
   }
 
+  // --- Cobro con lector Point ------------------------------------------------
+  const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  async function cobrarConPoint() {
+    const falta = round2(total - calc.pagado);
+    const monto = falta > 0.001 ? falta : total; // si no falta nada, cobra el total (reemplaza)
+    const reemplaza = !(falta > 0.001);
+    cancelRef.current = false;
+    setPoint({ fase: 'enviando', monto });
+    let intentId = '';
+    try {
+      const r = await pointCobrar(monto, `pos-${Date.now()}`);
+      intentId = r.intentId;
+      setPoint({ fase: 'esperando', monto, intentId });
+      // Polling hasta estado terminal o timeout (~2 min).
+      for (let i = 0; i < 48 && !cancelRef.current; i++) {
+        await esperar(2500);
+        if (cancelRef.current) return;
+        const st = await pointIntent(intentId).catch(() => null);
+        if (!st) continue;
+        if (st.aprobado) {
+          const linea: LineDraft = { medio: 'MERCADO_PAGO', montoStr: monto.toFixed(2), referencia: `Point ${st.pagoId ?? ''}`.trim() };
+          setLines((ls) => (reemplaza ? [linea] : [...ls, linea]));
+          setPoint(null);
+          return;
+        }
+        if (['CANCELED', 'ABANDONED', 'ERROR'].includes(st.state) || (st.state === 'FINISHED' && !st.aprobado)) {
+          setPoint({ fase: 'error', monto, msg: 'El pago no se completó (rechazado o cancelado en el lector).' });
+          return;
+        }
+      }
+      if (!cancelRef.current) setPoint({ fase: 'error', monto, msg: 'Se agotó el tiempo de espera del lector.' });
+    } catch (e) {
+      setPoint({ fase: 'error', monto, msg: e instanceof Error ? e.message : 'No se pudo cobrar con el lector.' });
+    }
+  }
+
+  async function cancelarPoint() {
+    cancelRef.current = true;
+    const id = point && point.fase === 'esperando' ? point.intentId : '';
+    setPoint(null);
+    if (id) await pointCancelar(id).catch(() => {});
+  }
+
   const mixto = lines.length > 1;
 
   return (
@@ -104,6 +164,11 @@ export function PaymentModal({ total, customer, requiereIdent, loyalty, onConfir
               {m.label}
             </button>
           ))}
+          {pointOn && (
+            <button className="medio medio--point" onClick={() => void cobrarConPoint()} title="Cobrar en el lector Mercado Pago Point">
+              💳 Point (lector)
+            </button>
+          )}
         </div>
 
         <div className="paylines">
@@ -163,6 +228,32 @@ export function PaymentModal({ total, customer, requiereIdent, loyalty, onConfir
             Confirmar venta
           </button>
         </div>
+
+        {point && (
+          <div className="point-overlay">
+            <div className="point-box">
+              {point.fase === 'error' ? (
+                <>
+                  <div className="point-box__ico">⚠️</div>
+                  <p className="point-box__msg">{point.msg}</p>
+                  <div className="modal__actions">
+                    <button className="btn btn--ghost" onClick={() => setPoint(null)}>Cerrar</button>
+                    <button className="btn btn--primary" onClick={() => void cobrarConPoint()}>Reintentar</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="point-box__ico point-box__ico--pulse">💳</div>
+                  <h3>Cobrando {formatMoney(point.monto)}</h3>
+                  <p className="point-box__msg">
+                    {point.fase === 'enviando' ? 'Enviando al lector…' : 'Pedile al cliente que pase la tarjeta en el lector.'}
+                  </p>
+                  <button className="btn btn--ghost" onClick={() => void cancelarPoint()}>Cancelar cobro</button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
