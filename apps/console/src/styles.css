@@ -185,8 +185,10 @@ code { font-family: ui-monospace, monospace; }
 .mp-gama { margin-bottom: 14px; }
 .mp-gama h3 { margin: 0 0 8px; font-size: 15px; }
 .mp-gama__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.mp-gama__item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--border, #dfe1df); border-radius: 10px; }
+.mp-gama__item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border, #dfe1df); border-radius: 10px; }
 .mp-gama__item.is-on { border-width: 2px; background: #f4fbfa; }
+.mp-gama__ico { flex: none; width: 34px; height: 34px; border-radius: 9px; color: #fff; font-weight: 800; font-family: var(--font-head, system-ui); display: flex; align-items: center; justify-content: center; font-size: 17px; }
+.mp-gama__body { flex: 1; min-width: 0; }
 .mp-gama__desc { font-size: 12px; margin-top: 2px; }
 .mp-tag { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
 .mp-tag--ok { background: #e6f6ec; color: #1b7a3e; }

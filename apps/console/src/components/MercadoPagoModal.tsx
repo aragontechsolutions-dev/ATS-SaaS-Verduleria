@@ -84,7 +84,8 @@ export function MercadoPagoModal({ tenant, onClose }: Props) {
                   const elegido = cfg.proveedor === p.key;
                   return (
                     <li key={p.key} className={`mp-gama__item ${elegido ? 'is-on' : ''}`} style={elegido ? { borderColor: p.color } : undefined}>
-                      <div>
+                      <span className="mp-gama__ico" style={{ background: p.color }} aria-hidden>{p.nombre.charAt(0)}</span>
+                      <div className="mp-gama__body">
                         <strong>{p.nombre}</strong>{' '}
                         <span className={`mp-tag ${p.integrado ? 'mp-tag--ok' : 'mp-tag--soon'}`}>{p.integrado ? 'Integrado' : 'Próximamente'}</span>
                         <div className="muted mp-gama__desc">{p.descripcion}</div>
