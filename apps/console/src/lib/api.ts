@@ -348,3 +348,25 @@ export const desconectarPagosTenant = async (id: string) =>
     await fetch(`${API_BASE}/platform/tenants/${id}/pagos/desconectar`, { method: 'POST', headers: headers() }),
     'desconectarPagosTenant',
   );
+
+// --- Mercado Pago Point (lector presencial) ---------------------------------
+export interface PointConsole {
+  conectado: boolean;
+  deviceId: string | null;
+  dispositivos: Array<{ id: string; modo: string | null }>;
+}
+
+export const getTenantPoint = async (id: string) =>
+  ok<PointConsole>(await fetch(`${API_BASE}/platform/tenants/${id}/point/dispositivos`, { headers: headers() }), 'tenantPoint');
+
+export const seleccionarPoint = async (id: string, deviceId: string) =>
+  ok<{ conectado: boolean; deviceId: string | null }>(
+    await fetch(`${API_BASE}/platform/tenants/${id}/point/dispositivo`, { method: 'POST', headers: headers(), body: JSON.stringify({ deviceId }) }),
+    'seleccionarPoint',
+  );
+
+export const quitarPoint = async (id: string) =>
+  ok<{ conectado: boolean; deviceId: string | null }>(
+    await fetch(`${API_BASE}/platform/tenants/${id}/point/quitar`, { method: 'POST', headers: headers() }),
+    'quitarPoint',
+  );

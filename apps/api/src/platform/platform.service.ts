@@ -14,6 +14,7 @@ import { getTenantContext } from '../tenant/tenant-context';
 import { CfeGateError, diffCfeConfig, resolverCfeConfig, type CfeConfigActual } from '../cfe/fiscal-config';
 import { PaymentsConfigService } from '../payments/payments.config.service';
 import { PaymentsOAuthService } from '../payments/payments.oauth.service';
+import { PaymentsPointService } from '../payments/payments.point.service';
 import type { CreateTenantDto, UpdateCfeConfigDto, UpdateTenantDto } from './platform.dto';
 
 @Injectable()
@@ -25,7 +26,28 @@ export class PlatformService {
     private readonly entitlements: EntitlementsService,
     private readonly pagosConfig: PaymentsConfigService,
     private readonly pagosOAuth: PaymentsOAuthService,
+    private readonly point: PaymentsPointService,
   ) {}
+
+  // --- Mercado Pago Point ----------------------------------------------------
+
+  async pointDispositivos(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true } });
+    if (!tenant) throw new NotFoundException('Cliente no encontrado');
+    const [dispositivos, estado] = await Promise.all([
+      this.point.dispositivos(tenantId),
+      this.point.estado(tenantId),
+    ]);
+    return { ...estado, dispositivos };
+  }
+
+  pointSeleccionar(tenantId: string, deviceId: string) {
+    return this.point.seleccionar(tenantId, deviceId);
+  }
+
+  pointQuitar(tenantId: string) {
+    return this.point.quitar(tenantId);
+  }
 
   // --- Cobros online (Mercado Pago) -----------------------------------------
 

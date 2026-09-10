@@ -200,6 +200,96 @@ export async function mpReembolsar(accessToken: string, pagoId: string, amount?:
   }
 }
 
+// --- Point (cobro presencial con lector) -----------------------------------
+
+export interface MpPointDevice {
+  id: string;
+  operating_mode?: string; // "PDV" (integrado) | "STANDALONE"
+}
+
+export interface MpPointIntent {
+  id: string;
+  state?: string; // OPEN | ON_TERMINAL | PROCESSING | FINISHED | CANCELED | ERROR | ABANDONED
+  payment?: { id?: number | string; status?: string };
+}
+
+const POINT = `${MP_API}/point/integration-api`;
+
+/** Lista los lectores Point asociados a la cuenta. */
+export async function mpPointDispositivos(accessToken: string): Promise<MpPointDevice[]> {
+  let res: Response;
+  try {
+    res = await fetch(`${POINT}/devices?limit=50`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  } catch {
+    throw new BadRequestException('No se pudo contactar a Mercado Pago Point.');
+  }
+  if (!res.ok) throw new BadRequestException('No se pudieron listar los lectores Point de la cuenta.');
+  const data = (await res.json()) as { devices?: MpPointDevice[] };
+  return data.devices ?? [];
+}
+
+/** Pone un lector en modo integrado (PDV) o autónomo (STANDALONE). */
+export async function mpPointModo(accessToken: string, deviceId: string, modo: 'PDV' | 'STANDALONE'): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(`${POINT}/devices/${encodeURIComponent(deviceId)}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operating_mode: modo }),
+    });
+  } catch {
+    throw new BadRequestException('No se pudo configurar el lector Point.');
+  }
+  if (!res.ok) throw new BadRequestException('Mercado Pago no pudo poner el lector en modo integrado.');
+}
+
+/** Crea una intención de pago en el lector (monto en centavos). */
+export async function mpPointCrearIntent(
+  accessToken: string,
+  deviceId: string,
+  amountCents: number,
+  externalRef: string,
+): Promise<MpPointIntent> {
+  let res: Response;
+  try {
+    res = await fetch(`${POINT}/devices/${encodeURIComponent(deviceId)}/payment-intents`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: amountCents, additional_info: { external_reference: externalRef, print_on_terminal: true } }),
+    });
+  } catch {
+    throw new BadRequestException('No se pudo enviar el cobro al lector Point.');
+  }
+  if (!res.ok) throw new BadRequestException('Mercado Pago rechazó el cobro en el lector. Revisá que esté encendido y en línea.');
+  return (await res.json()) as MpPointIntent;
+}
+
+/** Estado de una intención de pago (para el POS mientras espera el pago). */
+export async function mpPointGetIntent(accessToken: string, intentId: string): Promise<MpPointIntent | null> {
+  let res: Response;
+  try {
+    res = await fetch(`${POINT}/payment-intents/${encodeURIComponent(intentId)}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch {
+    return null;
+  }
+  if (!res.ok) return null;
+  return (await res.json()) as MpPointIntent;
+}
+
+/** Cancela una intención de pago pendiente en el lector. */
+export async function mpPointCancelarIntent(accessToken: string, deviceId: string, intentId: string): Promise<void> {
+  try {
+    await fetch(`${POINT}/devices/${encodeURIComponent(deviceId)}/payment-intents/${encodeURIComponent(intentId)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch {
+    /* best-effort: si falla, el lector igual expira la intención solo */
+  }
+}
+
 /** Consulta el estado de un pago por su id (usado por el webhook). */
 export async function mpGetPago(accessToken: string, pagoId: string): Promise<MpPago | null> {
   let res: Response;
