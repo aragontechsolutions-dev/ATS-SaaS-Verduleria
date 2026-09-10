@@ -404,6 +404,9 @@ model TenantPaymentConfig {
   /// Nonce CSRF de una vinculación OAuth en curso (se limpia al completarla).
   oauthState String?
 
+  /// Lector Mercado Pago Point elegido para el cobro presencial (modo integrado).
+  pointDeviceId String?
+
   /// Secreto para enrutar el webhook público de MP. Único por tenant.
   webhookSecret String? @unique
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { activarPagosTenant, crearEnlacePagos, desconectarPagosTenant, getTenantPagos } from '../lib/api';
-import type { PagosConsole, TenantRow } from '../lib/api';
+import { activarPagosTenant, crearEnlacePagos, desconectarPagosTenant, getTenantPagos, getTenantPoint, quitarPoint, seleccionarPoint } from '../lib/api';
+import type { PagosConsole, PointConsole, TenantRow } from '../lib/api';
 
 interface Props {
   tenant: TenantRow;
@@ -110,6 +110,8 @@ export function MercadoPagoModal({ tenant, onClose }: Props) {
               </li>
             </ol>
 
+            {cfg.conectado && <PointSection tenant={tenant} />}
+
             {cfg.conectado && (
               <button className="btn btn--sm btn--ghost" onClick={() => void desconectar()} disabled={busy}>Desconectar cuenta</button>
             )}
@@ -120,6 +122,66 @@ export function MercadoPagoModal({ tenant, onClose }: Props) {
           <button type="button" className="btn btn--ghost" onClick={onClose} disabled={busy}>Cerrar</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Configuración del lector Mercado Pago Point (cobro presencial en el mostrador). */
+function PointSection({ tenant }: { tenant: TenantRow }) {
+  const [p, setP] = useState<PointConsole | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [buscado, setBuscado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function buscar() {
+    setBusy(true); setError(null);
+    try { setP(await getTenantPoint(tenant.id)); setBuscado(true); }
+    catch (e) { setError(e instanceof Error ? e.message : 'No se pudo listar'); }
+    finally { setBusy(false); }
+  }
+
+  async function elegir(deviceId: string) {
+    setBusy(true); setError(null);
+    try {
+      await seleccionarPoint(tenant.id, deviceId);
+      await buscar();
+    } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo configurar'); setBusy(false); }
+  }
+
+  async function quitar() {
+    setBusy(true); setError(null);
+    try { await quitarPoint(tenant.id); await buscar(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'No se pudo quitar'); setBusy(false); }
+  }
+
+  return (
+    <div className="mp-point">
+      <h3>Lector Point (cobro en el mostrador)</h3>
+      {p?.deviceId
+        ? <p className="muted">Lector configurado: <strong>{p.deviceId}</strong> (modo integrado).</p>
+        : <p className="muted">Sin lector configurado. Buscá los lectores de la cuenta y elegí uno.</p>}
+
+      {error && <p className="err">{error}</p>}
+
+      <div className="mp-linkrow">
+        <button className="btn btn--sm btn--ghost" onClick={() => void buscar()} disabled={busy}>{busy ? '…' : 'Buscar lectores'}</button>
+        {p?.deviceId && <button className="btn btn--sm btn--ghost" onClick={() => void quitar()} disabled={busy}>Quitar lector</button>}
+      </div>
+
+      {buscado && p && (
+        p.dispositivos.length === 0
+          ? <p className="muted">No se encontraron lectores en la cuenta. Encendé el Point, vinculalo a la cuenta MP y volvé a buscar.</p>
+          : <ul className="mp-devs">
+              {p.dispositivos.map((d) => (
+                <li key={d.id}>
+                  <span><strong>{d.id}</strong> {d.modo ? <span className="muted">· {d.modo}</span> : null}</span>
+                  {p.deviceId === d.id
+                    ? <span className="muted">✓ elegido</span>
+                    : <button className="btn btn--sm btn--primary" onClick={() => void elegir(d.id)} disabled={busy}>Usar este</button>}
+                </li>
+              ))}
+            </ul>
+      )}
     </div>
   );
 }

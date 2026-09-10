@@ -94,4 +94,24 @@ export class PlatformController {
   desconectarPagos(@Param('id') id: string) {
     return this.platform.desconectarPagos(id);
   }
+
+  // --- Mercado Pago Point (lector presencial) -------------------------------
+
+  /** Lista los lectores Point de la cuenta del tenant. */
+  @Get('tenants/:id/point/dispositivos')
+  pointDispositivos(@Param('id') id: string) {
+    return this.platform.pointDispositivos(id);
+  }
+
+  /** Elige el lector Point del tenant y lo pone en modo integrado. */
+  @Post('tenants/:id/point/dispositivo')
+  pointSeleccionar(@Param('id') id: string, @Body() dto: { deviceId: string }) {
+    return this.platform.pointSeleccionar(id, dto.deviceId);
+  }
+
+  /** Quita el lector Point configurado. */
+  @Post('tenants/:id/point/quitar')
+  pointQuitar(@Param('id') id: string) {
+    return this.platform.pointQuitar(id);
+  }
 }
