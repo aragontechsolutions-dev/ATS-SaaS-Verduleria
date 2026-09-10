@@ -1,0 +1,14 @@
+{
+  "name": "Aragon · Comprador",
+  "short_name": "Comprador",
+  "description": "App del comprador — lista sugerida y compras en la UAM.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#128C7E",
+  "theme_color": "#128C7E",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

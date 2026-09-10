@@ -257,6 +257,7 @@ export class PurchasesService {
         nombre: p.nombre,
         categoriaNombre: p.categoria?.nombre ?? null,
         unidadVenta: p.unidadVenta,
+        unidadCompra: p.unidadCompra,
         cantidad: Number(cantidad.toFixed(3)),
         costoPromedio: Number(costoPromedio.toFixed(4)),
         precio,
