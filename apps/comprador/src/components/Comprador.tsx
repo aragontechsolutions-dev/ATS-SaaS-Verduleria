@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  getStock,
   getSugerido,
   getSuppliers,
   registrarCompra,
+  type StockProduct,
   type SugeridoGrupo,
   type Supplier,
 } from '../lib/api';
@@ -17,11 +19,19 @@ interface Draft {
   precio: string; // costo por unidad de compra
 }
 
+/** Producto agregado manualmente (fuera del sugerido). */
+interface Extra {
+  p: StockProduct;
+  cantidad: string;
+  precio: string;
+}
+
 type Toast = { tipo: 'ok' | 'err'; msg: string } | null;
 
 export function Comprador({ email, onLogout }: { email: string; onLogout: () => void }) {
   const [grupos, setGrupos] = useState<SugeridoGrupo[] | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [stock, setStock] = useState<StockProduct[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [abierto, setAbierto] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
@@ -29,12 +39,20 @@ export function Comprador({ email, onLogout }: { email: string; onLogout: () => 
   const [enviando, setEnviando] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast>(null);
 
+  // --- Agregar producto (fuera del sugerido) ---
+  const [addOpen, setAddOpen] = useState(false);
+  const [buscar, setBuscar] = useState('');
+  const [extras, setExtras] = useState<Record<string, Extra>>({});
+  const [extraSupplier, setExtraSupplier] = useState('');
+  const [enviandoExtras, setEnviandoExtras] = useState(false);
+
   const cargar = useCallback(async () => {
     setError(null);
     try {
-      const [g, s] = await Promise.all([getSugerido(4), getSuppliers()]);
+      const [g, s, st] = await Promise.all([getSugerido(4), getSuppliers(), getStock()]);
       setGrupos(g);
       setSuppliers(s.filter((x) => x.activo));
+      setStock(st);
     } catch (e) {
       const m = e instanceof Error ? e.message : 'Error';
       if (m === 'SESION_EXPIRADA') return;
@@ -109,6 +127,65 @@ export function Comprador({ email, onLogout }: { email: string; onLogout: () => 
     [grupos],
   );
 
+  // --- Agregar producto: búsqueda y carrito manual ---
+  const resultados = useMemo(() => {
+    const q = buscar.trim().toLowerCase();
+    if (q.length < 1) return [];
+    return stock
+      .filter((p) => !extras[p.productId] && p.nombre.toLowerCase().includes(q))
+      .slice(0, 25);
+  }, [buscar, stock, extras]);
+
+  function agregarExtra(p: StockProduct) {
+    setExtras((prev) => ({
+      ...prev,
+      [p.productId]: { p, cantidad: '1', precio: p.costoPromedio ? String(Number(p.costoPromedio.toFixed(2))) : '' },
+    }));
+    setBuscar('');
+  }
+  function setExtra(productId: string, patch: Partial<Extra>) {
+    setExtras((prev) => (prev[productId] ? { ...prev, [productId]: { ...prev[productId], ...patch } } : prev));
+  }
+  function quitarExtra(productId: string) {
+    setExtras((prev) => {
+      const n = { ...prev };
+      delete n[productId];
+      return n;
+    });
+  }
+
+  const extrasList = useMemo(() => Object.values(extras), [extras]);
+  const totalExtras = useMemo(
+    () => extrasList.reduce((s, e) => s + num(e.cantidad) * num(e.precio), 0),
+    [extrasList],
+  );
+
+  async function registrarExtras() {
+    const items = extrasList
+      .filter((e) => num(e.cantidad) > 0)
+      .map((e) => ({ productId: e.p.productId, cantidadCompra: num(e.cantidad), costoUnitCompra: num(e.precio) }));
+    if (items.length === 0) {
+      setToast({ tipo: 'err', msg: 'Agregá al menos un producto con cantidad.' });
+      return;
+    }
+    setEnviandoExtras(true);
+    try {
+      const r = await registrarCompra({
+        supplierId: extraSupplier || undefined,
+        notas: 'Compra UAM (app comprador)',
+        items,
+      });
+      setToast({ tipo: 'ok', msg: `Compra registrada · ${money(r.total)}` });
+      setExtras({});
+      setExtraSupplier('');
+      await cargar();
+    } catch (e) {
+      setToast({ tipo: 'err', msg: e instanceof Error ? e.message : 'No se pudo registrar' });
+    } finally {
+      setEnviandoExtras(false);
+    }
+  }
+
   return (
     <div className="app">
       <header className="top">
@@ -124,12 +201,93 @@ export function Comprador({ email, onLogout }: { email: string; onLogout: () => 
       <main className="wrap">
         {error && <div className="banner banner--err">{error}</div>}
 
+        {/* Agregar producto fuera del sugerido */}
+        <section className={`grupo grupo--add ${addOpen ? 'is-open' : ''}`}>
+          <button className="grupo__head" onClick={() => setAddOpen((v) => !v)}>
+            <div>
+              <strong>➕ Agregar producto</strong>
+              <span className="grupo__sub">
+                {extrasList.length > 0 ? `${extrasList.length} en la lista · ${money(totalExtras)}` : 'Comprá algo que no está en el sugerido'}
+              </span>
+            </div>
+            <span className="grupo__chevron">{addOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {addOpen && (
+            <div className="grupo__body">
+              <div className="buscar">
+                <input
+                  type="search"
+                  value={buscar}
+                  onChange={(e) => setBuscar(e.target.value)}
+                  placeholder="Buscar producto por nombre…"
+                  autoComplete="off"
+                />
+                {resultados.length > 0 && (
+                  <ul className="buscar__res">
+                    {resultados.map((p) => (
+                      <li key={p.productId}>
+                        <button onClick={() => agregarExtra(p)}>
+                          <span className="buscar__nom">{p.nombre}</span>
+                          <span className="buscar__meta">
+                            {p.categoriaNombre ? `${p.categoriaNombre} · ` : ''}stock {p.cantidad} {corta(p.unidadVenta)}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {buscar.trim().length >= 1 && resultados.length === 0 && (
+                  <p className="buscar__vacio">Sin coincidencias.</p>
+                )}
+              </div>
+
+              {extrasList.length > 0 && (
+                <>
+                  {extrasList.map((e) => (
+                    <div className="item is-on" key={e.p.productId}>
+                      <div className="item__head">
+                        <span className="item__name">{e.p.nombre}</span>
+                        <button className="item__x" onClick={() => quitarExtra(e.p.productId)} aria-label="Quitar">✕</button>
+                      </div>
+                      <div className="item__buy">
+                        <label>Cant. ({corta(e.p.unidadCompra)})
+                          <input type="number" inputMode="decimal" value={e.cantidad} onChange={(ev) => setExtra(e.p.productId, { cantidad: ev.target.value })} onFocus={(ev) => ev.currentTarget.select()} />
+                        </label>
+                        <label>Precio / {corta(e.p.unidadCompra)}
+                          <input type="number" inputMode="decimal" value={e.precio} onChange={(ev) => setExtra(e.p.productId, { precio: ev.target.value })} onFocus={(ev) => ev.currentTarget.select()} placeholder="0" />
+                        </label>
+                        <span className="item__sub">= {money(num(e.cantidad) * num(e.precio))}</span>
+                      </div>
+                    </div>
+                  ))}
+
+                  <label className="field field--sm">
+                    Proveedor (opcional)
+                    <select value={extraSupplier} onChange={(e) => setExtraSupplier(e.target.value)}>
+                      <option value="">Sin proveedor</option>
+                      {suppliers.map((s) => <option key={s.id} value={s.id}>{s.nombre}{s.esUam ? ' (UAM)' : ''}</option>)}
+                    </select>
+                  </label>
+
+                  <div className="grupo__foot">
+                    <span>{extrasList.length} para comprar · <strong>{money(totalExtras)}</strong></span>
+                    <button className="btn btn--primary" disabled={enviandoExtras || totalExtras <= 0} onClick={() => void registrarExtras()}>
+                      {enviandoExtras ? 'Registrando…' : 'Registrar compra'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </section>
+
         {!grupos ? (
           <div className="center"><span className="spinner" /></div>
         ) : grupos.length === 0 ? (
           <div className="empty">
             <div className="empty__ico">✅</div>
-            <p>No hay nada para reponer según el stock y las ventas. ¡Todo cubierto!</p>
+            <p>No hay nada para reponer según el stock y las ventas. Podés agregar productos con el botón de arriba.</p>
             <button className="btn btn--ghost" onClick={() => void cargar()}>Actualizar</button>
           </div>
         ) : (

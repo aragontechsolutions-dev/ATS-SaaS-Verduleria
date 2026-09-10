@@ -93,6 +93,23 @@ export async function getSuppliers(): Promise<Supplier[]> {
   return ok(await fetch(`${API_BASE}/purchases/suppliers`, { headers: headers() }), 'suppliers');
 }
 
+/** Un producto del catálogo con su stock (para agregar compras fuera del sugerido). */
+export interface StockProduct {
+  productId: string;
+  nombre: string;
+  categoriaNombre: string | null;
+  unidadVenta: string;
+  unidadCompra: string;
+  cantidad: number;
+  costoPromedio: number;
+  precio: number;
+  margenPct: number | null;
+}
+
+export async function getStock(): Promise<StockProduct[]> {
+  return ok(await fetch(`${API_BASE}/purchases/stock`, { headers: headers() }), 'stock');
+}
+
 export interface CompraItem {
   productId: string;
   cantidadCompra: number;

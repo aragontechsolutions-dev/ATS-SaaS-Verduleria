@@ -95,3 +95,19 @@ input, select { font: inherit; }
 .tag { flex: none; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 9px; }
 .tag--red { background: #fdecea; color: var(--red); }
 .tag--warn { background: #fff4e0; color: var(--warn); }
+
+/* Agregar producto */
+.grupo--add { border-style: dashed; border-color: var(--line-strong); }
+.grupo--add.is-open { border-style: solid; }
+.buscar { position: relative; margin: 4px 0 6px; }
+.buscar input { width: 100%; padding: 11px 12px; font-size: 16px; border: 1.5px solid var(--line-strong); border-radius: 11px; background: #fff; }
+.buscar input:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(18,140,126,.15); }
+.buscar__res { list-style: none; margin: 6px 0 0; padding: 0; border: 1px solid var(--line); border-radius: 11px; overflow: hidden; max-height: 280px; overflow-y: auto; }
+.buscar__res li + li button { border-top: 1px solid var(--line); }
+.buscar__res button { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 11px 13px; border: none; background: #fff; text-align: left; }
+.buscar__res button:active { background: #f2faf8; }
+.buscar__nom { font-weight: 600; font-size: 15px; }
+.buscar__meta { color: var(--muted); font-size: 12.5px; }
+.buscar__vacio { color: var(--muted); font-size: 13px; margin: 8px 2px 2px; }
+.item__x { border: none; background: none; color: var(--muted); font-size: 15px; padding: 2px 6px; flex: none; }
+.item__x:active { color: var(--red); }
