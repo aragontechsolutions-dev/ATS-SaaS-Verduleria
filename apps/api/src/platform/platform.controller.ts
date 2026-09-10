@@ -77,6 +77,12 @@ export class PlatformController {
     return this.platform.getPagosConfig(id);
   }
 
+  /** Elige el proveedor de pago del comercio (de la gama). */
+  @Post('tenants/:id/pagos/proveedor')
+  seleccionarProveedor(@Param('id') id: string, @Body() dto: { provider: string }) {
+    return this.platform.seleccionarProveedorPago(id, dto.provider);
+  }
+
   /** Genera el enlace de "Conectar con Mercado Pago" para pasárselo al comercio. */
   @Post('tenants/:id/pagos/oauth-link')
   crearEnlacePagos(@Param('id') id: string) {
