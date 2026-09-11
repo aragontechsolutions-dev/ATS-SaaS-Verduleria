@@ -8,8 +8,18 @@ interface Props {
   initialMessage?: string | null;
 }
 
+/** Email demo pre-cargado desde la URL (?demo=1&email=...). */
+function demoEmail(): string {
+  try {
+    const p = new URLSearchParams(window.location.search);
+    return p.get('demo') === '1' ? (p.get('email') ?? '') : '';
+  } catch {
+    return '';
+  }
+}
+
 export function Login({ onLogged, initialMessage }: Props) {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(demoEmail());
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState<string | null>(null);

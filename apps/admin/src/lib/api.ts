@@ -35,6 +35,8 @@ export interface Me {
   tenantId: string;
   userId?: string;
   role?: string;
+  esDemo?: boolean;
+  slug?: string | null;
 }
 
 export interface Product {

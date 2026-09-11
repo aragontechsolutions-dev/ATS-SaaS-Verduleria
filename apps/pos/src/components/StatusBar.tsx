@@ -65,6 +65,7 @@ export function StatusBar({
         ARAGON POS
       </div>
       <div className="statusbar__meta">
+        {esDemoUI() && <span className="pill pill--demo">🧪 DEMO</span>}
         <span className={`pill ${online ? 'pill--ok' : 'pill--warn'}`}>
           {online ? '● En línea' : '○ Sin conexión'}
         </span>
@@ -132,4 +133,13 @@ function MoreMenu({ items }: { items: Array<{ icon: string; label: string; onCli
       )}
     </div>
   );
+}
+
+/** ¿Estamos en modo demo? (?demo=1 en la URL). */
+function esDemoUI(): boolean {
+  try {
+    return new URLSearchParams(window.location.search).get('demo') === '1';
+  } catch {
+    return false;
+  }
 }

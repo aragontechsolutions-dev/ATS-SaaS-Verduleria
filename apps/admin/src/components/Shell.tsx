@@ -16,6 +16,7 @@ import { AuditoriaPage } from './AuditoriaPage';
 import { ReportsPage } from './ReportsPage';
 import { SettingsPage } from './SettingsPage';
 import { AyudaPage } from './AyudaPage';
+import { DemoBanner } from './DemoBanner';
 
 type Tab = 'reportes' | 'productos' | 'categorias' | 'promos' | 'compras' | 'stock' | 'mermas' | 'caja' | 'sucursales' | 'mayoristas' | 'miweb' | 'tienda' | 'pedidos' | 'usuarios' | 'auditoria' | 'config' | 'ayuda';
 
@@ -85,6 +86,8 @@ export function Shell({ email, onLogout }: { email: string; onLogout: () => void
           <button className="btn btn--ghost btn--sm" onClick={onLogout}>Salir</button>
         </div>
       </header>
+
+      <DemoBanner email={email} />
 
       <div className="shell">
         <aside className={`sidebar ${drawer ? 'is-open' : ''}`}>

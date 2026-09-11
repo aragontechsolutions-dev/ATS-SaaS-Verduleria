@@ -91,7 +91,7 @@ export function Repartidor({ email, onLogout }: { email: string; onLogout: () =>
       <header className="topbar">
         <img src="/icon.svg" alt="" className="topbar__logo" />
         <div className="topbar__title">
-          <strong>Reparto</strong>
+          <strong>Reparto{esDemoUI() && <span className="demopill">🧪 DEMO</span>}</strong>
           <small>{email}</small>
         </div>
         <button className="btn btn--ghost btn--sm" onClick={onLogout}>Salir</button>
@@ -203,4 +203,13 @@ function PedidoCard({ p, orden, busy, onEnCamino, onEntregado }: {
       </div>
     </div>
   );
+}
+
+/** ¿Estamos en modo demo? (?demo=1 en la URL). */
+function esDemoUI(): boolean {
+  try {
+    return new URLSearchParams(window.location.search).get('demo') === '1';
+  } catch {
+    return false;
+  }
 }
