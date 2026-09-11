@@ -568,3 +568,5 @@ button { font: inherit; cursor: pointer; }
 @keyframes point-pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.15); opacity: .7; } }
 .point-box__msg { margin: 0; color: #555; line-height: 1.4; }
 @media (prefers-reduced-motion: reduce) { .point-box__ico--pulse { animation: none; } }
+
+.pill--demo { background: #b26a00; color: #fff; font-weight: 800; }

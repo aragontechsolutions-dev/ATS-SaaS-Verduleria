@@ -98,3 +98,5 @@ h1, h2, h3, strong { font-family: var(--font-head); }
 .ped__cobro { margin-top: 10px; font-size: 15px; }
 .ped__cobro strong { font-size: 20px; color: var(--primary-dark); }
 .ped__acciones { margin-top: 12px; }
+
+.demopill { display: inline-block; margin-left: 8px; font-size: 10px; font-weight: 800; letter-spacing: .06em; background: #b26a00; color: #fff; border-radius: 999px; padding: 2px 8px; vertical-align: middle; }

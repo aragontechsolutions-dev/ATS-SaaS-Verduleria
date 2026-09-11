@@ -112,11 +112,19 @@ export class AuthController {
   ) {
     const ctx = getTenantContext();
     if (!ctx?.tenantId || !userId) throw new UnauthorizedException();
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { nombre: true, mustChangePassword: true },
-    });
-    return { tenantId, userId, role, nombre: user?.nombre ?? null, mustChangePassword: user?.mustChangePassword ?? false };
+    const [user, tenant] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId }, select: { nombre: true, mustChangePassword: true } }),
+      this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { esDemo: true, slug: true } }),
+    ]);
+    return {
+      tenantId,
+      userId,
+      role,
+      nombre: user?.nombre ?? null,
+      mustChangePassword: user?.mustChangePassword ?? false,
+      esDemo: !!tenant?.esDemo,
+      slug: tenant?.slug ?? null,
+    };
   }
 
   /**

@@ -189,7 +189,7 @@ export function Comprador({ email, onLogout }: { email: string; onLogout: () => 
   return (
     <div className="app">
       <header className="top">
-        <div className="top__brand"><img src="/icon.svg" alt="" className="top__logo" /> Compras · UAM</div>
+        <div className="top__brand"><img src="/icon.svg" alt="" className="top__logo" /> Compras · UAM{esDemoUI() && <span className="demopill">🧪 DEMO</span>}</div>
         <div className="top__right">
           <button className="ic" onClick={() => void cargar()} title="Actualizar" aria-label="Actualizar">↻</button>
           <button className="ic" onClick={onLogout} title="Salir" aria-label="Salir">⎋</button>
@@ -371,6 +371,15 @@ export function Comprador({ email, onLogout }: { email: string; onLogout: () => 
 
 function grupoKey(g: SugeridoGrupo): string {
   return g.proveedorId ?? 'sin';
+}
+
+/** ¿Estamos en modo demo? (?demo=1 en la URL). */
+function esDemoUI(): boolean {
+  try {
+    return new URLSearchParams(window.location.search).get('demo') === '1';
+  } catch {
+    return false;
+  }
 }
 
 const CORTA: Record<string, string> = {
