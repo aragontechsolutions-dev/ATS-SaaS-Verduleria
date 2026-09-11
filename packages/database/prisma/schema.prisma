@@ -245,6 +245,13 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Demo (cuenta sandbox pública). `demoSnapshot` guarda la "foto" de la base
+  // (catálogo + usuarios) que el reset restaura cuando entra un visitante nuevo
+  // tras un período de inactividad. `demoActividadAt` es la última actividad.
+  esDemo          Boolean   @default(false)
+  demoActividadAt DateTime?
+  demoSnapshot    Json?
+
   // Datos fiscales
   // No es único: varios tenants pueden compartir RUT (p. ej. en el sandbox de
   // FEU todas las pruebas usan el mismo). El RUT emisor real vive en

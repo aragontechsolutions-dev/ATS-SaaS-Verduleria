@@ -387,3 +387,26 @@ export const quitarPoint = async (id: string) =>
     await fetch(`${API_BASE}/platform/tenants/${id}/point/quitar`, { method: 'POST', headers: headers() }),
     'quitarPoint',
   );
+
+// --- Demo (cuenta sandbox) --------------------------------------------------
+
+export interface DemoEstado {
+  esDemo: boolean;
+  tieneBase: boolean;
+  demoActividadAt: string | null;
+}
+
+export const getDemoEstado = async (id: string) =>
+  ok<DemoEstado>(await fetch(`${API_BASE}/platform/tenants/${id}/demo`, { headers: headers() }), 'demoEstado');
+
+export const guardarBaseDemo = async (id: string) =>
+  ok<{ ok: boolean; productos: number; categorias: number; usuarios: number }>(
+    await fetch(`${API_BASE}/platform/tenants/${id}/demo/base`, { method: 'POST', headers: headers() }),
+    'demoBase',
+  );
+
+export const resetDemo = async (id: string) =>
+  ok<{ ok: boolean }>(await fetch(`${API_BASE}/platform/tenants/${id}/demo/reset`, { method: 'POST', headers: headers() }), 'demoReset');
+
+export const quitarDemo = async (id: string) =>
+  ok<{ ok: boolean }>(await fetch(`${API_BASE}/platform/tenants/${id}/demo/off`, { method: 'POST', headers: headers() }), 'demoOff');
