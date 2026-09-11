@@ -1,13 +1,17 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { PlatformAdminGuard } from './platform-admin.guard';
 import { PlatformService } from './platform.service';
+import { DemoService } from '../demo/demo.service';
 import { CreateTenantDto, SetCfeAddonDto, SetDescuentoDto, UpdateCfeConfigDto, UpdateTenantDto } from './platform.dto';
 
 /** Consola de plataforma (Aragon). Todo exige ser super-admin de plataforma. */
 @Controller('platform')
 @UseGuards(PlatformAdminGuard)
 export class PlatformController {
-  constructor(private readonly platform: PlatformService) {}
+  constructor(
+    private readonly platform: PlatformService,
+    private readonly demo: DemoService,
+  ) {}
 
   @Get('overview')
   overview() {
@@ -43,6 +47,32 @@ export class PlatformController {
   @Patch('tenants/:id')
   updateTenant(@Param('id') id: string, @Body() dto: UpdateTenantDto) {
     return this.platform.updateTenant(id, dto);
+  }
+
+  // --- Demo (cuenta sandbox) ---
+
+  /** Estado de la demo del tenant (si es demo, si tiene base, última actividad). */
+  @Get('tenants/:id/demo')
+  demoEstado(@Param('id') id: string) {
+    return this.demo.estado(id);
+  }
+
+  /** Guarda la "foto" actual (catálogo + usuarios) como base a restaurar. */
+  @Post('tenants/:id/demo/base')
+  demoGuardarBase(@Param('id') id: string) {
+    return this.demo.guardarBase(id);
+  }
+
+  /** Restaura la demo a la base ahora mismo. */
+  @Post('tenants/:id/demo/reset')
+  demoReset(@Param('id') id: string) {
+    return this.demo.restaurar(id).then(() => ({ ok: true }));
+  }
+
+  /** Deja de ser demo (no borra la base guardada). */
+  @Post('tenants/:id/demo/off')
+  demoOff(@Param('id') id: string) {
+    return this.demo.desmarcar(id);
   }
 
   /** Descuento/cupón de la suscripción (ej. promo Fundadores 50%). */

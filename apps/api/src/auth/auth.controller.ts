@@ -5,6 +5,7 @@ import { getTenantContext } from '../tenant/tenant-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
 import { AuditService } from '../audit/audit.service';
+import { DemoService } from '../demo/demo.service';
 import { LoginDto } from './auth.dto';
 
 /** Intentos fallidos consecutivos antes de bloquear al usuario. */
@@ -16,6 +17,7 @@ export class AuthController {
     private readonly prisma: PrismaService,
     private readonly auth: AuthService,
     private readonly audit: AuditService,
+    private readonly demo: DemoService,
   ) {}
 
   /**
@@ -82,6 +84,19 @@ export class AuthController {
       await this.prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0 } });
     }
     await this.audit.log({ tipo: AuditEventTipo.LOGIN, descripcion: 'Inicio de sesión', tenantId, userId: user?.id, usuario: email });
+
+    // Demo (cuenta sandbox): si entra un visitante tras un período de inactividad,
+    // limpiamos los datos que dejó otro visitante y restauramos la base. Nunca
+    // rompe el login: si algo falla en el reset, se loguea igual.
+    if (tenantId) {
+      try {
+        await this.demo.resetSiVencio(tenantId);
+        await this.demo.touch(tenantId);
+      } catch {
+        /* no bloquea el login */
+      }
+    }
+
     return tokens;
   }
 

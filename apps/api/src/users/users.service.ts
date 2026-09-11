@@ -75,6 +75,14 @@ export class UsersService {
     return { email, password: loginCreado ? password : undefined, loginCreado };
   }
 
+  /** En un tenant demo, los usuarios son parte de la base: no se tocan. */
+  private async assertNoDemo(tenantId: string) {
+    const t = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { esDemo: true } });
+    if (t?.esDemo) {
+      throw new BadRequestException('En la demo no se pueden modificar los usuarios: se restauran solos.');
+    }
+  }
+
   /** Membership + usuario del tenant, o error si no existe. */
   private async membershipConUser(tenantId: string, membershipId: string) {
     const m = await this.prisma.membership.findFirst({ where: { id: membershipId, tenantId }, include: { user: true } });
@@ -84,6 +92,7 @@ export class UsersService {
 
   /** Resetea la contraseña a una temporal y obliga a cambiarla (y desbloquea). */
   async resetPassword(tenantId: string, membershipId: string) {
+    await this.assertNoDemo(tenantId);
     const m = await this.membershipConUser(tenantId, membershipId);
     const password = generateTempPassword();
     let authUserId = m.user.authUserId;
@@ -119,6 +128,7 @@ export class UsersService {
   }
 
   async update(tenantId: string, membershipId: string, dto: UpdateUserDto) {
+    await this.assertNoDemo(tenantId);
     const membership = await this.prisma.membership.findFirst({ where: { id: membershipId, tenantId } });
     if (!membership) throw new NotFoundException('Usuario no encontrado');
     if (dto.role === undefined && dto.activo === undefined) {

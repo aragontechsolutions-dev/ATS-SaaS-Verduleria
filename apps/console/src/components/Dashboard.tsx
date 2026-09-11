@@ -5,6 +5,7 @@ import { NewClientModal } from './NewClientModal';
 import { CfeConfigModal } from './CfeConfigModal';
 import { DescuentoModal } from './DescuentoModal';
 import { MercadoPagoModal } from './MercadoPagoModal';
+import { DemoModal } from './DemoModal';
 
 export function Dashboard() {
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -16,6 +17,7 @@ export function Dashboard() {
   const [cfeTenant, setCfeTenant] = useState<TenantRow | null>(null);
   const [descTenant, setDescTenant] = useState<TenantRow | null>(null);
   const [pagosTenant, setPagosTenant] = useState<TenantRow | null>(null);
+  const [demoTenant, setDemoTenant] = useState<TenantRow | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -111,6 +113,7 @@ export function Dashboard() {
                         <button className="btn btn--sm btn--ghost" onClick={() => setCfeTenant(t)}>Fiscal</button>{' '}
                         <button className="btn btn--sm btn--ghost" onClick={() => setPagosTenant(t)}>Pagos</button>{' '}
                         <button className="btn btn--sm btn--ghost" onClick={() => setDescTenant(t)}>Descuento</button>{' '}
+                        <button className="btn btn--sm btn--ghost" onClick={() => setDemoTenant(t)}>Demo</button>{' '}
                         <button className="btn btn--sm btn--ghost" onClick={() => toggleActivo(t)}>
                           {t.activo ? 'Suspender' : 'Reactivar'}
                         </button>
@@ -155,6 +158,10 @@ export function Dashboard() {
 
       {pagosTenant && (
         <MercadoPagoModal tenant={pagosTenant} onClose={() => setPagosTenant(null)} />
+      )}
+
+      {demoTenant && (
+        <DemoModal tenant={demoTenant} onClose={() => setDemoTenant(null)} onSaved={() => void load()} />
       )}
     </>
   );
