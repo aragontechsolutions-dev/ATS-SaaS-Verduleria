@@ -15,8 +15,9 @@ import { UsersPage } from './UsersPage';
 import { AuditoriaPage } from './AuditoriaPage';
 import { ReportsPage } from './ReportsPage';
 import { SettingsPage } from './SettingsPage';
+import { AyudaPage } from './AyudaPage';
 
-type Tab = 'reportes' | 'productos' | 'categorias' | 'promos' | 'compras' | 'stock' | 'mermas' | 'caja' | 'sucursales' | 'mayoristas' | 'miweb' | 'tienda' | 'pedidos' | 'usuarios' | 'auditoria' | 'config';
+type Tab = 'reportes' | 'productos' | 'categorias' | 'promos' | 'compras' | 'stock' | 'mermas' | 'caja' | 'sucursales' | 'mayoristas' | 'miweb' | 'tienda' | 'pedidos' | 'usuarios' | 'auditoria' | 'config' | 'ayuda';
 
 const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'reportes', label: 'Reportes', icon: '📊' },
@@ -35,6 +36,7 @@ const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'usuarios', label: 'Usuarios', icon: '👥' },
   { id: 'auditoria', label: 'Auditoría', icon: '📋' },
   { id: 'config', label: 'Configuración', icon: '⚙️' },
+  { id: 'ayuda', label: 'Ayuda', icon: '📖' },
 ];
 
 const PAGES: Record<Tab, JSX.Element> = {
@@ -54,6 +56,7 @@ const PAGES: Record<Tab, JSX.Element> = {
   usuarios: <UsersPage />,
   auditoria: <AuditoriaPage />,
   config: <SettingsPage />,
+  ayuda: <AyudaPage />,
 };
 
 export function Shell({ email, onLogout }: { email: string; onLogout: () => void }) {

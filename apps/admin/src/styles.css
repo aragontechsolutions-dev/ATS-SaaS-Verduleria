@@ -560,3 +560,34 @@ tr.row--sel > td { background: #eaf5f2; }
 .storeprods__lbl { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; font-size: 14px; }
 .storeprods__name { font-weight: 600; }
 .storeprods__badge { flex: none; font-size: 11px; font-weight: 700; color: var(--primary-dark); background: #fff; border: 1px solid var(--primary); border-radius: 999px; padding: 2px 8px; }
+
+/* --- Manual / Ayuda -------------------------------------------------------- */
+.manual { max-width: 860px; }
+.manual__intro { margin-bottom: 14px; }
+.manual__title { font-family: var(--font-head); font-size: 22px; margin: 0 0 6px; }
+.manual__rolinfo { font-size: 14px; margin: 4px 0; }
+.manual__rolinfo .pill { font-weight: 700; }
+.manual__controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 16px; }
+.manual__search { flex: 1; min-width: 200px; padding: 10px 12px; font-size: 15px; border: 1.5px solid var(--border-strong); border-radius: 10px; background: var(--panel); }
+.manual__search:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(18,140,126,.15); }
+.manual__vercomo { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.manual__vercomo select { padding: 9px 10px; font-size: 14px; border: 1.5px solid var(--border-strong); border-radius: 10px; background: var(--panel); }
+.manual__empty { padding: 40px 20px; text-align: center; color: var(--muted); }
+
+.manual__sec { margin-bottom: 22px; }
+.manual__sectitle { font-family: var(--font-head); font-size: 16px; color: var(--primary-dark); margin: 0 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--border); }
+.manual__arts { display: flex; flex-direction: column; gap: 8px; }
+
+.manual-art { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.manual-art.is-open { border-color: var(--primary); box-shadow: 0 4px 14px rgba(18,140,126,.08); }
+.manual-art__head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 15px; border: none; background: none; text-align: left; cursor: pointer; }
+.manual-art__t { display: flex; flex-direction: column; gap: 3px; }
+.manual-art__t strong { font-size: 15px; }
+.manual-art__resumen { font-size: 13px; }
+.manual-art__chevron { color: var(--muted); font-size: 11px; flex: none; }
+.manual-art__body { padding: 4px 16px 16px; border-top: 1px solid var(--border); }
+.manual-art__app { display: inline-block; font-size: 12px; font-weight: 600; color: var(--primary-dark); background: var(--surface); border-radius: 999px; padding: 3px 10px; margin: 12px 0 4px; }
+.manual-art__pasos { margin: 10px 0; padding-left: 22px; display: flex; flex-direction: column; gap: 7px; font-size: 14px; }
+.manual-art__pasos li { padding-left: 4px; }
+.manual-art__tips { list-style: none; margin: 10px 0 0; padding: 10px 12px; background: #f2faf8; border-radius: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+.manual-art__roles { margin-top: 12px; font-size: 12px; color: var(--muted); font-style: italic; }
