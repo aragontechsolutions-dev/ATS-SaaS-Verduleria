@@ -3,7 +3,7 @@ import { ADMIN_URL } from './secretLogin';
 // --- Contacto / conversión --------------------------------------------------
 
 /** WhatsApp del comercial (solo dígitos, con código de país). Vacío = sin WhatsApp. */
-export const WHATSAPP = (import.meta.env.VITE_WHATSAPP ?? '').replace(/\D/g, '');
+export const WHATSAPP = (import.meta.env.VITE_WHATSAPP ?? '59892331784').replace(/\D/g, '');
 export const HAY_WHATSAPP = WHATSAPP.length >= 8;
 
 /** Link de WhatsApp con un mensaje pre-cargado. */
