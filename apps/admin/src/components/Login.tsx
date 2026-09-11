@@ -2,8 +2,19 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { login, type LoginError } from '../lib/api';
 
+/** Lee parámetros de la URL para el acceso a la demo (?demo=1&email=...). */
+function leerDemo(): { demo: boolean; email: string } {
+  try {
+    const p = new URLSearchParams(window.location.search);
+    return { demo: p.get('demo') === '1', email: p.get('email') ?? '' };
+  } catch {
+    return { demo: false, email: '' };
+  }
+}
+
 export function Login() {
-  const [email, setEmail] = useState('');
+  const demoParams = leerDemo();
+  const [email, setEmail] = useState(demoParams.email);
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +47,9 @@ export function Login() {
         <img className="auth__logo" src="/icon.svg" alt="Aragon" />
         <h1 className="auth__title">Administración</h1>
         <p className="auth__sub">Panel de tu verdulería</p>
+        {demoParams.demo && (
+          <p className="auth__demo">🧪 Estás entrando a la <b>demo</b>. Ingresá la contraseña que te dimos para recorrer el sistema.</p>
+        )}
         <label className="field">
           Email
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required autoFocus />
