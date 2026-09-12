@@ -1,9 +1,30 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuthService } from '../auth/auth.service';
 
 /** Tiempo de inactividad tras el cual, al entrar un visitante nuevo, se limpia la demo. */
 const TTL_MS = 30 * 60 * 1000;
+
+/**
+ * Contraseñas fijas de los usuarios demo, desde el entorno (Render):
+ *   DEMO_PASSWORDS="demo-cajero@x.uy=democajero;demo-repartidor@x.uy=demorep;..."
+ * Sirven para que la demo no se trabe: al guardar la base / resetear se
+ * re-asignan, así el próximo visitante siempre entra con la misma clave.
+ */
+function demoPasswords(): Map<string, string> {
+  const raw = process.env.DEMO_PASSWORDS ?? '';
+  const map = new Map<string, string>();
+  for (const part of raw.split(/[;\n]+/)) {
+    const i = part.indexOf('=');
+    if (i > 0) {
+      const email = part.slice(0, i).trim().toLowerCase();
+      const pass = part.slice(i + 1).trim();
+      if (email && pass) map.set(email, pass);
+    }
+  }
+  return map;
+}
 
 interface Snapshot {
   categorias: any[];
@@ -45,7 +66,37 @@ const mapPrecio = (p: any): any => ({
 export class DemoService {
   private readonly log = new Logger('DemoService');
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auth: AuthService,
+  ) {}
+
+  /**
+   * Normaliza los usuarios de la demo para que no se traben los visitantes:
+   * quita el "cambio de contraseña obligatorio" y, si hay contraseñas fijas
+   * configuradas (DEMO_PASSWORDS), se las re-asigna en Supabase.
+   */
+  async normalizarUsuarios(tenantId: string) {
+    const users = await this.prisma.user.findMany({
+      where: { memberships: { some: { tenantId } } },
+      select: { id: true, email: true, authUserId: true },
+    });
+    if (!users.length) return;
+    // Nunca forzamos cambio de clave en la demo.
+    await this.prisma.user.updateMany({
+      where: { id: { in: users.map((u) => u.id) } },
+      data: { mustChangePassword: false, bloqueado: false, failedLoginAttempts: 0 },
+    });
+    // Re-asigna la contraseña fija a los que tengan una configurada.
+    const passMap = demoPasswords();
+    if (passMap.size === 0) return;
+    for (const u of users) {
+      const pass = passMap.get(u.email.toLowerCase());
+      if (pass && u.authUserId) {
+        await this.auth.setSupabasePassword(u.authUserId, pass).catch(() => undefined);
+      }
+    }
+  }
 
   async estado(tenantId: string) {
     const t = await this.prisma.tenant.findUnique({
@@ -84,6 +135,7 @@ export class DemoService {
         demoActividadAt: new Date(),
       },
     });
+    await this.normalizarUsuarios(tenantId);
     return { ok: true, productos: products.length, categorias: categorias.length, usuarios: memberships.length };
   }
 
@@ -162,6 +214,10 @@ export class DemoService {
       },
       { timeout: 30000, maxWait: 15000 },
     );
+
+    // Fuera de la transacción: re-asigna contraseñas fijas y quita el cambio
+    // obligatorio (llama a Supabase; no debe correr dentro del $transaction).
+    await this.normalizarUsuarios(tenantId).catch(() => undefined);
 
     this.log.log(`Demo ${tenantId} restaurada a la base.`);
   }
