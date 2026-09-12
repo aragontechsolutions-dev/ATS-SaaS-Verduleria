@@ -6,10 +6,9 @@ import { BillingController } from './billing.controller';
 import { BillingService } from './billing.service';
 import { BillingCronService } from './billing.cron.service';
 import { PaymentsModule } from '../payments/payments.module';
-import { DemoModule } from '../demo/demo.module';
 
 @Module({
-  imports: [PaymentsModule, DemoModule],
+  imports: [PaymentsModule],
   controllers: [PlatformController, PlansPublicController, BillingController],
   providers: [PlatformService, BillingService, BillingCronService],
 })
