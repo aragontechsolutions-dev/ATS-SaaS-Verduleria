@@ -7,6 +7,8 @@ const COMPRADOR_URL = import.meta.env.VITE_COMPRADOR_URL ?? '';
 const WEB_URL = import.meta.env.VITE_WEB_URL ?? '';
 const DEMO_REPARTIDOR = import.meta.env.VITE_DEMO_REPARTIDOR_EMAIL ?? '';
 const DEMO_COMPRADOR = import.meta.env.VITE_DEMO_COMPRADOR_EMAIL ?? '';
+const DEMO_REPARTIDOR_PASS = import.meta.env.VITE_DEMO_REPARTIDOR_PASS ?? '';
+const DEMO_COMPRADOR_PASS = import.meta.env.VITE_DEMO_COMPRADOR_PASS ?? '';
 
 /** Link a otra app con el modo demo (email pre-cargado, sin contraseña en la URL). */
 function link(base: string, email?: string): string {
@@ -29,11 +31,12 @@ export function DemoBanner({ email }: { email: string }) {
   if (!me?.esDemo) return null;
 
   const slug = me.slug ?? '';
-  const apps: Array<{ label: string; icon: string; href: string; nota?: string }> = [];
-  // Caja/POS: el usuario admin de la demo ya puede vender.
-  if (POS_URL) apps.push({ label: 'Caja / POS', icon: '🛒', href: link(POS_URL, email) });
-  if (REPARTIDOR_URL) apps.push({ label: 'App Repartidor', icon: '🛵', href: link(REPARTIDOR_URL, DEMO_REPARTIDOR || undefined), nota: DEMO_REPARTIDOR ? undefined : 'usá el usuario repartidor demo' });
-  if (COMPRADOR_URL) apps.push({ label: 'App Comprador', icon: '🧺', href: link(COMPRADOR_URL, DEMO_COMPRADOR || undefined), nota: DEMO_COMPRADOR ? undefined : 'usá el usuario comprador demo' });
+  type App = { label: string; icon: string; href: string; cred?: { email: string; pass?: string }; nota?: string };
+  const apps: App[] = [];
+  // Caja/POS: entra con el MISMO usuario admin de la demo (ya lo tenés logueado).
+  if (POS_URL) apps.push({ label: 'Caja / POS', icon: '🛒', href: link(POS_URL, email), nota: 'con tu mismo usuario demo' });
+  if (REPARTIDOR_URL) apps.push({ label: 'App Repartidor', icon: '🛵', href: link(REPARTIDOR_URL, DEMO_REPARTIDOR || undefined), cred: DEMO_REPARTIDOR ? { email: DEMO_REPARTIDOR, pass: DEMO_REPARTIDOR_PASS || undefined } : undefined });
+  if (COMPRADOR_URL) apps.push({ label: 'App Comprador', icon: '🧺', href: link(COMPRADOR_URL, DEMO_COMPRADOR || undefined), cred: DEMO_COMPRADOR ? { email: DEMO_COMPRADOR, pass: DEMO_COMPRADOR_PASS || undefined } : undefined });
   if (WEB_URL && slug) apps.push({ label: 'Tienda online', icon: '🌐', href: `${WEB_URL.replace(/\/$/, '')}/v/${slug}/tienda` });
   if (WEB_URL && slug) apps.push({ label: 'Mi web', icon: '🏠', href: `${WEB_URL.replace(/\/$/, '')}/v/${slug}` });
 
@@ -53,9 +56,17 @@ export function DemoBanner({ email }: { email: string }) {
       {open && apps.length > 0 && (
         <div className="demobar__apps">
           {apps.map((a) => (
-            <a key={a.label} className="demobar__app" href={a.href} target="_blank" rel="noopener noreferrer" title={a.nota}>
-              <span aria-hidden>{a.icon}</span> {a.label}
-            </a>
+            <div key={a.label} className="demobar__appwrap">
+              <a className="demobar__app" href={a.href} target="_blank" rel="noopener noreferrer" title={a.nota}>
+                <span aria-hidden>{a.icon}</span> {a.label}
+              </a>
+              {a.cred && (
+                <span className="demobar__cred">
+                  👤 {a.cred.email}{a.cred.pass ? <> · 🔑 {a.cred.pass}</> : null}
+                </span>
+              )}
+              {a.nota && !a.cred && <span className="demobar__cred">{a.nota}</span>}
+            </div>
           ))}
         </div>
       )}

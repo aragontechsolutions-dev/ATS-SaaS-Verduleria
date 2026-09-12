@@ -12,6 +12,8 @@ export interface CatalogMeta {
   listaPrecio: string | null;
   promos?: Promo[];
   limiteEfectivoCaja?: number | null;
+  /** Tenant dueño de este catálogo cacheado (aísla datos entre clientes). */
+  tenantId?: string;
 }
 
 class PosDatabase extends Dexie {
@@ -41,12 +43,40 @@ export const db = new PosDatabase();
 
 export async function saveCatalog(
   products: CatalogProduct[],
-  meta: { updatedAt: string; listaPrecio: string | null; promos?: Promo[]; limiteEfectivoCaja?: number | null },
+  meta: { updatedAt: string; listaPrecio: string | null; promos?: Promo[]; limiteEfectivoCaja?: number | null; tenantId?: string },
 ): Promise<void> {
   await db.transaction('rw', db.catalog, db.meta, async () => {
     await db.catalog.clear();
     await db.catalog.bulkPut(products);
     await db.meta.put({ key: 'catalog', ...meta });
+  });
+}
+
+/**
+ * Limpia el catálogo local si pertenece a otro tenant (aislamiento entre
+ * clientes en un mismo equipo/navegador). Devuelve true si limpió algo.
+ */
+export async function clearCatalogSiOtroTenant(tenantId: string | null | undefined): Promise<boolean> {
+  const meta = await db.meta.get('catalog');
+  if (!meta) return false;
+  // Si no sabemos de quién es el cache, o es de otro tenant, lo borramos.
+  if (!tenantId || meta.tenantId !== tenantId) {
+    await db.transaction('rw', db.catalog, db.meta, db.parked, async () => {
+      await db.catalog.clear();
+      await db.meta.delete('catalog');
+      await db.parked.clear(); // borradores de carrito del cliente anterior
+    });
+    return true;
+  }
+  return false;
+}
+
+/** Borra el catálogo y los borradores locales (al cerrar sesión). */
+export async function clearLocalCatalog(): Promise<void> {
+  await db.transaction('rw', db.catalog, db.meta, db.parked, async () => {
+    await db.catalog.clear();
+    await db.meta.delete('catalog');
+    await db.parked.clear();
   });
 }
 

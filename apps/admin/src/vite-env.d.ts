@@ -10,6 +10,10 @@ interface ImportMetaEnv {
   readonly VITE_DEMO_CAJERO_EMAIL?: string;
   readonly VITE_DEMO_REPARTIDOR_EMAIL?: string;
   readonly VITE_DEMO_COMPRADOR_EMAIL?: string;
+  // Contraseñas de los usuarios demo por rol (se muestran en el launcher para
+  // que el visitante pueda entrar a esas apps).
+  readonly VITE_DEMO_REPARTIDOR_PASS?: string;
+  readonly VITE_DEMO_COMPRADOR_PASS?: string;
 }
 
 interface ImportMeta {
