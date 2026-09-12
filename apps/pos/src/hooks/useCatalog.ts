@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchCatalog } from '../lib/api';
-import { getCatalog, getCatalogMeta, saveCatalog } from '../lib/db';
+import { clearCatalogSiOtroTenant, getCatalog, getCatalogMeta, saveCatalog } from '../lib/db';
 import { saveServerSecurity } from '../lib/security';
 import type { CatalogProduct } from '../lib/types';
 import type { Promo } from '../lib/promo';
@@ -24,7 +24,7 @@ export interface CatalogState {
  * Carga el catálogo: primero desde IndexedDB (instantáneo, offline), y en
  * paralelo intenta refrescar desde el backend y re-cachear.
  */
-export function useCatalog(): CatalogState {
+export function useCatalog(tenantId: string | null): CatalogState {
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [promos, setPromos] = useState<Promo[]>([]);
   const [listaPrecio, setListaPrecio] = useState<string | null>(null);
@@ -35,6 +35,18 @@ export function useCatalog(): CatalogState {
   const [fromCache, setFromCache] = useState(true);
 
   const loadLocal = useCallback(async () => {
+    if (!tenantId) { setProducts([]); return; } // esperamos a conocer el tenant
+    // Aislamiento: si el catálogo cacheado es de otro cliente, lo borramos
+    // antes de mostrar nada (no exponer productos de otro tenant).
+    const limpiado = await clearCatalogSiOtroTenant(tenantId);
+    if (limpiado) {
+      setProducts([]);
+      setPromos([]);
+      setListaPrecio(null);
+      setUpdatedAt(null);
+      setLimite(null);
+      return;
+    }
     const [local, meta] = await Promise.all([getCatalog(), getCatalogMeta()]);
     if (local.length) {
       setProducts(local);
@@ -43,14 +55,15 @@ export function useCatalog(): CatalogState {
       setUpdatedAt(meta?.updatedAt ?? null);
       setLimite(meta?.limiteEfectivoCaja ?? null);
     }
-  }, []);
+  }, [tenantId]);
 
   const refresh = useCallback(async () => {
+    if (!tenantId) return; // sin tenant conocido no cacheamos (evita mezclar clientes)
     try {
       const remote = await fetchCatalog();
       const promosRemote = remote.promos ?? [];
       const limite = remote.limiteEfectivoCaja ?? null;
-      await saveCatalog(remote.products, { updatedAt: remote.updatedAt, listaPrecio: remote.listaPrecio, promos: promosRemote, limiteEfectivoCaja: limite });
+      await saveCatalog(remote.products, { updatedAt: remote.updatedAt, listaPrecio: remote.listaPrecio, promos: promosRemote, limiteEfectivoCaja: limite, tenantId: tenantId ?? undefined });
       setProducts(remote.products);
       setPromos(promosRemote);
       setListaPrecio(remote.listaPrecio);
@@ -63,7 +76,7 @@ export function useCatalog(): CatalogState {
     } catch {
       setFromCache(true); // sin conexión: nos quedamos con el cache local
     }
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => {
     (async () => {

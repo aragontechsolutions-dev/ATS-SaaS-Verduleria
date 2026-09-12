@@ -39,7 +39,7 @@ import { cashSummary, getCorte, getMe, getMyTerminals, getSucursales, postAuditE
 import type { Corte, Sucursal } from './lib/api';
 import { ChangePassword } from './components/ChangePassword';
 import { supabase } from './lib/supabase';
-import { countParked, countPending, deleteParked, enqueueSale, getSale, parkTicket } from './lib/db';
+import { clearLocalCatalog, countParked, countPending, deleteParked, enqueueSale, getSale, parkTicket } from './lib/db';
 import { flushOutbox, onSyncChange, startAutoSync } from './lib/sync';
 import type { CartItem, CatalogProduct, OutboxSale, PosCustomer, SalePayment } from './lib/types';
 
@@ -53,12 +53,23 @@ export default function App() {
   const [gate, setGate] = useState<'loading' | 'change' | 'sincaja' | 'ok'>('loading');
   // Mensaje a mostrar en el login (usuario inactivo, contraseña actualizada…).
   const [loginMsg, setLoginMsg] = useState<string | null>(null);
+  // Tenant del usuario logueado (para aislar el catálogo local entre clientes).
+  const [tenantId, setTenantId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Al cerrar sesión, limpiamos el catálogo local para no dejar datos de un
+  // cliente cacheados en un equipo compartido.
+  useEffect(() => {
+    if (session === null) {
+      setTenantId(null);
+      void clearLocalCatalog();
+    }
+  }, [session]);
 
   // Con sesión, validamos el acceso contra el backend: un usuario inactivo (o
   // sin membership) no resuelve contexto → 401 → lo sacamos con un mensaje. Si
@@ -70,6 +81,7 @@ export default function App() {
     getMe()
       .then(async (me) => {
         if (!alive) return;
+        setTenantId(me.tenantId);
         if (me.mustChangePassword) { setGate('change'); return; }
         // Control de acceso por caja: si el comercio ya definió cajas y este
         // usuario no tiene ninguna habilitada, se le bloquea el ingreso. Offline
@@ -118,14 +130,14 @@ export default function App() {
     );
   }
 
-  return <Pos userEmail={session.user.email ?? ''} onLogout={() => void supabase.auth.signOut()} />;
+  return <Pos userEmail={session.user.email ?? ''} tenantId={tenantId} onLogout={() => void supabase.auth.signOut()} />;
 }
 
-function Pos({ userEmail, onLogout }: { userEmail: string; onLogout: () => void }) {
+function Pos({ userEmail, tenantId, onLogout }: { userEmail: string; tenantId: string | null; onLogout: () => void }) {
   const toast = useToast();
   const security = useSecurity();
   const online = useOnline();
-  const { products, promos, listaPrecio, limiteEfectivoCaja, loyalty, loading, fromCache } = useCatalog();
+  const { products, promos, listaPrecio, limiteEfectivoCaja, loyalty, loading, fromCache } = useCatalog(tenantId);
   const promosMap = useMemo(() => promosByProduct(promos), [promos]);
   const cash = useCash();
   const cart = useCart(promosMap);

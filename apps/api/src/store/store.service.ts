@@ -329,7 +329,7 @@ export class StoreService {
     });
     const productos = await this.prisma.product.findMany({
       where: { tenantId, id: { in: ids }, activo: true, visibleOnline: true },
-      include: { priceItems: lista ? { where: { priceListId: lista.id } } : false },
+      include: { priceItems: lista ? { where: { priceListId: lista.id } } : false, stockItems: true },
     });
     const byId = new Map(productos.map((p) => [p.id, p]));
 
@@ -337,6 +337,10 @@ export class StoreService {
     for (const it of items) {
       const p = byId.get(it.productId);
       if (!p) throw new BadRequestException('Un producto del pedido ya no está disponible.');
+      // Sin stock: no se puede pedir (la tienda ya lo oculta, pero validamos igual).
+      if (!disponibleDeStock(p.stockItems)) {
+        throw new BadRequestException(`"${p.nombre}" está sin stock.`);
+      }
       const precio = Number(p.priceItems?.[0]?.precio ?? 0);
       if (precio <= 0) throw new BadRequestException(`"${p.nombre}" no tiene precio publicado.`);
       lines.push(calcLine({ id: p.id, nombre: p.nombre, unidadVenta: p.unidadVenta, esPesable: p.esPesable, precio }, it.cantidad));

@@ -605,3 +605,6 @@ tr.row--sel > td { background: #eaf5f2; }
 .demobar__apps { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px; background: rgba(120,72,0,.96); }
 .demobar__app { display: inline-flex; align-items: center; gap: 7px; background: #fff; color: #8a5200; border-radius: 9px; padding: 8px 13px; font-size: 13.5px; font-weight: 700; text-decoration: none; }
 .demobar__app:hover { background: #fff4e0; }
+
+.demobar__appwrap { display: flex; flex-direction: column; gap: 3px; }
+.demobar__cred { font-size: 11px; color: #fff4e0; opacity: .95; padding-left: 2px; }
