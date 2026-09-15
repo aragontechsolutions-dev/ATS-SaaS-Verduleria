@@ -7,8 +7,10 @@ import {
   getCustomerAccount,
   getCustomerLoyalty,
   getCustomers,
+  getListasPrecio,
+  updateCustomer,
 } from '../lib/api';
-import type { Customer, CustomerAccount, CustomerLoyalty } from '../lib/api';
+import type { Customer, CustomerAccount, CustomerLoyalty, ListaPrecio } from '../lib/api';
 import { SkeletonRows, Spinner } from './Skeleton';
 import { useToast } from '../lib/toast';
 
@@ -20,8 +22,10 @@ export function MayoristasPage() {
   const [loading, setLoading] = useState(true);
   const [locked, setLocked] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [converting, setConverting] = useState(false);
   const [selId, setSelId] = useState<string | null>(null);
   const [selLoyaltyId, setSelLoyaltyId] = useState<string | null>(null);
+  const [listas, setListas] = useState<ListaPrecio[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -38,7 +42,19 @@ export function MayoristasPage() {
 
   useEffect(() => {
     void load();
+    // Las listas requieren el módulo PRICING; si no está, quedan vacías.
+    getListasPrecio().then((ls) => setListas(ls.filter((l) => l.tipo !== 'MOSTRADOR'))).catch(() => setListas([]));
   }, [load]);
+
+  async function asignarLista(c: Customer, priceListId: string) {
+    try {
+      await updateCustomer(c.id, { priceListId: priceListId || null });
+      setRows((prev) => prev.map((r) => (r.id === c.id ? { ...r, priceListId: priceListId || null } : r)));
+      toast.success('Lista asignada');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo asignar');
+    }
+  }
 
   if (locked) {
     return (
@@ -58,6 +74,7 @@ export function MayoristasPage() {
           <h2>Mayoristas — cuenta corriente</h2>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <span className="pill">Deuda total: {money.format(totalDeuda)}</span>
+            <button className="btn btn--ghost" onClick={() => setConverting(true)}>Convertir cliente</button>
             <button className="btn btn--primary" onClick={() => setCreating(true)}>+ Nuevo cliente</button>
           </div>
         </div>
@@ -71,6 +88,7 @@ export function MayoristasPage() {
                 <tr>
                   <th>Cliente</th>
                   <th>RUC / Doc.</th>
+                  <th>Lista de precios</th>
                   <th className="num">Saldo</th>
                   <th className="num">Límite</th>
                   <th className="num">Puntos</th>
@@ -82,6 +100,16 @@ export function MayoristasPage() {
                   <tr key={c.id} className={c.activo ? '' : 'row--off'}>
                     <td><strong>{c.nombre}</strong>{c.razonSocial && <span className="muted"> · {c.razonSocial}</span>}</td>
                     <td>{c.documento ?? '—'}</td>
+                    <td>
+                      {listas.length === 0 ? (
+                        <span className="muted">—</span>
+                      ) : (
+                        <select value={c.priceListId ?? ''} onChange={(e) => void asignarLista(c, e.target.value)}>
+                          <option value="">Sin lista</option>
+                          {listas.map((l) => <option key={l.id} value={l.id}>{l.nombre}</option>)}
+                        </select>
+                      )}
+                    </td>
                     <td className="num"><span className={c.saldo > 0 ? 'mrg mrg--bad' : 'muted'}>{money.format(c.saldo)}</span></td>
                     <td className="num">{c.limiteCredito > 0 ? money.format(c.limiteCredito) : '—'}</td>
                     <td className="num">{c.puntos > 0 ? `⭐ ${c.puntos}` : '—'}</td>
@@ -91,7 +119,7 @@ export function MayoristasPage() {
                     </td>
                   </tr>
                 ))}
-                {rows.length === 0 && <tr><td colSpan={6} className="muted">Sin clientes mayoristas. Creá el primero.</td></tr>}
+                {rows.length === 0 && <tr><td colSpan={7} className="muted">Sin clientes mayoristas. Creá el primero o convertí uno existente.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -100,6 +128,13 @@ export function MayoristasPage() {
       </section>
 
       {creating && <NewCustomerModal onClose={() => setCreating(false)} onSaved={() => { setCreating(false); void load(); }} />}
+      {converting && (
+        <ConvertModal
+          listas={listas}
+          onClose={() => setConverting(false)}
+          onSaved={() => { setConverting(false); void load(); }}
+        />
+      )}
       {selId && (
         <AccountModal
           customerId={selId}
@@ -115,6 +150,84 @@ export function MayoristasPage() {
         />
       )}
     </>
+  );
+}
+
+/** Convierte un cliente existente (no mayorista) en mayorista y le asigna lista. */
+function ConvertModal({ listas, onClose, onSaved }: { listas: ListaPrecio[]; onClose: () => void; onSaved: () => void }) {
+  const toast = useToast();
+  const [todos, setTodos] = useState<Customer[] | null>(null);
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState<Customer | null>(null);
+  const [listId, setListId] = useState<string>('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    getCustomers(true)
+      .then((cs) => setTodos(cs.filter((c) => !c.esMayorista && c.activo)))
+      .catch((e) => toast.error(e instanceof Error ? e.message : 'Error'));
+  }, [toast]);
+
+  const filtrados = (todos ?? []).filter((c) => {
+    const t = q.trim().toLowerCase();
+    return !t || c.nombre.toLowerCase().includes(t) || (c.documento ?? '').includes(t) || (c.razonSocial ?? '').toLowerCase().includes(t);
+  }).slice(0, 30);
+
+  async function convertir() {
+    if (!sel || saving) return;
+    setSaving(true);
+    try {
+      await updateCustomer(sel.id, { esMayorista: true, priceListId: listId || null });
+      toast.success(`${sel.nombre} ahora es mayorista`);
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo convertir');
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h3>Convertir cliente a mayorista</h3>
+        <p className="muted">Elegí un cliente ya existente (por ej. uno creado en el POS con RUC) y pasalo a mayorista con su lista de precios.</p>
+        {!sel ? (
+          <>
+            <input className="field" style={{ width: '100%' }} type="search" placeholder="Buscar por nombre, documento o razón social" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+            <div className="oper-list" style={{ maxHeight: 260, overflowY: 'auto', marginTop: 10 }}>
+              {todos === null ? (
+                <p className="muted">Cargando…</p>
+              ) : filtrados.length === 0 ? (
+                <p className="muted">No hay clientes no-mayoristas para convertir.</p>
+              ) : filtrados.map((c) => (
+                <button key={c.id} className="btn btn--ghost" style={{ display: 'block', width: '100%', textAlign: 'left', marginBottom: 6 }} onClick={() => setSel(c)}>
+                  <strong>{c.nombre}</strong>{c.documento ? <span className="muted"> · {c.documento}</span> : ''}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <p>Cliente: <strong>{sel.nombre}</strong>{sel.documento ? ` · ${sel.documento}` : ''}</p>
+            <label className="field">
+              Lista de precios mayorista
+              <select value={listId} onChange={(e) => setListId(e.target.value)}>
+                <option value="">Sin lista (se puede asignar después)</option>
+                {listas.map((l) => <option key={l.id} value={l.id}>{l.nombre}</option>)}
+              </select>
+            </label>
+            {listas.length === 0 && <p className="hint">No hay listas mayoristas. Creá una en “Precios mayoristas”.</p>}
+          </>
+        )}
+        <div className="modal__actions">
+          {sel && <button className="btn btn--ghost" onClick={() => setSel(null)} disabled={saving}>‹ Volver</button>}
+          <button className="btn btn--ghost" onClick={onClose} disabled={saving}>Cancelar</button>
+          <button className="btn btn--primary" onClick={() => void convertir()} disabled={!sel || saving}>
+            {saving ? 'Convirtiendo…' : 'Convertir a mayorista'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

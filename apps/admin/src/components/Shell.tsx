@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { getEntitlements } from '../lib/api';
 import { ProductsPage } from './ProductsPage';
 import { CategoriasPage } from './CategoriasPage';
 import { PromocionesPage } from './PromocionesPage';
@@ -63,9 +64,26 @@ const PAGES: Record<Tab, JSX.Element> = {
   ayuda: <AyudaPage />,
 };
 
+/** Pestañas que dependen de un módulo del plan (se ocultan si el tenant no lo tiene). */
+const TAB_MODULO: Partial<Record<Tab, string>> = {
+  preciosMay: 'PRICING',
+};
+
 export function Shell({ email, onLogout }: { email: string; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>('reportes');
   const [drawer, setDrawer] = useState(false);
+  // null = aún no sabemos (no ocultamos nada hasta tener la respuesta).
+  const [modules, setModules] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    getEntitlements().then((e) => setModules(e.modules.map((m) => m.key))).catch(() => setModules(null));
+  }, []);
+
+  const nav = NAV.filter((n) => {
+    const mod = TAB_MODULO[n.id];
+    if (!mod || modules === null) return true; // sin requisito o aún cargando
+    return modules.includes(mod);
+  });
 
   const actual = NAV.find((n) => n.id === tab)!;
 
@@ -99,7 +117,7 @@ export function Shell({ email, onLogout }: { email: string; onLogout: () => void
             <button className="sidebar__close" onClick={() => setDrawer(false)} aria-label="Cerrar menú">×</button>
           </div>
           <nav className="sidebar__nav">
-            {NAV.map((n) => (
+            {nav.map((n) => (
               <button
                 key={n.id}
                 className={`navlink ${tab === n.id ? 'is-active' : ''}`}
