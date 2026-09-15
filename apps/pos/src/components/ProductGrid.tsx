@@ -12,6 +12,9 @@ interface Props {
   searchRef?: RefObject<HTMLInputElement>;
   /** Tecleá «3*» o «3x» en el buscador para fijar el multiplicador de cantidad. */
   onMultiplier?: (n: number) => void;
+  /** Modo mayorista: productId → precio NETO. Si está, las tarjetas muestran
+   *  el precio mayorista (neto, sin IVA) en vez del de mostrador. */
+  preciosNetos?: Record<string, number> | null;
 }
 
 /** ¿Hay stock para vender? null = producto sin stock controlado → se vende libre. */
@@ -19,7 +22,8 @@ export function hayStock(p: CatalogProduct): boolean {
   return p.stock == null || p.stock > 0;
 }
 
-export function ProductGrid({ products, onPick, searchRef, onMultiplier }: Props) {
+export function ProductGrid({ products, onPick, searchRef, onMultiplier, preciosNetos }: Props) {
+  const mayorista = !!preciosNetos;
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -94,10 +98,11 @@ export function ProductGrid({ products, onPick, searchRef, onMultiplier }: Props
         {visibles.map((p) => {
           const disponible = hayStock(p);
           const unidad = p.unidadVenta.toLowerCase();
+          const precioMostrar = mayorista ? (preciosNetos![p.id] ?? p.precio) : p.precio;
           return (
             <button
               key={p.id}
-              className={`pcard ${disponible ? '' : 'pcard--off'}`}
+              className={`pcard ${disponible ? '' : 'pcard--off'} ${mayorista ? 'pcard--may' : ''}`}
               onClick={() => disponible && onPick(p)}
               disabled={!disponible}
               title={disponible ? p.nombre : `${p.nombre} — sin stock`}
@@ -108,12 +113,13 @@ export function ProductGrid({ products, onPick, searchRef, onMultiplier }: Props
               >
                 {!p.imagenUrl && <span className="pcard__ph">🥬</span>}
                 {p.esPesable && <span className="pcard__badge">⚖</span>}
+                {mayorista && <span className="pcard__may">may.</span>}
                 {!disponible && <span className="pcard__out">Sin stock</span>}
               </span>
               <span className="pcard__body">
                 <span className="pcard__name">{p.nombre}</span>
                 <span className="pcard__price">
-                  {formatMoney(p.precio)}<small>/{unidad}</small>
+                  {formatMoney(precioMostrar)}<small>/{unidad}{mayorista ? ' + IVA' : ''}</small>
                 </span>
                 {p.stock != null && disponible && (
                   <span className="pcard__stock">{p.stock} {unidad}</span>
