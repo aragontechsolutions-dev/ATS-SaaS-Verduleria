@@ -131,6 +131,19 @@ export async function searchCustomers(q: string): Promise<PosCustomer[]> {
   return ok(await fetch(`${API_BASE}/pos/customers/search${qs}`, { headers: headers() }), 'customers-search');
 }
 
+export interface PreciosMayorista {
+  lista: string | null;
+  /** productId → precio NETO (sin IVA) de la lista mayorista. */
+  preciosNetos: Record<string, number>;
+}
+
+export async function getPreciosMayorista(customerId: string): Promise<PreciosMayorista> {
+  return ok(
+    await fetch(`${API_BASE}/pos/customers/${customerId}/precios-mayorista`, { headers: headers() }),
+    'precios-mayorista',
+  );
+}
+
 export interface QuickCustomerPayload {
   nombre: string;
   tipoDocumento: TipoDocumentoCliente;

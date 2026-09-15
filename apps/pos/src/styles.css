@@ -570,3 +570,6 @@ button { font: inherit; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .point-box__ico--pulse { animation: none; } }
 
 .pill--demo { background: #b26a00; color: #fff; font-weight: 800; }
+
+.mayo-bar { background: #0A5A52; color: #fff; padding: 8px 14px; font-size: 13.5px; text-align: center; }
+.mayo-bar b { font-weight: 700; }

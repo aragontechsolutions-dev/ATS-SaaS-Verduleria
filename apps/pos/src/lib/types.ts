@@ -11,6 +11,8 @@ export interface PosCustomer {
   tipoDocumento: TipoDocumentoCliente;
   documento: string | null;
   razonSocial: string | null;
+  /** Cliente mayorista → venta al por mayor (precios netos + IVA 22%). */
+  esMayorista?: boolean;
   /** Saldo de puntos de fidelización. */
   puntos?: number;
 }

@@ -26,6 +26,12 @@ export class PosCustomersController {
     return this.customers.search(tenantId, q);
   }
 
+  /** Precios netos de la lista mayorista del cliente (para venta al por mayor). */
+  @Get(':id/precios-mayorista')
+  preciosMayorista(@CurrentTenant('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.customers.preciosMayorista(tenantId, id);
+  }
+
   /** Alta rápida de comprador (solo datos fiscales). */
   @Post()
   quick(@CurrentTenant('tenantId') tenantId: string, @Body() dto: QuickCustomerDto) {

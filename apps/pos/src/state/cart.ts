@@ -86,7 +86,29 @@ function reducer(state: CartState, action: Action): CartState {
   }
 }
 
-export function cartItemFromProduct(p: CatalogProduct, cantidad: number): CartItem {
+/**
+ * Modo mayorista: `precioNeto` es el precio SIN IVA de la lista mayorista.
+ * Se guarda como precio con IVA incluido (neto × 1,22) con indicador BÁSICA,
+ * así el motor de venta/CFE desglosa el 22% correctamente. Si no hay precio
+ * mayorista para el producto, se usa el precio de mostrador como neto.
+ */
+export interface MayoristaOpts {
+  preciosNetos: Record<string, number>;
+}
+
+export function cartItemFromProduct(p: CatalogProduct, cantidad: number, mayorista?: MayoristaOpts): CartItem {
+  if (mayorista) {
+    const neto = mayorista.preciosNetos[p.id] ?? p.precio;
+    return {
+      productId: p.id,
+      concepto: p.nombre,
+      unidad: p.unidadVenta,
+      cantidad,
+      precioUnit: round2(neto * 1.22),
+      ivaIndicador: 'BASICA' as IvaIndicador,
+      esPesable: p.esPesable,
+    };
+  }
   return {
     productId: p.id,
     concepto: p.nombre,
