@@ -507,6 +507,7 @@ export interface CustomerInput {
   telefono?: string;
   email?: string;
   limiteCredito?: number;
+  priceListId?: string | null;
 }
 
 export interface AccountMovement {
@@ -525,8 +526,15 @@ export interface CustomerAccount {
   movimientos: AccountMovement[];
 }
 
-export const getCustomers = async () =>
-  ok<Customer[]>(await fetch(`${API_BASE}/customers`, { headers: headers() }), 'customers');
+export const getCustomers = async (todos = false) =>
+  ok<Customer[]>(await fetch(`${API_BASE}/customers${todos ? '?todos=true' : ''}`, { headers: headers() }), 'customers');
+
+// --- Entitlements (módulos del plan) ----------------------------------------
+
+export interface ModuleInfo { key: string; nombre: string; descripcion: string; core: boolean; }
+
+export const getEntitlements = async () =>
+  ok<{ modules: ModuleInfo[] }>(await fetch(`${API_BASE}/me/entitlements`, { headers: headers() }), 'entitlements');
 
 export const createCustomer = async (input: CustomerInput) =>
   ok<Customer>(await fetch(`${API_BASE}/customers`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }), 'createCustomer');
