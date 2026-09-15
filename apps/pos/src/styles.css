@@ -573,3 +573,6 @@ button { font: inherit; cursor: pointer; }
 
 .mayo-bar { background: #0A5A52; color: #fff; padding: 8px 14px; font-size: 13.5px; text-align: center; }
 .mayo-bar b { font-weight: 700; }
+
+.pcard--may { outline: 1.5px solid #0A5A52; outline-offset: -1.5px; }
+.pcard__may { position: absolute; top: 6px; left: 6px; background: #0A5A52; color: #fff; font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 7px; }

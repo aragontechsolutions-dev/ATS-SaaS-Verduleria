@@ -617,7 +617,7 @@ function Pos({ userEmail, tenantId, onLogout }: { userEmail: string; tenantId: s
         {loading ? (
           <p className="empty">Cargando catálogo…</p>
         ) : (
-          <ProductGrid products={products} onPick={onPick} searchRef={searchRef} onMultiplier={(n) => setMultiplier(n > 0 ? n : null)} />
+          <ProductGrid products={products} onPick={onPick} searchRef={searchRef} onMultiplier={(n) => setMultiplier(n > 0 ? n : null)} preciosNetos={mayorista?.preciosNetos ?? null} />
         )}
         {multiplier && (
           <div className="mult-badge" role="status">
