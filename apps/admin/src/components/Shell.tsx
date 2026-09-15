@@ -17,8 +17,9 @@ import { ReportsPage } from './ReportsPage';
 import { SettingsPage } from './SettingsPage';
 import { AyudaPage } from './AyudaPage';
 import { DemoBanner } from './DemoBanner';
+import { PreciosMayoristasPage } from './PreciosMayoristasPage';
 
-type Tab = 'reportes' | 'productos' | 'categorias' | 'promos' | 'compras' | 'stock' | 'mermas' | 'caja' | 'sucursales' | 'mayoristas' | 'miweb' | 'tienda' | 'pedidos' | 'usuarios' | 'auditoria' | 'config' | 'ayuda';
+type Tab = 'reportes' | 'productos' | 'categorias' | 'promos' | 'compras' | 'stock' | 'mermas' | 'caja' | 'sucursales' | 'mayoristas' | 'preciosMay' | 'miweb' | 'tienda' | 'pedidos' | 'usuarios' | 'auditoria' | 'config' | 'ayuda';
 
 const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'reportes', label: 'Reportes', icon: '📊' },
@@ -31,6 +32,7 @@ const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'caja', label: 'Caja', icon: '💰' },
   { id: 'sucursales', label: 'Sucursales', icon: '🏬' },
   { id: 'mayoristas', label: 'Mayoristas', icon: '🤝' },
+  { id: 'preciosMay', label: 'Precios mayoristas', icon: '🏷️' },
   { id: 'miweb', label: 'Mi web', icon: '🌐' },
   { id: 'tienda', label: 'Tienda online', icon: '🛒' },
   { id: 'pedidos', label: 'Pedidos', icon: '📦' },
@@ -51,6 +53,7 @@ const PAGES: Record<Tab, JSX.Element> = {
   caja: <CajaPage />,
   sucursales: <SucursalesPage />,
   mayoristas: <MayoristasPage />,
+  preciosMay: <PreciosMayoristasPage />,
   miweb: <LandingPage />,
   tienda: <TiendaPage />,
   pedidos: <PedidosPage />,

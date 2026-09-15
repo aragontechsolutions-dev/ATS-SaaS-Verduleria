@@ -1203,3 +1203,55 @@ export const activarCobroOnline = async (activo: boolean) =>
 
 export const desconectarMp = async () =>
   ok<PagosConfig>(await fetch(`${API_BASE}/pagos/config`, { method: 'DELETE', headers: headers() }), 'desconectarMp');
+
+// --- Precios mayoristas (listas de precio) ----------------------------------
+
+export type TipoLista = 'MOSTRADOR' | 'MAYORISTA_A' | 'MAYORISTA_B' | 'POR_CLIENTE';
+
+export interface ListaPrecio {
+  id: string;
+  nombre: string;
+  tipo: TipoLista;
+  items: number;
+}
+
+export interface PrecioListaItem {
+  productId: string;
+  nombre: string;
+  categoriaId: string | null;
+  categoriaNombre: string | null;
+  unidadVenta: string;
+  costo: number;
+  precioMostrador: number;
+  precioNeto: number | null;
+}
+
+export const getListasPrecio = async () =>
+  ok<ListaPrecio[]>(await fetch(`${API_BASE}/pricing/listas`, { headers: headers() }), 'listas');
+
+export const crearListaPrecio = async (nombre: string, tipo: TipoLista) =>
+  ok<ListaPrecio>(
+    await fetch(`${API_BASE}/pricing/listas`, { method: 'POST', headers: headers(), body: JSON.stringify({ nombre, tipo }) }),
+    'crear-lista',
+  );
+
+export const getPreciosLista = async (listId: string) =>
+  ok<{ lista: { id: string; nombre: string; tipo: TipoLista }; items: PrecioListaItem[] }>(
+    await fetch(`${API_BASE}/pricing/listas/${listId}/precios`, { headers: headers() }),
+    'precios-lista',
+  );
+
+export const guardarPreciosLista = async (listId: string, items: Array<{ productId: string; precio: number }>) =>
+  ok<{ ok: boolean; actualizados: number }>(
+    await fetch(`${API_BASE}/pricing/listas/${listId}/precios`, { method: 'PUT', headers: headers(), body: JSON.stringify({ items }) }),
+    'guardar-precios',
+  );
+
+export const preciosMasivo = async (
+  listId: string,
+  payload: { modo: 'margenCosto' | 'descuentoMostrador' | 'igualMostrador'; valor?: number; categoriaId?: string; soloVacios?: boolean },
+) =>
+  ok<{ ok: boolean; actualizados: number }>(
+    await fetch(`${API_BASE}/pricing/listas/${listId}/precios/masivo`, { method: 'POST', headers: headers(), body: JSON.stringify(payload) }),
+    'precios-masivo',
+  );

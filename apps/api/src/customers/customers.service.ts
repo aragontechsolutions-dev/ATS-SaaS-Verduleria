@@ -45,17 +45,28 @@ export class CustomersService {
     return rows.map((c) => this.toFiscalRow(c));
   }
 
-  /** Alta rápida desde el POS: cliente no mayorista, solo datos fiscales. */
+  /** Alta rápida desde el POS: datos fiscales; opcionalmente mayorista + lista. */
   async quickCreate(tenantId: string, dto: QuickCustomerDto) {
+    // Si marcan mayorista sin lista, asignamos la primera lista mayorista activa.
+    let priceListId = dto.priceListId ?? null;
+    if (dto.esMayorista && !priceListId) {
+      const lista = await this.prisma.priceList.findFirst({
+        where: { tenantId, activo: true, tipo: { in: [TipoListaPrecio.MAYORISTA_A, TipoListaPrecio.MAYORISTA_B, TipoListaPrecio.POR_CLIENTE] } },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
+      priceListId = lista?.id ?? null;
+    }
     const c = await this.prisma.customer.create({
       data: {
         tenantId,
         nombre: dto.nombre,
-        esMayorista: false,
+        esMayorista: dto.esMayorista ?? false,
         tipoDocumento: dto.tipoDocumento,
         documento: dto.documento,
         razonSocial: dto.razonSocial,
         direccion: dto.direccion,
+        priceListId: priceListId ?? undefined,
       },
     });
     return this.toFiscalRow(c);

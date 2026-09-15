@@ -150,6 +150,8 @@ export interface QuickCustomerPayload {
   documento: string;
   razonSocial?: string;
   direccion?: string;
+  esMayorista?: boolean;
+  priceListId?: string;
 }
 
 export async function quickCreateCustomer(payload: QuickCustomerPayload): Promise<PosCustomer> {

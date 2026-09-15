@@ -576,3 +576,6 @@ button { font: inherit; cursor: pointer; }
 
 .pcard--may { outline: 1.5px solid #0A5A52; outline-offset: -1.5px; }
 .pcard__may { position: absolute; top: 6px; left: 6px; background: #0A5A52; color: #fff; font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 7px; }
+
+.field--check { flex-direction: row; align-items: center; gap: 9px; }
+.field--check input { width: 18px; height: 18px; flex: none; }
