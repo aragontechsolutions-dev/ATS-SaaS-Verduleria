@@ -35,7 +35,7 @@ import { useScale } from './hooks/useScale';
 import { cartItemFromProduct, lineBruto, useCart, type ParkedTicket } from './state/cart';
 import { promosByProduct } from './lib/promo';
 import { parseScan } from './lib/barcode';
-import { cashSummary, getCorte, getMe, getMyTerminals, getSucursales, postAuditEvent } from './lib/api';
+import { cashSummary, getCorte, getMe, getMyTerminals, getPreciosMayorista, getSucursales, postAuditEvent } from './lib/api';
 import type { Corte, Sucursal } from './lib/api';
 import { ChangePassword } from './components/ChangePassword';
 import { supabase } from './lib/supabase';
@@ -155,6 +155,10 @@ function Pos({ userEmail, tenantId, onLogout }: { userEmail: string; tenantId: s
   const [userId, setUserId] = useState<string | undefined>();
   const [customer, setCustomer] = useState<PosCustomer | null>(null);
   const [customerOpen, setCustomerOpen] = useState(false);
+  // Venta mayorista: cuando el cliente es mayorista, precios netos de su lista
+  // (+ IVA 22%). null = venta normal (mostrador).
+  const [mayorista, setMayorista] = useState<{ preciosNetos: Record<string, number>; lista: string | null } | null>(null);
+  const mayoristaOpts = mayorista ? { preciosNetos: mayorista.preciosNetos } : undefined;
   // Descuento: null = cerrado; {kind:'line', index} o {kind:'global'}.
   const [discountTarget, setDiscountTarget] = useState<{ kind: 'line'; index: number } | { kind: 'global' } | null>(null);
   // Cambio de precio de una línea (índice) o null si está cerrado.
@@ -211,15 +215,55 @@ function Pos({ userEmail, tenantId, onLogout }: { userEmail: string; tenantId: s
           return;
         }
         if (cantidad > disponible) {
-          cart.add(cartItemFromProduct(p, disponible));
+          cart.add(cartItemFromProduct(p, disponible, mayoristaOpts));
           showToast(`Ajustado a ${disponible} ${p.unidadVenta.toLowerCase()} (stock disponible)`);
           return;
         }
       }
-      cart.add(cartItemFromProduct(p, cantidad));
+      cart.add(cartItemFromProduct(p, cantidad, mayoristaOpts));
     },
-    [cart, showToast],
+    [cart, showToast, mayoristaOpts],
   );
+
+  const productsById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+
+  // Modo de venta según el cliente: mayorista (precios netos + IVA 22%) o
+  // mostrador. Al cambiar de cliente, re-precia lo que ya esté en el carrito.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      let opts: { preciosNetos: Record<string, number> } | undefined;
+      if (customer?.esMayorista) {
+        try {
+          const pm = await getPreciosMayorista(customer.id);
+          if (!alive) return;
+          setMayorista({ preciosNetos: pm.preciosNetos, lista: pm.lista });
+          opts = { preciosNetos: pm.preciosNetos };
+        } catch {
+          if (!alive) return;
+          setMayorista({ preciosNetos: {}, lista: null });
+          opts = { preciosNetos: {} };
+        }
+      } else {
+        if (!alive) return;
+        setMayorista(null);
+      }
+      const items = cart.items;
+      if (items.length) {
+        cart.load(
+          items.map((it) => {
+            const p = it.productId ? productsById.get(it.productId) : undefined;
+            if (!p) return it; // ítem manual: no se re-precia
+            const base = cartItemFromProduct(p, it.cantidad, opts);
+            return { ...it, precioUnit: base.precioUnit, ivaIndicador: base.ivaIndicador };
+          }),
+        );
+      }
+    })();
+    return () => { alive = false; };
+    // Solo al cambiar de cliente (no en cada cambio del carrito).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customer?.id, customer?.esMayorista]);
 
   const onPick = useCallback(
     (p: CatalogProduct) => {
@@ -562,6 +606,13 @@ function Pos({ userEmail, tenantId, onLogout }: { userEmail: string; tenantId: s
         onCorteX={cash.session ? onCorteX : undefined}
         onLogout={onLogout}
       />
+      {mayorista && (
+        <div className="mayo-bar" role="status">
+          🧾 <b>Venta mayorista</b>{mayorista.lista ? ` · ${mayorista.lista}` : ''} — precios netos + IVA 22%
+          {customer ? ` · ${customer.razonSocial ?? customer.nombre}` : ''}
+        </div>
+      )}
+
       <main className="main">
         {loading ? (
           <p className="empty">Cargando catálogo…</p>

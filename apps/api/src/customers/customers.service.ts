@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { AuditEventTipo, CashMovementTipo, CashSessionStatus, LoyaltyMovementTipo, MedioPago, Prisma, TipoDocumentoCliente } from '@ats/database';
+import { AuditEventTipo, CashMovementTipo, CashSessionStatus, LoyaltyMovementTipo, MedioPago, Prisma, TipoDocumentoCliente, TipoListaPrecio } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import type { CobranzaDto, CreateCustomerDto, ChargeDto, PaymentDto, QuickCustomerDto, UpdateCustomerDto } from './customers.dto';
@@ -252,6 +252,7 @@ export class CustomersService {
     tipoDocumento: TipoDocumentoCliente;
     documento: string | null;
     razonSocial: string | null;
+    esMayorista?: boolean;
     puntos?: number;
   }) {
     return {
@@ -260,8 +261,40 @@ export class CustomersService {
       tipoDocumento: c.tipoDocumento,
       documento: c.documento,
       razonSocial: c.razonSocial,
+      esMayorista: c.esMayorista ?? false,
       puntos: c.puntos ?? 0,
     };
+  }
+
+  /**
+   * Precios NETOS de la lista mayorista del cliente (o la lista mayorista por
+   * defecto del tenant), para vender al por mayor desde el POS. El IVA (22%) se
+   * agrega al facturar; acá devolvemos el neto tal cual está en la lista.
+   */
+  async preciosMayorista(tenantId: string, customerId: string): Promise<{ lista: string | null; preciosNetos: Record<string, number> }> {
+    const cliente = await this.prisma.customer.findFirst({
+      where: { id: customerId, tenantId },
+      select: { priceListId: true },
+    });
+    if (!cliente) throw new NotFoundException('Cliente no encontrado');
+
+    // Lista del cliente; si no tiene, la primera lista mayorista activa del tenant.
+    const lista = cliente.priceListId
+      ? await this.prisma.priceList.findFirst({ where: { id: cliente.priceListId, tenantId, activo: true }, select: { id: true, nombre: true } })
+      : await this.prisma.priceList.findFirst({
+          where: { tenantId, activo: true, tipo: { in: [TipoListaPrecio.MAYORISTA_A, TipoListaPrecio.MAYORISTA_B, TipoListaPrecio.POR_CLIENTE] } },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, nombre: true },
+        });
+    if (!lista) return { lista: null, preciosNetos: {} };
+
+    const items = await this.prisma.priceListItem.findMany({
+      where: { tenantId, priceListId: lista.id },
+      select: { productId: true, precio: true },
+    });
+    const preciosNetos: Record<string, number> = {};
+    for (const it of items) preciosNetos[it.productId] = num(it.precio);
+    return { lista: lista.nombre, preciosNetos };
   }
 
   private async assertCustomer(tenantId: string, id: string): Promise<void> {
