@@ -608,3 +608,25 @@ tr.row--sel > td { background: #eaf5f2; }
 
 .demobar__appwrap { display: flex; flex-direction: column; gap: 3px; }
 .demobar__cred { font-size: 11px; color: #fff4e0; opacity: .95; padding-left: 2px; }
+
+/* --- Precios mayoristas --- */
+.pm { max-width: 1000px; }
+.pm__title { font-family: var(--font-head); font-size: 22px; margin: 0 0 4px; }
+.pm__bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin: 14px 0; }
+.field--inline { flex-direction: column; }
+.pm__spacer { flex: 1; }
+.pm__search { padding: 9px 12px; border: 1.5px solid var(--border-strong); border-radius: 10px; min-width: 180px; }
+.pm__masivo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--surface, #f4f4f4); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; font-size: 14px; }
+.pm__masivo select, .pm__masivo input { padding: 7px 10px; border: 1.5px solid var(--border-strong); border-radius: 9px; }
+.pm__masivo-t { font-weight: 600; }
+.pm__valor { width: 80px; }
+.pm__chk { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.pm__tablewrap { padding: 0; overflow-x: auto; }
+.pm__table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.pm__table th { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 600; font-size: 12.5px; white-space: nowrap; }
+.pm__table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.pm__table .r { text-align: right; }
+.pm__table th.r { text-align: right; }
+.pm__inp { width: 96px; padding: 7px 9px; border: 1.5px solid var(--border-strong); border-radius: 8px; text-align: right; }
+.pm__gross { color: var(--primary-dark); font-weight: 600; white-space: nowrap; }
+.pm__foot { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 14px; position: sticky; bottom: 0; background: var(--bg); padding: 10px 0; }

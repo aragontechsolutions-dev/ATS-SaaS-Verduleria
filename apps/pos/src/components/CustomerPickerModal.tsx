@@ -99,6 +99,7 @@ function QuickCreate({
   const [tipoDocumento, setTipoDocumento] = useState<TipoDocumentoCliente>('CI');
   const [documento, setDocumento] = useState(soloDigitos ? initial.trim() : '');
   const [razonSocial, setRazonSocial] = useState('');
+  const [esMayorista, setEsMayorista] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,6 +116,7 @@ function QuickCreate({
         tipoDocumento,
         documento: documento.trim(),
         razonSocial: razonSocial.trim() || undefined,
+        esMayorista: esMayorista || undefined,
       });
       onCreated(c);
     } catch {
@@ -150,6 +152,10 @@ function QuickCreate({
         </label>
       )}
       {esRuc && <p className="modal__hint">Con RUC se emite <strong>e-Factura</strong>.</p>}
+      <label className="field field--check">
+        <input type="checkbox" checked={esMayorista} onChange={(e) => setEsMayorista(e.target.checked)} />
+        <span>Cliente <strong>mayorista</strong> (precios por mayor + IVA 22%)</span>
+      </label>
       {error && <p className="modal__hint modal__hint--warn">{error}</p>}
       <div className="modal__actions modal__actions--wrap">
         <button className="btn btn--ghost" onClick={onCancel} disabled={guardando}>Volver</button>

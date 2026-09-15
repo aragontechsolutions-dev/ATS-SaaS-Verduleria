@@ -117,6 +117,16 @@ export class QuickCustomerDto {
   @IsOptional()
   @IsString()
   direccion?: string;
+
+  /** Marca al cliente como mayorista (venta al por mayor + IVA 22% en el POS). */
+  @IsOptional()
+  @IsBoolean()
+  esMayorista?: boolean;
+
+  /** Lista de precios mayorista a asignarle. */
+  @IsOptional()
+  @IsString()
+  priceListId?: string;
 }
 
 /** Cobranza: reduce el saldo de la cuenta corriente. */
