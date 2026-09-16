@@ -1263,3 +1263,54 @@ export const preciosMasivo = async (
     await fetch(`${API_BASE}/pricing/listas/${listId}/precios/masivo`, { method: 'POST', headers: headers(), body: JSON.stringify(payload) }),
     'precios-masivo',
   );
+
+// --- Remitos de traslado (venta mayorista con camión) -----------------------
+
+export type RemitoEstado = 'BORRADOR' | 'DESPACHADO' | 'ANULADO';
+
+export interface RemitoRow {
+  id: string;
+  numero: number;
+  fecha: string;
+  clienteNombre: string;
+  clienteDoc: string | null;
+  transportista: string | null;
+  matricula: string | null;
+  destino: string | null;
+  estado: RemitoEstado;
+  lineas: number;
+}
+
+export interface RemitoFull extends Omit<RemitoRow, 'lineas'> {
+  notas: string | null;
+  items: Array<{ concepto: string; cantidad: number; unidad: string }>;
+}
+
+export interface RemitoItemInput { productId?: string; concepto: string; cantidad: number; unidad: string; }
+export interface CrearRemitoInput {
+  customerId?: string;
+  clienteNombre?: string;
+  transportista?: string;
+  matricula?: string;
+  destino?: string;
+  notas?: string;
+  items: RemitoItemInput[];
+}
+
+export const getRemitos = async () =>
+  ok<RemitoRow[]>(await fetch(`${API_BASE}/remitos`, { headers: headers() }), 'remitos');
+
+export const crearRemito = async (input: CrearRemitoInput) =>
+  ok<{ id: string; numero: number }>(
+    await fetch(`${API_BASE}/remitos`, { method: 'POST', headers: headers(), body: JSON.stringify(input) }),
+    'crearRemito',
+  );
+
+export const getRemito = async (id: string) =>
+  ok<RemitoFull>(await fetch(`${API_BASE}/remitos/${id}`, { headers: headers() }), 'remito');
+
+export const setEstadoRemito = async (id: string, estado: RemitoEstado) =>
+  ok<{ ok: boolean; estado: RemitoEstado }>(
+    await fetch(`${API_BASE}/remitos/${id}/estado`, { method: 'POST', headers: headers(), body: JSON.stringify({ estado }) }),
+    'estadoRemito',
+  );

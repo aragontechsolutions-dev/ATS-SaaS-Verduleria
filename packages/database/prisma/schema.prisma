@@ -328,6 +328,7 @@ model Tenant {
   deliveryZones  DeliveryZone[]
   onlineOrders   OnlineOrder[]
   repartidores   RepartidorEstado[]
+  remitos        Remito[]
 
   @@index([activo])
 }
@@ -683,6 +684,7 @@ model Product {
   vencimientos     Vencimiento[]
   deliveryItems    DeliveryItem[]
   onlineOrderItems OnlineOrderItem[]
+  remitoItems      RemitoItem[]
 
   @@unique([tenantId, plu])
   @@index([tenantId])
@@ -1209,6 +1211,7 @@ model Customer {
   deliveryOrders   DeliveryOrder[]
   onlineOrders     OnlineOrder[]
   addresses        CustomerAddress[]
+  remitos          Remito[]
 
   @@index([tenantId])
   @@index([tenantId, esMayorista])
@@ -1554,4 +1557,53 @@ model CfeDocument {
   @@index([tenantId])
   @@index([tenantId, estado])
   @@index([estado]) // para el worker de polling global
+}
+
+/// Estado de un remito de traslado (mercadería que se lleva, ej. en camión).
+enum RemitoEstado {
+  BORRADOR // en preparación
+  DESPACHADO // cargado / entregado al transporte
+  ANULADO
+}
+
+/// Remito de traslado (NO fiscal). Acompaña la mercadería mayorista que se
+/// lleva el cliente/transporte. El e-Remito fiscal (CFE 181) es aparte.
+model Remito {
+  id            String       @id @default(uuid()) @db.Uuid
+  tenantId      String       @db.Uuid
+  numero        Int // correlativo por tenant
+  customerId    String?      @db.Uuid
+  clienteNombre String // snapshot del nombre/razón social
+  clienteDoc    String? // RUC/CI snapshot
+  transportista String?
+  matricula     String? // patente del camión/vehículo
+  destino       String? // dirección de entrega
+  notas         String?
+  estado        RemitoEstado @default(BORRADOR)
+  fecha         DateTime     @default(now())
+  createdAt     DateTime     @default(now())
+
+  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer?    @relation(fields: [customerId], references: [id])
+  items    RemitoItem[]
+
+  @@unique([tenantId, numero])
+  @@index([tenantId, fecha])
+  @@index([tenantId, estado])
+}
+
+model RemitoItem {
+  id        String  @id @default(uuid()) @db.Uuid
+  tenantId  String  @db.Uuid
+  remitoId  String  @db.Uuid
+  productId String? @db.Uuid
+  concepto  String
+  cantidad  Decimal @db.Decimal(14, 3)
+  unidad    String
+
+  remito  Remito   @relation(fields: [remitoId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([tenantId])
+  @@index([remitoId])
 }

@@ -630,3 +630,13 @@ tr.row--sel > td { background: #eaf5f2; }
 .pm__inp { width: 96px; padding: 7px 9px; border: 1.5px solid var(--border-strong); border-radius: 8px; text-align: right; }
 .pm__gross { color: var(--primary-dark); font-weight: 600; white-space: nowrap; }
 .pm__foot { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 14px; position: sticky; bottom: 0; background: var(--bg); padding: 10px 0; }
+
+/* --- Remitos --- */
+.modal--wide { max-width: 640px; width: 100%; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.rem-add { display: flex; gap: 8px; align-items: center; margin: 12px 0 8px; }
+.rem-add__prod { flex: 1; }
+.rem-add__cant { width: 90px; padding: 9px 10px; border: 1.5px solid var(--border-strong); border-radius: 9px; }
+.rem-items { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; margin-bottom: 10px; }
+.rem-item { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; background: var(--surface, #f4f4f4); border: 1px solid var(--border); border-radius: 9px; padding: 7px 11px; font-size: 14px; }
+@media (max-width: 560px) { .row3 { grid-template-columns: 1fr; } }
