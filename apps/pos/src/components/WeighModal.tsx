@@ -14,6 +14,8 @@ interface Props {
   barcodeConfig: WeightBarcodeConfig;
   /** Nombre a mostrar en la etiqueta (sucursal/negocio). */
   negocio?: string | null;
+  /** Venta mayorista: precio NETO de la lista (se muestra "+ IVA"). */
+  precioNeto?: number | null;
   onConfirm: (cantidad: number) => void;
   onCancel: () => void;
 }
@@ -23,13 +25,16 @@ interface Props {
  * peso en tiempo real y permite tomarlo con un toque; si no, el cajero lo
  * escribe. El POS calcula el precio con el catálogo del día.
  */
-export function WeighModal({ product, liveReading, barcodeConfig, negocio, onConfirm, onCancel }: Props) {
+export function WeighModal({ product, liveReading, barcodeConfig, negocio, precioNeto, onConfirm, onCancel }: Props) {
   const esPeso = product.unidadVenta === 'KG' || product.unidadVenta === 'GRAMO';
   const [valor, setValor] = useState('');
   const [labelMsg, setLabelMsg] = useState<string | null>(null);
 
+  // En venta mayorista usamos el precio NETO de la lista (se cobra + IVA 22%).
+  const mayorista = precioNeto != null;
+  const precioUnit = mayorista ? precioNeto! : product.precio;
   const cantidad = parseFloat(valor.replace(',', '.')) || 0;
-  const total = cantidad * product.precio;
+  const total = cantidad * precioUnit;
   const unidadLabel = product.unidadVenta.toLowerCase();
   const live = esPeso && liveReading && liveReading.weightKg > 0 ? liveReading : null;
 
@@ -55,7 +60,7 @@ export function WeighModal({ product, liveReading, barcodeConfig, negocio, onCon
       <div className="modal">
         <h3>{product.nombre}</h3>
         <p className="modal__sub">
-          {formatMoney(product.precio)} / {unidadLabel}
+          {formatMoney(precioUnit)} / {unidadLabel}{mayorista ? ' + IVA' : ''}
         </p>
 
         {live && (
@@ -87,7 +92,7 @@ export function WeighModal({ product, liveReading, barcodeConfig, negocio, onCon
           />
         </label>
 
-        <div className="modal__total">Subtotal: {formatMoney(total)}</div>
+        <div className="modal__total">Subtotal{mayorista ? ' (neto)' : ''}: {formatMoney(total)}{mayorista ? ' + IVA' : ''}</div>
 
         {puedeEtiqueta && (
           <div className="weigh-label">

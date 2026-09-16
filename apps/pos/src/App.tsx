@@ -663,6 +663,7 @@ function Pos({ userEmail, tenantId, onLogout }: { userEmail: string; tenantId: s
           liveReading={scale.live && scale.connected ? scale.reading : null}
           barcodeConfig={scale.config.barcode}
           negocio={sucursalNombre}
+          precioNeto={mayorista ? (mayorista.preciosNetos[weighing.id] ?? weighing.precio) : null}
           onConfirm={(cantidad) => {
             addProduct(weighing, cantidad);
             setWeighing(null);
