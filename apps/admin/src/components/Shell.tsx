@@ -19,8 +19,9 @@ import { SettingsPage } from './SettingsPage';
 import { AyudaPage } from './AyudaPage';
 import { DemoBanner } from './DemoBanner';
 import { PreciosMayoristasPage } from './PreciosMayoristasPage';
+import { RemitosPage } from './RemitosPage';
 
-type Tab = 'reportes' | 'productos' | 'categorias' | 'promos' | 'compras' | 'stock' | 'mermas' | 'caja' | 'sucursales' | 'mayoristas' | 'preciosMay' | 'miweb' | 'tienda' | 'pedidos' | 'usuarios' | 'auditoria' | 'config' | 'ayuda';
+type Tab = 'reportes' | 'productos' | 'categorias' | 'promos' | 'compras' | 'stock' | 'mermas' | 'caja' | 'sucursales' | 'mayoristas' | 'preciosMay' | 'remitos' | 'miweb' | 'tienda' | 'pedidos' | 'usuarios' | 'auditoria' | 'config' | 'ayuda';
 
 const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'reportes', label: 'Reportes', icon: '📊' },
@@ -34,6 +35,7 @@ const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'sucursales', label: 'Sucursales', icon: '🏬' },
   { id: 'mayoristas', label: 'Mayoristas', icon: '🤝' },
   { id: 'preciosMay', label: 'Precios mayoristas', icon: '🏷️' },
+  { id: 'remitos', label: 'Remitos', icon: '🚚' },
   { id: 'miweb', label: 'Mi web', icon: '🌐' },
   { id: 'tienda', label: 'Tienda online', icon: '🛒' },
   { id: 'pedidos', label: 'Pedidos', icon: '📦' },
@@ -55,6 +57,7 @@ const PAGES: Record<Tab, JSX.Element> = {
   sucursales: <SucursalesPage />,
   mayoristas: <MayoristasPage />,
   preciosMay: <PreciosMayoristasPage />,
+  remitos: <RemitosPage />,
   miweb: <LandingPage />,
   tienda: <TiendaPage />,
   pedidos: <PedidosPage />,
@@ -67,6 +70,7 @@ const PAGES: Record<Tab, JSX.Element> = {
 /** Pestañas que dependen de un módulo del plan (se ocultan si el tenant no lo tiene). */
 const TAB_MODULO: Partial<Record<Tab, string>> = {
   preciosMay: 'PRICING',
+  remitos: 'WHOLESALE',
 };
 
 export function Shell({ email, onLogout }: { email: string; onLogout: () => void }) {

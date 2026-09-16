@@ -188,6 +188,7 @@ export class DemoService {
         await tx.customer.deleteMany({ where: { tenantId } });
         await tx.terminal.deleteMany({ where: { tenantId } });
         await tx.cfeDocument.deleteMany({ where: { tenantId } });
+        await tx.remito.deleteMany({ where: { tenantId } }); // cascada: RemitoItem
         await tx.auditEvent.deleteMany({ where: { tenantId } });
         // Product cascada: stock, movimientos, precios, promos, merma, vencimientos.
         await tx.product.deleteMany({ where: { tenantId } });
