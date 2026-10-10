@@ -11,6 +11,8 @@ import type {
   Customer,
   IvaIndicador,
   RegimenFiscal,
+  Remito,
+  RemitoItem,
   Sale,
   SaleItem,
   TipoDocumentoCliente,
@@ -122,6 +124,67 @@ export function saleToCfeInput(sale: SaleConItems, cfeConfig: CfeTenantConfig, r
   if (sale.referenciaCfe) {
     input.referencia = sale.referenciaCfe;
   }
+
+  return input;
+}
+
+// ===========================================================================
+// e-REMITO (CFE 181) — PREPARACIÓN / WIP
+// ---------------------------------------------------------------------------
+// Mapeo de un Remito al CfeInput para el futuro e-Remito fiscal. NO está
+// conectado a ninguna ruta todavía. PENDIENTE de validar contra FEU/DGI y con
+// el contador (ver docs/E-REMITO.md): tratamiento de IVA/valores del 181,
+// campos obligatorios y si el remito va "con" o "sin" valores.
+// ===========================================================================
+
+export interface RemitoConItems extends Remito {
+  items: RemitoItem[];
+}
+
+export function remitoToCfeInput(
+  remito: RemitoConItems,
+  cfeConfig: CfeTenantConfig,
+  regimen: RegimenFiscal,
+  opts?: {
+    /** Precios netos por productId (si el remito se emite con valores). */
+    precios?: Record<string, number>;
+    /** IVA a aplicar en el 181 (a definir con el contador). */
+    iva?: CfeIvaIndicador;
+    /** Tipo de documento del receptor (el remito hoy solo guarda el número). */
+    tipoDocumento?: TipoDocumentoCliente;
+  },
+): CfeInput {
+  const ivaRemito: CfeIvaIndicador = opts?.iva ?? 'EXENTO'; // TODO: definir
+  const input: CfeInput = {
+    tipo: 'E_REMITO',
+    idExterno: `remito-${remito.id}`,
+    sucursal: cfeConfig.sucursalDefault,
+    formaPago: 'CONTADO',
+    moneda: 'UYU',
+    codMontosBrutos: cfeConfig.codMontosBrutos || codMontosBrutosPorRegimen(regimen),
+    items: remito.items.map((it) => ({
+      concepto: it.concepto,
+      unidad: UNIDAD_MAP[it.unidad as UnidadMedida] ?? String(it.unidad).toLowerCase(),
+      cantidad: Number(it.cantidad),
+      // TODO(e-remito): el remito no guarda precio; el 181 puede ir sin valores
+      // o con importes. Definir con el contador. Por ahora 0 o el provisto.
+      precio: (it.productId && opts?.precios?.[it.productId]) || 0,
+      iva: ivaRemito,
+    })),
+  };
+
+  if (remito.clienteDoc) {
+    input.cliente = {
+      tipoDocumento: DOC_MAP[opts?.tipoDocumento ?? 'RUC'],
+      documento: remito.clienteDoc,
+      nombre: remito.clienteNombre,
+    };
+  }
+
+  const adenda = [remito.destino ? `Destino: ${remito.destino}` : null, remito.matricula ? `Matrícula: ${remito.matricula}` : null, remito.transportista ? `Transportista: ${remito.transportista}` : null]
+    .filter(Boolean)
+    .join(' · ');
+  if (adenda) input.adenda = adenda;
 
   return input;
 }
