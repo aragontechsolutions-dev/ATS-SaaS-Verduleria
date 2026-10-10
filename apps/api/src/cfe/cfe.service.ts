@@ -4,7 +4,7 @@ import { CfeError } from '@ats/cfe';
 import { CfeTipo, EstadoDgi, type CfeDocument } from '@ats/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { CFE_PROVIDER } from './cfe.tokens';
-import { requiereCfe, saleToCfeInput, tipoCfePorVenta, type SaleConItems } from './cfe.mapper';
+import { requiereCfe, saleToCfeInput, tipoCfePorVenta, remitoToCfeInput, type SaleConItems, type RemitoConItems } from './cfe.mapper';
 
 /** Mapea el código de estado DGI (string) al enum de Prisma. */
 function toEstadoEnum(codigo: string): EstadoDgi {
@@ -147,6 +147,64 @@ export class CfeService {
   /** Comprobante emitido para una venta (o null si aún no se emitió). */
   async obtenerPorVenta(tenantId: string, saleId: string): Promise<CfeDocument | null> {
     return this.prisma.cfeDocument.findFirst({ where: { tenantId, saleId } });
+  }
+
+  /**
+   * PREPARACIÓN / WIP — e-Remito fiscal (CFE 181).
+   *
+   * NO está conectado a ninguna ruta ni UI. Queda como punto de enganche para
+   * cuando se habilite el e-Remito. Está protegido por la variable de entorno
+   * EREMITO_HABILITADO para evitar emisiones accidentales mientras no esté
+   * validado contra FEU/DGI y con el contador (ver docs/E-REMITO.md).
+   *
+   * Pendiente antes de habilitar: confirmar soporte del 181 en el proveedor,
+   * el tratamiento de IVA/valores del remito y los campos obligatorios.
+   */
+  async emitirRemito(tenantId: string, remitoId: string): Promise<CfeDocument> {
+    if (process.env.EREMITO_HABILITADO !== 'true') {
+      throw new Error('e-Remito fiscal no habilitado (ver docs/E-REMITO.md). Está en preparación.');
+    }
+    const remito = (await this.prisma.remito.findFirst({
+      where: { id: remitoId, tenantId },
+      include: { items: true },
+    })) as RemitoConItems | null;
+    if (!remito) throw new NotFoundException('Remito no encontrado');
+
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, include: { cfeConfig: true } });
+    if (!tenant?.cfeConfig) throw new NotFoundException('El tenant no tiene configuración CFE');
+    const cfeConfig = tenant.cfeConfig;
+    const idExterno = `remito-${remito.id}`;
+
+    const doc = await this.prisma.cfeDocument.upsert({
+      where: { tenantId_idExterno: { tenantId, idExterno } },
+      update: { estado: EstadoDgi.ENVIANDO },
+      create: { tenantId, remitoId: remito.id, tipo: CfeTipo.E_REMITO, estado: EstadoDgi.ENVIANDO, idExterno },
+    });
+    if (doc.providerId) return doc;
+
+    try {
+      const input = remitoToCfeInput(remito, cfeConfig, tenant.regimenFiscal);
+      const result = await this.provider.emitir(cfeConfig.emisorRut, input);
+      return this.prisma.cfeDocument.update({
+        where: { id: doc.id },
+        data: {
+          estado: EstadoDgi.NE,
+          providerId: result.providerId,
+          serie: result.serie,
+          numero: result.numero,
+          hash: result.hash,
+          qrUrl: result.qrUrl,
+          ultimoError: null,
+        },
+      });
+    } catch (err) {
+      const mensaje = err instanceof CfeError ? err.message : String(err);
+      this.logger.error(`Fallo emitiendo e-Remito ${remitoId}: ${mensaje}`);
+      return this.prisma.cfeDocument.update({
+        where: { id: doc.id },
+        data: { estado: EstadoDgi.ERROR, ultimoError: mensaje.slice(0, 900) },
+      });
+    }
   }
 
   /** Descarga el PDF del CFE (A4 o ticket 80mm). */
