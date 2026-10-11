@@ -3,11 +3,13 @@ import { Dashboard } from './Dashboard';
 import { BillingPage } from './BillingPage';
 import { IvaRulesPage } from './IvaRulesPage';
 import { AccesosPage } from './AccesosPage';
+import { ActividadPage } from './ActividadPage';
 
-type Tab = 'clientes' | 'facturacion' | 'iva' | 'accesos';
+type Tab = 'clientes' | 'actividad' | 'facturacion' | 'iva' | 'accesos';
 
 const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'clientes', label: 'Clientes', icon: '🏪' },
+  { id: 'actividad', label: 'Actividad', icon: '📡' },
   { id: 'facturacion', label: 'Facturación', icon: '💳' },
   { id: 'iva', label: 'Motor de IVA', icon: '🧾' },
   { id: 'accesos', label: 'Accesos', icon: '🔓' },
@@ -63,6 +65,7 @@ export function Shell({ email, onLogout }: { email: string; onLogout: () => void
 
         <main className="content">
           {tab === 'clientes' && <Dashboard />}
+          {tab === 'actividad' && <ActividadPage />}
           {tab === 'facturacion' && <BillingPage />}
           {tab === 'iva' && <IvaRulesPage />}
           {tab === 'accesos' && <AccesosPage />}

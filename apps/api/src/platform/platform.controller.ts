@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/co
 import { PlatformAdminGuard } from './platform-admin.guard';
 import { PlatformService } from './platform.service';
 import { DemoService } from '../demo/demo.service';
+import { ActividadService } from '../actividad/actividad.service';
 import { CreateTenantDto, SetCfeAddonDto, SetDescuentoDto, UpdateCfeConfigDto, UpdateTenantDto } from './platform.dto';
 
 /** Consola de plataforma (Aragon). Todo exige ser super-admin de plataforma. */
@@ -11,7 +12,19 @@ export class PlatformController {
   constructor(
     private readonly platform: PlatformService,
     private readonly demo: DemoService,
+    private readonly actividad: ActividadService,
   ) {}
+
+  /** Monitoreo de actividad de los tenants (última conexión, apps, dispositivos). */
+  @Get('actividad')
+  actividadResumen() {
+    return this.actividad.resumen();
+  }
+
+  @Get('tenants/:id/actividad')
+  actividadTenant(@Param('id') id: string) {
+    return this.actividad.detalle(id);
+  }
 
   @Get('overview')
   overview() {
