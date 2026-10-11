@@ -410,3 +410,34 @@ export const resetDemo = async (id: string) =>
 
 export const quitarDemo = async (id: string) =>
   ok<{ ok: boolean }>(await fetch(`${API_BASE}/platform/tenants/${id}/demo/off`, { method: 'POST', headers: headers() }), 'demoOff');
+
+// --- Monitoreo de actividad de tenants --------------------------------------
+
+export interface ActividadResumen {
+  tenantId: string;
+  nombre: string;
+  slug: string;
+  activo: boolean;
+  lastSeenAt: string | null;
+  apps: string[];
+  usuarios: number;
+  dispositivos: number;
+  ultimaIp: string | null;
+}
+
+export interface ActividadDetalle {
+  usuario: string;
+  email: string | null;
+  app: string;
+  deviceType: string;
+  ip: string | null;
+  visitas: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
+export const getActividad = async () =>
+  ok<ActividadResumen[]>(await fetch(`${API_BASE}/platform/actividad`, { headers: headers() }), 'actividad');
+
+export const getActividadTenant = async (id: string) =>
+  ok<ActividadDetalle[]>(await fetch(`${API_BASE}/platform/tenants/${id}/actividad`, { headers: headers() }), 'actividad-tenant');

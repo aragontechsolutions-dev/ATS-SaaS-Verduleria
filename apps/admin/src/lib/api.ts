@@ -11,7 +11,7 @@ supabase.auth.onAuthStateChange((_e, session) => {
 });
 
 function headers(): HeadersInit {
-  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  const h: Record<string, string> = { 'Content-Type': 'application/json', 'X-App': 'admin' };
   if (currentToken) h['Authorization'] = `Bearer ${currentToken}`;
   return h;
 }

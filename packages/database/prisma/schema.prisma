@@ -329,6 +329,7 @@ model Tenant {
   onlineOrders   OnlineOrder[]
   repartidores   RepartidorEstado[]
   remitos        Remito[]
+  deviceActivities DeviceActivity[]
 
   @@index([activo])
 }
@@ -1610,4 +1611,29 @@ model RemitoItem {
 
   @@index([tenantId])
   @@index([remitoId])
+}
+
+/// Telemetría de uso por tenant (para el monitoreo del dueño del SaaS en la
+/// Consola): última vez que cada usuario usó cada app, desde qué tipo de
+/// dispositivo e IP. Se actualiza throttled (no por cada request).
+model DeviceActivity {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @db.Uuid
+  userId      String?  @db.Uuid
+  /// App cliente: admin | pos | repartidor | comprador | otros.
+  app         String
+  /// Tipo de dispositivo: ESCRITORIO | MOVIL | TABLET | OTRO.
+  deviceType  String
+  ip          String?
+  userAgent   String?
+  email       String?
+  visitas     Int      @default(1)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId, app, deviceType])
+  @@index([tenantId, lastSeenAt])
+  @@index([lastSeenAt])
 }

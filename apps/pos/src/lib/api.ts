@@ -21,7 +21,7 @@ export function getToken(): string | null {
 }
 
 function headers(): HeadersInit {
-  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  const h: Record<string, string> = { 'Content-Type': 'application/json', 'X-App': 'pos' };
   if (currentToken) h['Authorization'] = `Bearer ${currentToken}`;
   return h;
 }

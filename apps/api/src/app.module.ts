@@ -29,6 +29,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { DemoModule } from './demo/demo.module';
 import { PricingModule } from './pricing/pricing.module';
 import { RemitosModule } from './remitos/remitos.module';
+import { ActividadModule } from './actividad/actividad.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -61,6 +62,7 @@ import { HealthController } from './health/health.controller';
     DemoModule,
     PricingModule,
     RemitosModule,
+    ActividadModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
